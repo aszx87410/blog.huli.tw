@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top">
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+<title>從 V8 bytecode 探討 let 與 var 的效能問題 - Huli</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.css">
+
+
+
+
+<meta name="description" content>
+
+
+
+
+
+    <meta name="description" content="前言 在我以前寫過的兩篇文章：我知道你懂 hoisting，可是你了解到多深？以及所有的函式都是閉包：談 JS 中的作用域與 Closure 裡面，都談到了 let 與 var 作用域的不同。 let 的作用域是 block，而 var 則是 fucntion，像這個就是經典案例： 0 原本預期會依序輸出 1~10，沒想到卻輸出了 10 個 11。背後原因就是因為第三行那個 i 永遠都只有一個，就">
+<meta name="keywords" content="JavaScript">
+<meta property="og:type" content="article">
+<meta property="og:title" content="從 V8 bytecode 探討 let 與 var 的效能問題">
+<meta property="og:url" content="https://blog.huli.tw/2020/02/20/let-vs-var-bytecode/index.html">
+<meta property="og:site_name" content="Huli">
+<meta property="og:description" content="前言 在我以前寫過的兩篇文章：我知道你懂 hoisting，可是你了解到多深？以及所有的函式都是閉包：談 JS 中的作用域與 Closure 裡面，都談到了 let 與 var 作用域的不同。 let 的作用域是 block，而 var 則是 fucntion，像這個就是經典案例： 0 原本預期會依序輸出 1~10，沒想到卻輸出了 10 個 11。背後原因就是因為第三行那個 i 永遠都只有一個，就">
+<meta property="og:locale" content="zh-tw">
+<meta property="og:image" content="https://blog.huli.tw/img/bytecode/bytecode.png">
+<meta property="og:updated_time" content="2020-02-21T04:26:57.767Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="從 V8 bytecode 探討 let 與 var 的效能問題">
+<meta name="twitter:description" content="前言 在我以前寫過的兩篇文章：我知道你懂 hoisting，可是你了解到多深？以及所有的函式都是閉包：談 JS 中的作用域與 Closure 裡面，都談到了 let 與 var 作用域的不同。 let 的作用域是 block，而 var 則是 fucntion，像這個就是經典案例： 0 原本預期會依序輸出 1~10，沒想到卻輸出了 10 個 11。背後原因就是因為第三行那個 i 永遠都只有一個，就">
+<meta name="twitter:image" content="https://blog.huli.tw/img/bytecode/bytecode.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="從 V8 bytecode 探討 let 與 var 的效能問題" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css">
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.6.5/css/justifiedGallery.min.css">
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
+
+<link rel="stylesheet" href="/css/style.css">
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-49773306-3"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-49773306-3');
+</script>
+
+
+    
+
+
+</head>
+<body>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item " href="/archives">文章列表</a>
+            
+            <a class="navbar-item " href="/categories">分類</a>
+            
+            <a class="navbar-item " href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item " href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://medium.com/@hulitw">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/profile.php?id=100000221410594">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            從 V8 bytecode 探討 let 與 var 的效能問題
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2020-02-20T14:49:59.000Z" itemprop="datePublished">2020年2月20日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/JavaScript/">JavaScript</a>
+        </span>
+        
+        
+    </div>
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="前言">前言</span></h2>
+<p>在我以前寫過的兩篇文章：<a href="https://blog.huli.tw/2018/11/10/javascript-hoisting-and-tdz/">我知道你懂 hoisting，可是你了解到多深？</a>以及<a href="https://blog.huli.tw/2018/12/08/javascript-closure/">所有的函式都是閉包：談 JS 中的作用域與 Closure</a> 裡面，都談到了 let 與 var 作用域的不同。</p>
+<p>let 的作用域是 block，而 var 則是 fucntion，像這個就是經典案例：</p>
+<p><figure class="highlight js hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-keyword">for</span>(<span class="hljs-keyword">var</span> i=<span class="hljs-number">1</span>; i&lt;=<span class="hljs-number">10</span>; i++) &#123;</span><br><span class="line">  setTimeout(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>&#123;</span><br><span class="line">    <span class="hljs-built_in">console</span>.log(i)</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>原本預期會依序輸出 1~10，沒想到卻輸出了 10 個 11。背後原因就是因為第三行那個 i 永遠都只有一個，就是 for 迴圈宣告的那個 <code>var i</code>，從頭到尾都是同一個變數。</p>
+<p>而經典解法也很簡單，把 var 改成 let 就搞定了：</p>
+<p><figure class="highlight js hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-keyword">for</span>(<span class="hljs-keyword">let</span> i=<span class="hljs-number">1</span>; i&lt;=<span class="hljs-number">10</span>; i++) &#123;</span><br><span class="line">  setTimeout(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>&#123;</span><br><span class="line">    <span class="hljs-built_in">console</span>.log(i)</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>搞定的原因是，可以把上面程式碼看作是下面這種形式：</p>
+<p><figure class="highlight js hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line"> <span class="hljs-keyword">let</span> i=<span class="hljs-number">1</span></span><br><span class="line"> setTimeout(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>&#123;</span><br><span class="line">    <span class="hljs-built_in">console</span>.log(i)</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line"> <span class="hljs-keyword">let</span> i=<span class="hljs-number">2</span></span><br><span class="line"> setTimeout(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>&#123;</span><br><span class="line">    <span class="hljs-built_in">console</span>.log(i)</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line"> <span class="hljs-keyword">let</span> i=<span class="hljs-number">10</span></span><br><span class="line"> setTimeout(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>&#123;</span><br><span class="line">    <span class="hljs-built_in">console</span>.log(i)</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>由於 let 的作用域是 block，所以在每一圈迴圈裡面，其實都是一個新的 i，因此迴圈跑 10 圈就有了 10 個不同的 i，最後當然是輸出 10 個不同的數字。</p>
+<p>因此 var 跟 let 在這個範例最大的區別就在於變數的數量，前者只有 1 個，後者卻有了 10 個。</p>
+<p>好，既然知道了 let 與 var 的差別以後，就可以來看看這篇最主要想討論的問題。</p>
+<p>其實這問題是來自於 <a href="https://github.com/getify/You-Dont-Know-JS" target="_blank" rel="noopener">YDKJS（You Dont Know JS，中譯本翻做：你不知道的JavaScript）</a> 的作者 <a href="https://github.com/getify" target="_blank" rel="noopener">@getify</a> 在他的<a href="https://twitter.com/getify/status/1227371214148165632" target="_blank" rel="noopener">推特</a>上所提出的：</p>
+<blockquote>
+<p>question for JS engines devs…<br>
+is there an optimization in place for this kind of code?<br>
+<figure class="highlight js hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-keyword">for</span> (<span class="hljs-keyword">let</span> i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++) &#123;</span><br><span class="line">   <span class="hljs-comment">// no closure</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+</blockquote>
+<blockquote>
+<p>IOW, where the behavior of creating a new <code>i</code> per iteration is <em>not</em> needed nor observable… does JS skip doing it?</p>
+</blockquote>
+<p>若是沒有看得很懂，可以繼續看延伸的<a href="https://twitter.com/getify/status/1227379557872828418" target="_blank" rel="noopener">另外一則推</a>：</p>
+<blockquote>
+<p>here’s a variation on the question… will JS engines exhibit much performance difference between these two loops?<br>
+<figure class="highlight js hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">100000000</span>; i++) &#123;</span><br><span class="line">   <span class="hljs-comment">// do some stuff, but not closure</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="hljs-keyword">for</span> (<span class="hljs-keyword">let</span> i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">100000000</span>; i++) &#123;</span><br><span class="line">   <span class="hljs-comment">// do the same stuff (no closure)</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+</blockquote>
+<p>簡單來說呢，平常用 let 搭配迴圈的時候，不是如我們上面所說的，每一圈都會有一個新的<code>i</code>嗎？既然是這樣的話，那 var 與 let 應該就會有效能上的差異，因為 let 必須每一圈都 new 一個新的變數出來，所以 let 會比較慢。</p>
+<p>那如果迴圈裡面並不需要每一圈都有新的 i，JS 引擎會做優化嗎？這個問題就是這樣，主要是想探討 JS 引擎會不會針對這種行為去做優化。</p>
+<p>那要怎麼知道呢？要嘛你是 JS 引擎的開發者，要嘛你去看 JS 引擎的原始碼，但這兩種難度都有點太高。不過別擔心，還有第三種：看 JS bytecode。</p>
+<a id="more"></a>
+<h2><span id="javascript-bytecode">JavaScript Bytecode</span></h2>
+<p>若是不知道 bytecode 是什麼，可以參考這一篇很經典的文章：<a href="https://medium.com/dailyjs/understanding-v8s-bytecode-317d46c94775" target="_blank" rel="noopener">Understanding V8’s Bytecode</a>，中譯版：<a href="https://zhuanlan.zhihu.com/p/28590489" target="_blank" rel="noopener">理解 V8 的字节码</a>。</p>
+<p>先來看文章裡面解釋得最清楚的一張圖片：</p>
+<p><img src="/img/bytecode/bytecode.png" alt></p>
+<p>在執行 JavaScript 的時候，V8 會先把程式碼編譯成 bytecode，然後再把 bytecode 編譯成 machine code，最後才執行。</p>
+<p>舉個現實生活中的範例好了，若是你想把一篇英文文章翻譯成文言文，通常會先把英文文章翻譯成白話文，再從白話文翻譯成文言文。因為直接從英文翻譯成文言文難度過高，先翻成白話文會比較好翻譯；同時，在翻譯成白話文的時候也可以先做一些優化，這樣會比較好翻成文言文。</p>
+<p>在這個比喻中，白話文就是我們這篇的主角：bytecode。</p>
+<p>在以前寫 C/C++ 的時候，若是想知道編譯器會不會針對某一段程式碼做優化，最直接的方法就是輸出編譯過後的 assembly code，從組合語言裡面反推回原本的程式碼，就可以知道編譯器有沒有做事。</p>
+<p>而 bytecode 也是一樣的，可以從產生出來的 bytecode 往回推，就知道 V8 有沒有做事情了。</p>
+<p>那要怎麼看 V8 產生出來的 bytecode 呢？最簡單的方式就是使用 Node.js 的指令：<code>node --print-bytecode a.js</code>，只要加上<code>--print-bytecode</code>這個 flag 就行了。</p>
+<p>但如果你真的去試了，會發現輸出了一大堆東西，這很正常。因為除了你寫的程式碼以外，本來就還有一大堆內建的東西，所以我們可以用<code>--print-bytecode-filter</code>去過濾 function 的名稱。</p>
+<h2><span id="var-與-letround-1">var 與 let：Round 1</span></h2>
+<p>我準備的測試程式碼如下：</p>
+<p><figure class="highlight js hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">find_me_let_for</span>(<span class="hljs-params"></span>)</span>&#123;</span><br><span class="line">  <span class="hljs-keyword">for</span> (<span class="hljs-keyword">let</span> i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++) &#123;</span><br><span class="line">    <span class="hljs-built_in">console</span>.log(i)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">find_me_var_for</span>(<span class="hljs-params"></span>) </span>&#123;</span><br><span class="line">  <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++) &#123;</span><br><span class="line">    <span class="hljs-built_in">console</span>.log(i)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">find_me_let_for()</span><br><span class="line">find_me_var_for()</span><br></pre></td></tr></table></figure></p>
+<p>接著就可以用指令：<code>node --print-bytecode --print-bytecode-filter=&quot;find_me*&quot; a.js &gt; byte_code.txt</code>，把結果存到 <code>byte_code.txt</code> 裡面，內容如下：</p>
+<p><figure class="highlight plain hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line">[generated bytecode for function: find_me_let_for]</span><br><span class="line">Parameter count 1</span><br><span class="line">Frame size 24</span><br><span class="line">   86 E&gt; 0x77191b56622 @    0 : a0                StackCheck </span><br><span class="line">  105 S&gt; 0x77191b56623 @    1 : 0b                LdaZero </span><br><span class="line">         0x77191b56624 @    2 : 26 fb             Star r0</span><br><span class="line">  110 S&gt; 0x77191b56626 @    4 : 0c 0a             LdaSmi [10]</span><br><span class="line">  110 E&gt; 0x77191b56628 @    6 : 66 fb 00          TestLessThan r0, [0]</span><br><span class="line">         0x77191b5662b @    9 : 94 1c             JumpIfFalse [28] (0x77191b56647 @ 37)</span><br><span class="line">   92 E&gt; 0x77191b5662d @   11 : a0                StackCheck </span><br><span class="line">  127 S&gt; 0x77191b5662e @   12 : 13 00 01          LdaGlobal [0], [1]</span><br><span class="line">         0x77191b56631 @   15 : 26 f9             Star r2</span><br><span class="line">  135 E&gt; 0x77191b56633 @   17 : 28 f9 01 03       LdaNamedProperty r2, [1], [3]</span><br><span class="line">         0x77191b56637 @   21 : 26 fa             Star r1</span><br><span class="line">  135 E&gt; 0x77191b56639 @   23 : 57 fa f9 fb 05    CallProperty1 r1, r2, r0, [5]</span><br><span class="line">  117 S&gt; 0x77191b5663e @   28 : 25 fb             Ldar r0</span><br><span class="line">         0x77191b56640 @   30 : 4a 07             Inc [7]</span><br><span class="line">         0x77191b56642 @   32 : 26 fb             Star r0</span><br><span class="line">         0x77191b56644 @   34 : 85 1e 00          JumpLoop [30], [0] (0x77191b56626 @ 4)</span><br><span class="line">         0x77191b56647 @   37 : 0d                LdaUndefined </span><br><span class="line">  146 S&gt; 0x77191b56648 @   38 : a4                Return </span><br><span class="line">Constant pool (size = 2)</span><br><span class="line">Handler Table (size = 0)</span><br><span class="line">0</span><br><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">[generated bytecode for function: find_me_var_for]</span><br><span class="line">Parameter count 1</span><br><span class="line">Frame size 24</span><br><span class="line">  173 E&gt; 0x77191b60d0a @    0 : a0                StackCheck </span><br><span class="line">  193 S&gt; 0x77191b60d0b @    1 : 0b                LdaZero </span><br><span class="line">         0x77191b60d0c @    2 : 26 fb             Star r0</span><br><span class="line">  198 S&gt; 0x77191b60d0e @    4 : 0c 0a             LdaSmi [10]</span><br><span class="line">  198 E&gt; 0x77191b60d10 @    6 : 66 fb 00          TestLessThan r0, [0]</span><br><span class="line">         0x77191b60d13 @    9 : 94 1c             JumpIfFalse [28] (0x77191b60d2f @ 37)</span><br><span class="line">  180 E&gt; 0x77191b60d15 @   11 : a0                StackCheck </span><br><span class="line">  215 S&gt; 0x77191b60d16 @   12 : 13 00 01          LdaGlobal [0], [1]</span><br><span class="line">         0x77191b60d19 @   15 : 26 f9             Star r2</span><br><span class="line">  223 E&gt; 0x77191b60d1b @   17 : 28 f9 01 03       LdaNamedProperty r2, [1], [3]</span><br><span class="line">         0x77191b60d1f @   21 : 26 fa             Star r1</span><br><span class="line">  223 E&gt; 0x77191b60d21 @   23 : 57 fa f9 fb 05    CallProperty1 r1, r2, r0, [5]</span><br><span class="line">  205 S&gt; 0x77191b60d26 @   28 : 25 fb             Ldar r0</span><br><span class="line">         0x77191b60d28 @   30 : 4a 07             Inc [7]</span><br><span class="line">         0x77191b60d2a @   32 : 26 fb             Star r0</span><br><span class="line">         0x77191b60d2c @   34 : 85 1e 00          JumpLoop [30], [0] (0x77191b60d0e @ 4)</span><br><span class="line">         0x77191b60d2f @   37 : 0d                LdaUndefined </span><br><span class="line">  234 S&gt; 0x77191b60d30 @   38 : a4                Return </span><br><span class="line">Constant pool (size = 2)</span><br><span class="line">Handler Table (size = 0)</span><br><span class="line">0</span><br><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td></tr></table></figure></p>
+<p>第一行都有標明是哪一個 function，方便我們做辨識：<code>[generated bytecode for function: find_me_let_for]</code>，再來就是實際的 bytecode 了。</p>
+<p>在看 bytecode 以前有一個預備知識非常重要，那就是在 bytecode 執行的環境底下，有一個叫做 accumulator 的暫存器。通常指令裡面如果有 <code>a</code> 這個字，就是 accumulator 的簡寫（以下簡稱 acc）。</p>
+<p>例如說 bytecode 的第二三行：<code>LdaZero</code>與<code>Star r0</code>，前者就是：<code>LoaD Accumulator Zero</code>，設置 acc register 為 0，接著下一行 <code>Star r0</code> 就是 <code>Store Accumulator to register r0</code>，就是 <code>r0=acc</code>，所以 r0 會變成 0。</p>
+<p>我把上面的<code>find_me_let_for</code> 翻成了白話文：</p>
+<p><figure class="highlight plain hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">StackCheck                    // 檢查 stack</span><br><span class="line">LdaZero                       // acc = 0</span><br><span class="line">Star r0                       // r0 = acc</span><br><span class="line">LdaSmi [10]                   // acc = 10</span><br><span class="line">TestLessThan r0, [0]          // test if r0 &lt; 10</span><br><span class="line">JumpIfFalse [28]              // if false, jump to line 17</span><br><span class="line">StackCheck                    // 檢查 stack</span><br><span class="line">LdaGlobal [0], [1]            // acc = console</span><br><span class="line">Star r2                       // r2 = acc</span><br><span class="line">LdaNamedProperty r2, [1], [3] // acc = r2.log</span><br><span class="line">Star r1                       // r1 = acc (也就是 console.log)</span><br><span class="line">CallProperty1 r1, r2, r0, [5] // console.log(r0)</span><br><span class="line">Ldar r0                       // acc = r0</span><br><span class="line">Inc [7]                       // acc++</span><br><span class="line">Star r0                       // r0 = acc</span><br><span class="line">JumpLoop [30], [0]            // 跳到 line 4</span><br><span class="line">LdaUndefined                  // acc = undefined</span><br><span class="line">Return                        // return acc</span><br></pre></td></tr></table></figure></p>
+<p>若是看不習慣這種形式的人，可能是沒有看過組合語言（實際上組合語言比這個難多了就是了…），多看幾次就可以習慣了。</p>
+<p>總之呢，上面的程式碼就是一個會一直 log r0 的迴圈，直到 r0&gt;=10 為止。而這個 r0 就是我們程式碼裡面的 i。</p>
+<p>仔細看的話，會發現 let 跟 var 的版本產生出來的 bytecode 是一模一樣的，從頭到尾都只有一個變數 r0。因此呢，就可以推測出 V8 的確會對這種情形做優化，不會真的每一圈迴圈都新建一個 i，用 let 的時候不需要擔心跟 var 會有效能上的差異。</p>
+<h2><span id="var-與-letround-2">var 與 let：Round 2</span></h2>
+<p>再來我們可以試試看「一定需要每一圈新建一個 i」的場合，那就是當裡面有 closure 需要存取 i 的時候。這邊準備的範例程式碼如下：</p>
+<p><figure class="highlight js hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">find_me_let_timeout</span>(<span class="hljs-params"></span>) </span>&#123;</span><br><span class="line">  <span class="hljs-keyword">for</span> (<span class="hljs-keyword">let</span> i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++) &#123;</span><br><span class="line">    setTimeout(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">find_me_let_timeout_inner</span>(<span class="hljs-params"></span>) </span>&#123;</span><br><span class="line">      <span class="hljs-built_in">console</span>.log(i)</span><br><span class="line">    &#125;)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">find_me_var_timeout</span>(<span class="hljs-params"></span>) </span>&#123;</span><br><span class="line">  <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++) &#123;</span><br><span class="line">    setTimeout(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">find_me_var_timeout_inner</span>(<span class="hljs-params"></span>) </span>&#123;</span><br><span class="line">      <span class="hljs-built_in">console</span>.log(i)</span><br><span class="line">    &#125;)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">find_me_let_timeout()</span><br><span class="line">find_me_var_timeout()</span><br></pre></td></tr></table></figure></p>
+<p>用跟剛剛同樣的指令，一樣可以看到產生出來的 bytecode，我們先來看一下那兩個 inner function 有沒有差別：</p>
+<p><figure class="highlight plain hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">[generated bytecode for function: find_me_let_timeout_inner]</span><br><span class="line">Parameter count 1</span><br><span class="line">Frame size 24</span><br><span class="line">  177 E&gt; 0x25d2f37dbb2a @    0 : a0                StackCheck </span><br><span class="line">  188 S&gt; 0x25d2f37dbb2b @    1 : 13 00 00          LdaGlobal [0], [0]</span><br><span class="line">         0x25d2f37dbb2e @    4 : 26 fa             Star r1</span><br><span class="line">  196 E&gt; 0x25d2f37dbb30 @    6 : 28 fa 01 02       LdaNamedProperty r1, [1], [2]</span><br><span class="line">         0x25d2f37dbb34 @   10 : 26 fb             Star r0</span><br><span class="line">         0x25d2f37dbb36 @   12 : 1a 04             LdaCurrentContextSlot [4]</span><br><span class="line">  200 E&gt; 0x25d2f37dbb38 @   14 : a5 02             ThrowReferenceErrorIfHole [2]</span><br><span class="line">         0x25d2f37dbb3a @   16 : 26 f9             Star r2</span><br><span class="line">  196 E&gt; 0x25d2f37dbb3c @   18 : 57 fb fa f9 04    CallProperty1 r0, r1, r2, [4]</span><br><span class="line">         0x25d2f37dbb41 @   23 : 0d                LdaUndefined </span><br><span class="line">  207 S&gt; 0x25d2f37dbb42 @   24 : a4                Return </span><br><span class="line">Constant pool (size = 3)</span><br><span class="line">Handler Table (size = 0)</span><br><span class="line"></span><br><span class="line">[generated bytecode for function: find_me_var_timeout_inner]</span><br><span class="line">Parameter count 1</span><br><span class="line">Frame size 24</span><br><span class="line">  332 E&gt; 0x25d2f37e6cf2 @    0 : a0                StackCheck </span><br><span class="line">  343 S&gt; 0x25d2f37e6cf3 @    1 : 13 00 00          LdaGlobal [0], [0]</span><br><span class="line">         0x25d2f37e6cf6 @    4 : 26 fa             Star r1</span><br><span class="line">  351 E&gt; 0x25d2f37e6cf8 @    6 : 28 fa 01 02       LdaNamedProperty r1, [1], [2]</span><br><span class="line">         0x25d2f37e6cfc @   10 : 26 fb             Star r0</span><br><span class="line">         0x25d2f37e6cfe @   12 : 1a 04             LdaCurrentContextSlot [4]</span><br><span class="line">         0x25d2f37e6d00 @   14 : 26 f9             Star r2</span><br><span class="line">  351 E&gt; 0x25d2f37e6d02 @   16 : 57 fb fa f9 04    CallProperty1 r0, r1, r2, [4]</span><br><span class="line">         0x25d2f37e6d07 @   21 : 0d                LdaUndefined </span><br><span class="line">  362 S&gt; 0x25d2f37e6d08 @   22 : a4                Return </span><br><span class="line">Constant pool (size = 2)</span><br><span class="line">Handler Table (size = 0)</span><br></pre></td></tr></table></figure></p>
+<p>可以看到唯一的差別是 let 的版本多了一個：<code>ThrowReferenceErrorIfHole</code>，這一個在<a href="https://blog.huli.tw/2018/11/10/javascript-hoisting-and-tdz/">我知道你懂 hoisting，可是你了解到多深？</a>裡面有提過，其實就是 TDZ（Temporal Dead Zone）在 V8 上的實作。</p>
+<p>最後就是我們的主菜了，先從 var 開始看吧：</p>
+<p><figure class="highlight plain hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">[generated bytecode for function: find_me_var_timeout]</span><br><span class="line">Parameter count 1</span><br><span class="line">Frame size 24</span><br><span class="line">         0x25d2f37d8d22 @    0 : 7f 00 01          CreateFunctionContext [0], [1]</span><br><span class="line">         0x25d2f37d8d25 @    3 : 16 fb             PushContext r0</span><br><span class="line">  245 E&gt; 0x25d2f37d8d27 @    5 : a0                StackCheck </span><br><span class="line">  265 S&gt; 0x25d2f37d8d28 @    6 : 0b                LdaZero </span><br><span class="line">  265 E&gt; 0x25d2f37d8d29 @    7 : 1d 04             StaCurrentContextSlot [4]</span><br><span class="line">  270 S&gt; 0x25d2f37d8d2b @    9 : 1a 04             LdaCurrentContextSlot [4]</span><br><span class="line">         0x25d2f37d8d2d @   11 : 26 fa             Star r1</span><br><span class="line">         0x25d2f37d8d2f @   13 : 0c 0a             LdaSmi [10]</span><br><span class="line">  270 E&gt; 0x25d2f37d8d31 @   15 : 66 fa 00          TestLessThan r1, [0]</span><br><span class="line">         0x25d2f37d8d34 @   18 : 94 1b             JumpIfFalse [27] (0x25d2f37d8d4f @ 45)</span><br><span class="line">  252 E&gt; 0x25d2f37d8d36 @   20 : a0                StackCheck </span><br><span class="line">  287 S&gt; 0x25d2f37d8d37 @   21 : 13 01 01          LdaGlobal [1], [1]</span><br><span class="line">         0x25d2f37d8d3a @   24 : 26 fa             Star r1</span><br><span class="line">         0x25d2f37d8d3c @   26 : 7c 02 03 02       CreateClosure [2], [3], #2</span><br><span class="line">         0x25d2f37d8d40 @   30 : 26 f9             Star r2</span><br><span class="line">  287 E&gt; 0x25d2f37d8d42 @   32 : 5b fa f9 04       CallUndefinedReceiver1 r1, r2, [4]</span><br><span class="line">  277 S&gt; 0x25d2f37d8d46 @   36 : 1a 04             LdaCurrentContextSlot [4]</span><br><span class="line">         0x25d2f37d8d48 @   38 : 4a 06             Inc [6]</span><br><span class="line">  277 E&gt; 0x25d2f37d8d4a @   40 : 1d 04             StaCurrentContextSlot [4]</span><br><span class="line">         0x25d2f37d8d4c @   42 : 85 21 00          JumpLoop [33], [0] (0x25d2f37d8d2b @ 9)</span><br><span class="line">         0x25d2f37d8d4f @   45 : 0d                LdaUndefined </span><br><span class="line">  369 S&gt; 0x25d2f37d8d50 @   46 : a4                Return </span><br><span class="line">Constant pool (size = 3)</span><br><span class="line">Handler Table (size = 0)</span><br></pre></td></tr></table></figure></p>
+<p>在開頭的時候就先用<code>CreateFunctionContext</code>新建了一個 function context，接著可以看到存取變數的方式也與之前單純用暫存器不同，這邊用的是：<code>StaCurrentContextSlot</code>跟<code>LdaCurrentContextSlot</code>，碰到看不懂的指令都可以去 <a href="https://github.com/v8/v8/blob/d84e9496d23cf1dc776ae32199d81accfabaafb5/src/interpreter/interpreter-generator.cc" target="_blank" rel="noopener">/src/interpreter/interpreter-generator.cc</a> 查一下定義：</p>
+<p><figure class="highlight c hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-comment">// StaCurrentContextSlot &lt;slot_index&gt;</span></span><br><span class="line"><span class="hljs-comment">//</span></span><br><span class="line"><span class="hljs-comment">// Stores the object in the accumulator into |slot_index| of the current</span></span><br><span class="line"><span class="hljs-comment">// context.</span></span><br><span class="line">IGNITION_HANDLER(StaCurrentContextSlot, InterpreterAssembler) &#123;</span><br><span class="line">  Node* value = GetAccumulator();</span><br><span class="line">  Node* slot_index = BytecodeOperandIdx(<span class="hljs-number">0</span>);</span><br><span class="line">  Node* slot_context = GetContext();</span><br><span class="line">  StoreContextElement(slot_context, slot_index, value);</span><br><span class="line">  Dispatch();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="hljs-comment">// LdaCurrentContextSlot &lt;slot_index&gt;</span></span><br><span class="line"><span class="hljs-comment">//</span></span><br><span class="line"><span class="hljs-comment">// Load the object in |slot_index| of the current context into the accumulator.</span></span><br><span class="line">IGNITION_HANDLER(LdaCurrentContextSlot, InterpreterAssembler) &#123;</span><br><span class="line">  Node* slot_index = BytecodeOperandIdx(<span class="hljs-number">0</span>);</span><br><span class="line">  Node* slot_context = GetContext();</span><br><span class="line">  Node* result = LoadContextElement(slot_context, slot_index);</span><br><span class="line">  SetAccumulator(result);</span><br><span class="line">  Dispatch();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>簡單來說呢，StaCurrentContextSlot 就是把 acc 的東西存到現在的 context 的某個 slot_index，而 LdaCurrentContextSlot 則是相反，把東西取出來放到 acc 去。</p>
+<p>因此可以先看開頭這幾行：</p>
+<p><figure class="highlight plain hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">LdaZero </span><br><span class="line">StaCurrentContextSlot [4]</span><br><span class="line">LdaCurrentContextSlot [4]</span><br><span class="line">Star r1</span><br><span class="line">LdaSmi [10]</span><br><span class="line">TestLessThan r1, [0]</span><br><span class="line">JumpIfFalse [27] (0x25d2f37d8d4f @ 45)</span><br></pre></td></tr></table></figure></p>
+<p>就是把 0 放到 current context 的 slot_index 4 裡面去，接著再拿去放到 r1，然後再去跟 10 比較。這一段其實就是 for 迴圈裡面的 <code>i&lt;10</code>。</p>
+<p>而後半段的：</p>
+<p><figure class="highlight plain hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">LdaCurrentContextSlot [4]</span><br><span class="line">Inc [6]</span><br><span class="line">StaCurrentContextSlot [4]</span><br></pre></td></tr></table></figure></p>
+<p>其實就是 i++。</p>
+<p>所以 i 會存在 current context slot 的 index 為 4 的位置。再來我們回顧一下前面所說的 inner function：</p>
+<p><figure class="highlight plain hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">[generated bytecode for function: find_me_var_timeout_inner]</span><br><span class="line">Parameter count 1</span><br><span class="line">Frame size 24</span><br><span class="line">  332 E&gt; 0x25d2f37e6cf2 @    0 : a0                StackCheck </span><br><span class="line">  343 S&gt; 0x25d2f37e6cf3 @    1 : 13 00 00          LdaGlobal [0], [0]</span><br><span class="line">         0x25d2f37e6cf6 @    4 : 26 fa             Star r1</span><br><span class="line">  351 E&gt; 0x25d2f37e6cf8 @    6 : 28 fa 01 02       LdaNamedProperty r1, [1], [2]</span><br><span class="line">         0x25d2f37e6cfc @   10 : 26 fb             Star r0</span><br><span class="line">         0x25d2f37e6cfe @   12 : 1a 04             LdaCurrentContextSlot [4]</span><br><span class="line">         0x25d2f37e6d00 @   14 : 26 f9             Star r2</span><br><span class="line">  351 E&gt; 0x25d2f37e6d02 @   16 : 57 fb fa f9 04    CallProperty1 r0, r1, r2, [4]</span><br><span class="line">         0x25d2f37e6d07 @   21 : 0d                LdaUndefined </span><br><span class="line">  362 S&gt; 0x25d2f37e6d08 @   22 : a4                Return </span><br><span class="line">Constant pool (size = 2)</span><br><span class="line">Handler Table (size = 0)</span><br></pre></td></tr></table></figure></p>
+<p>有沒有注意到 <code>LdaCurrentContextSlot [4]</code> 這一行？這一行就呼應了我們上面所說的，在 inner function 用這一行把 i 給拿出來。</p>
+<p>所以在 var 的範例裡面，開頭就會先新增一個 function context，然後從頭到尾都只有這一個 context，會把 i 放在裡面 slot index 為 4 的位置，而 inner function 也會從這個位置把 i 拿出來。</p>
+<p>因此從頭到尾 i 都只有一個。</p>
+<p>最後來看看複雜許多的 let 的版本：</p>
+<p><figure class="highlight plain hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line">[generated bytecode for function: find_me_let_timeout]</span><br><span class="line">Parameter count 1</span><br><span class="line">Register count 7</span><br><span class="line">Frame size 56</span><br><span class="line">  179 E&gt; 0x2725c3d70daa @    0 : a5                StackCheck </span><br><span class="line">  199 S&gt; 0x2725c3d70dab @    1 : 0b                LdaZero </span><br><span class="line">         0x2725c3d70dac @    2 : 26 f8             Star r3</span><br><span class="line">         0x2725c3d70dae @    4 : 26 fb             Star r0</span><br><span class="line">         0x2725c3d70db0 @    6 : 0c 01             LdaSmi [1]</span><br><span class="line">         0x2725c3d70db2 @    8 : 26 fa             Star r1</span><br><span class="line">  293 E&gt; 0x2725c3d70db4 @   10 : a5                StackCheck </span><br><span class="line">         0x2725c3d70db5 @   11 : 82 00             CreateBlockContext [0]</span><br><span class="line">         0x2725c3d70db7 @   13 : 16 f7             PushContext r4</span><br><span class="line">         0x2725c3d70db9 @   15 : 0f                LdaTheHole </span><br><span class="line">         0x2725c3d70dba @   16 : 1d 04             StaCurrentContextSlot [4]</span><br><span class="line">         0x2725c3d70dbc @   18 : 25 fb             Ldar r0</span><br><span class="line">         0x2725c3d70dbe @   20 : 1d 04             StaCurrentContextSlot [4]</span><br><span class="line">         0x2725c3d70dc0 @   22 : 0c 01             LdaSmi [1]</span><br><span class="line">         0x2725c3d70dc2 @   24 : 67 fa 00          TestEqual r1, [0]</span><br><span class="line">         0x2725c3d70dc5 @   27 : 99 07             JumpIfFalse [7] (0x2725c3d70dcc @ 34)</span><br><span class="line">         0x2725c3d70dc7 @   29 : 0b                LdaZero </span><br><span class="line">         0x2725c3d70dc8 @   30 : 26 fa             Star r1</span><br><span class="line">         0x2725c3d70dca @   32 : 8b 08             Jump [8] (0x2725c3d70dd2 @ 40)</span><br><span class="line">  211 S&gt; 0x2725c3d70dcc @   34 : 1a 04             LdaCurrentContextSlot [4]</span><br><span class="line">         0x2725c3d70dce @   36 : 4c 01             Inc [1]</span><br><span class="line">  211 E&gt; 0x2725c3d70dd0 @   38 : 1d 04             StaCurrentContextSlot [4]</span><br><span class="line">         0x2725c3d70dd2 @   40 : 0c 01             LdaSmi [1]</span><br><span class="line">         0x2725c3d70dd4 @   42 : 26 f9             Star r2</span><br><span class="line">  204 S&gt; 0x2725c3d70dd6 @   44 : 1a 04             LdaCurrentContextSlot [4]</span><br><span class="line">         0x2725c3d70dd8 @   46 : 26 f6             Star r5</span><br><span class="line">         0x2725c3d70dda @   48 : 0c 0a             LdaSmi [10]</span><br><span class="line">  204 E&gt; 0x2725c3d70ddc @   50 : 69 f6 02          TestLessThan r5, [2]</span><br><span class="line">         0x2725c3d70ddf @   53 : 99 04             JumpIfFalse [4] (0x2725c3d70de3 @ 57)</span><br><span class="line">         0x2725c3d70de1 @   55 : 8b 06             Jump [6] (0x2725c3d70de7 @ 61)</span><br><span class="line">         0x2725c3d70de3 @   57 : 17 f7             PopContext r4</span><br><span class="line">         0x2725c3d70de5 @   59 : 8b 33             Jump [51] (0x2725c3d70e18 @ 110)</span><br><span class="line">         0x2725c3d70de7 @   61 : 0c 01             LdaSmi [1]</span><br><span class="line">         0x2725c3d70de9 @   63 : 67 f9 03          TestEqual r2, [3]</span><br><span class="line">         0x2725c3d70dec @   66 : 99 1c             JumpIfFalse [28] (0x2725c3d70e08 @ 94)</span><br><span class="line">  186 E&gt; 0x2725c3d70dee @   68 : a5                StackCheck </span><br><span class="line">  221 S&gt; 0x2725c3d70def @   69 : 13 01 04          LdaGlobal [1], [4]</span><br><span class="line">         0x2725c3d70df2 @   72 : 26 f6             Star r5</span><br><span class="line">         0x2725c3d70df4 @   74 : 81 02 06 02       CreateClosure [2], [6], #2</span><br><span class="line">         0x2725c3d70df8 @   78 : 26 f5             Star r6</span><br><span class="line">  221 E&gt; 0x2725c3d70dfa @   80 : 5d f6 f5 07       CallUndefinedReceiver1 r5, r6, [7]</span><br><span class="line">         0x2725c3d70dfe @   84 : 0b                LdaZero </span><br><span class="line">         0x2725c3d70dff @   85 : 26 f9             Star r2</span><br><span class="line">         0x2725c3d70e01 @   87 : 1a 04             LdaCurrentContextSlot [4]</span><br><span class="line">         0x2725c3d70e03 @   89 : 26 fb             Star r0</span><br><span class="line">         0x2725c3d70e05 @   91 : 8a 1e 01          JumpLoop [30], [1] (0x2725c3d70de7 @ 61)</span><br><span class="line">         0x2725c3d70e08 @   94 : 0c 01             LdaSmi [1]</span><br><span class="line">  293 E&gt; 0x2725c3d70e0a @   96 : 67 f9 09          TestEqual r2, [9]</span><br><span class="line">         0x2725c3d70e0d @   99 : 99 06             JumpIfFalse [6] (0x2725c3d70e13 @ 105)</span><br><span class="line">         0x2725c3d70e0f @  101 : 17 f7             PopContext r4</span><br><span class="line">         0x2725c3d70e11 @  103 : 8b 07             Jump [7] (0x2725c3d70e18 @ 110)</span><br><span class="line">         0x2725c3d70e13 @  105 : 17 f7             PopContext r4</span><br><span class="line">         0x2725c3d70e15 @  107 : 8a 61 00          JumpLoop [97], [0] (0x2725c3d70db4 @ 10)</span><br><span class="line">         0x2725c3d70e18 @  110 : 0d                LdaUndefined </span><br><span class="line">  295 S&gt; 0x2725c3d70e19 @  111 : a9                Return </span><br><span class="line">Constant pool (size = 3)</span><br><span class="line">Handler Table (size = 0)</span><br></pre></td></tr></table></figure></p>
+<p>因為這程式碼有點太長而且不容易閱讀，所以我刪改了一下，改寫了一個比較白話的版本：</p>
+<p><figure class="highlight js hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">r1 = <span class="hljs-number">1</span></span><br><span class="line">r0 = <span class="hljs-number">0</span></span><br><span class="line"></span><br><span class="line">loop:</span><br><span class="line">r4.push(<span class="hljs-keyword">new</span> BlockContext())</span><br><span class="line">CurrentContextSlot = r0</span><br><span class="line"><span class="hljs-keyword">if</span> (r1 === <span class="hljs-number">1</span>) &#123;</span><br><span class="line">  r1 = <span class="hljs-number">0</span></span><br><span class="line">&#125; <span class="hljs-keyword">else</span> &#123;</span><br><span class="line">  CurrentContextSlot++</span><br><span class="line">&#125;</span><br><span class="line">r2 = <span class="hljs-number">1</span></span><br><span class="line">r5 = CurrentContextSlot</span><br><span class="line"><span class="hljs-keyword">if</span> (!(r5 &lt; <span class="hljs-number">10</span>)) &#123; <span class="hljs-comment">// end loop</span></span><br><span class="line">  PopContext r4</span><br><span class="line">  goto done</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">loop2:</span><br><span class="line"><span class="hljs-keyword">if</span> (r2 === <span class="hljs-number">1</span>) &#123;</span><br><span class="line">  setTimeout()</span><br><span class="line">  r2 = <span class="hljs-number">0</span></span><br><span class="line">  r0 = CurrentContextSlot</span><br><span class="line">  goto loop2</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="hljs-keyword">if</span> (r2 === <span class="hljs-number">1</span>) &#123;</span><br><span class="line">  PopContext r4</span><br><span class="line">  goto done</span><br><span class="line">&#125;</span><br><span class="line">PopContext r4</span><br><span class="line">goto loop</span><br><span class="line"></span><br><span class="line">done:</span><br><span class="line"><span class="hljs-keyword">return</span> <span class="hljs-literal">undefined</span></span><br></pre></td></tr></table></figure></p>
+<p>第一個重點是每一圈迴圈都會呼叫<code>CreateBlockContext</code>，新建一個 context，然後再迴圈結束前把 CurrentContextSlot（也就是 i）的值存到 r0，下一圈迴圈時再讓新的 block context slot 的值從 r0 讀取出來然後 +1，藉此來實作不同 context 值的累加。</p>
+<p>然後你可能會很好奇，那這個 block context 到底會用在哪裡？</p>
+<p>上面的 bytecode 裡面，呼叫 <code>setTimeout</code> 的是這一段：</p>
+<p><figure class="highlight plain hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">LdaGlobal [1], [4]</span><br><span class="line">Star r5                    // r5 = setTimeout</span><br><span class="line">CreateClosure [2], [6], #2</span><br><span class="line">Star r6                    // r6 = new function(...)</span><br><span class="line">CallUndefinedReceiver1 r5, r6, [7] // setTimeout(r6)</span><br></pre></td></tr></table></figure></p>
+<p>在我們呼叫<code>CreateClosure</code>把這個 closure 傳給 setTimeout 的時候，就一起傳進去了（非完整程式碼，只保留 context 的部分）：</p>
+<p><figure class="highlight c hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-comment">// CreateClosure &lt;index&gt; &lt;slot&gt; &lt;tenured&gt;</span></span><br><span class="line"><span class="hljs-comment">//</span></span><br><span class="line"><span class="hljs-comment">// Creates a new closure for SharedFunctionInfo at position |index| in the</span></span><br><span class="line"><span class="hljs-comment">// constant pool and with the PretenureFlag &lt;tenured&gt;.</span></span><br><span class="line">IGNITION_HANDLER(CreateClosure, InterpreterAssembler) &#123;</span><br><span class="line">  Node* context = GetContext();</span><br><span class="line"></span><br><span class="line">  Node* result =</span><br><span class="line">          CallRuntime(Runtime::kNewClosure, context, shared, feedback_cell);</span><br><span class="line">      SetAccumulator(result);</span><br><span class="line">      Dispatch();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>因此，在 inner function 裡面呼叫 <code>LdaCurrentContextSlot</code> 的時候，就會載入到正確的 context 以及正確的 i。</p>
+<p>結論：</p>
+<ol>
+<li>var 的版本是 CreateFunctionContext，從頭到尾就一個 context</li>
+<li>let 的版本每一圈迴圈都會 CreateBlockContext，總共會有 10 個 context</li>
+<li>在不需要 closure 的場合裡，let 與 var 在 V8 上並沒有差異</li>
+</ol>
+<h2><span id="總結">總結</span></h2>
+<p>有些你以為答案「顯而易見」的問題，其實並不一定。</p>
+<p>例如說以下這個範例：</p>
+<p><figure class="highlight js hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">v1</span>(<span class="hljs-params"></span>) </span>&#123;</span><br><span class="line">  <span class="hljs-keyword">var</span> a = <span class="hljs-number">1</span></span><br><span class="line">  <span class="hljs-keyword">for</span>(<span class="hljs-keyword">var</span> i=<span class="hljs-number">1</span>;i&lt;<span class="hljs-number">10</span>; i++)&#123;</span><br><span class="line">    <span class="hljs-keyword">var</span> a = <span class="hljs-number">1</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">v2</span>(<span class="hljs-params"></span>) </span>&#123;</span><br><span class="line">  <span class="hljs-keyword">var</span> a = <span class="hljs-number">1</span></span><br><span class="line">  <span class="hljs-keyword">for</span>(<span class="hljs-keyword">var</span> i=<span class="hljs-number">1</span>; i&lt;<span class="hljs-number">10</span>; i++) &#123;</span><br><span class="line">    a = <span class="hljs-number">1</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>v1 跟 v2 哪一個比較快？</p>
+<p>「v1 裡面每一圈迴圈都會重新宣告一次 a 並且賦值，v2 只會在外面宣告一次，裡面迴圈只有賦值而已，所以 v1 比較快」</p>
+<p>答案是兩個一模一樣，因為如果你夠瞭解 JS，就會知道根本沒有什麼「重新宣告」這種事，宣告早在編譯階段就被處理掉了。</p>
+<p>就算效能真的有差，可是到底差多少？是值得我們投注心力在上面的差異嗎？</p>
+<p>例如說在寫 React 的時候，常常被教導要避免掉 inline function：</p>
+<p><figure class="highlight js hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-comment">// Good</span></span><br><span class="line">render() &#123;</span><br><span class="line"> &lt;div onClick=&#123;<span class="hljs-keyword">this</span>.onClick&#125; /&gt;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="hljs-comment">// Bad</span></span><br><span class="line">render() &#123;</span><br><span class="line">  &lt;div onClick=&#123;() =&gt; &#123; <span class="hljs-comment">/* do something */</span> &#125;&#125; /&gt;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>用頭腦想一想十分合理，下面那個每跑一次 render 就會產生一個新的 function，上面那個則是永遠都共用同一個。儘管他們的確有效能上的差異，但<a href="https://www.matthewgerstman.com/tech/performance-testing-anonymous-functions/" target="_blank" rel="noopener">這個差異或許比你想的還要小</a>。</p>
+<p>再舉最後一個例子：</p>
+<p><figure class="highlight js hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-comment">// A</span></span><br><span class="line"><span class="hljs-keyword">var</span> obj = &#123;<span class="hljs-attr">a</span>:<span class="hljs-number">1</span>, <span class="hljs-attr">b</span>:<span class="hljs-number">2</span>, ...&#125; <span class="hljs-comment">// 非常大的 object</span></span><br><span class="line"></span><br><span class="line"><span class="hljs-comment">// B</span></span><br><span class="line"><span class="hljs-keyword">var</span> obj = <span class="hljs-built_in">JSON</span>.parse(<span class="hljs-string">'&#123;"a": 1, "b": 2, ...&#125;'</span>) <span class="hljs-comment">// JSON.parse 搭配很長的字串</span></span><br></pre></td></tr></table></figure></p>
+<p>若是 A 跟 B 都表示同一個很大的物件，哪一個會比較快？</p>
+<p>以直覺來看，顯然是 A，因為 B 看起來就是多此一舉，先把 object 變成字串然後再丟給 JSON.parse，多了一個步驟。但事實上，<a href="https://www.youtube.com/watch?v=ff4fgQxPaO0" target="_blank" rel="noopener">B 比較快，而且快了 1.5 倍以上</a>。</p>
+<p>很多東西以直覺來看是一回事，實際上又是另外一回事。因為直覺歸直覺，但是底層牽涉到了 compiler 或甚至是作業系統幫你做的優化，把這些考慮進來的話，很可能又是另外一回事。</p>
+<p>就如同這篇文章裡面在探討的題目，以直覺來看 let 是會比 var 還要慢的。但事實證明了在不需要用到 closure 的場合裡面，兩者並沒有差異。</p>
+<p>針對這些問題，你當然可以猜測，但你要知道的是這些僅僅只是猜測。想知道正確答案為何，必須要有更科學的方法，而不只是「我覺得」。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/JavaScript/">#JavaScript</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2020/01/21/webpack-newbie-tutorial/">webpack 新手教學之淺談模組化與 snowpack</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+<div class="sharebox">
+    
+<div class="sharethis-inline-share-buttons"></div>
+<script type="text/javascript" src="https://platform-api.sharethis.com/js/sharethis.js#property=5d8b39b069ba670012bf92b9&amp;product=inline-share-buttons" async="async"></script>
+
+</div>
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    
+<script>
+    var disqus_config = function () {
+        this.page.url = 'https://blog.huli.tw/2020/02/20/let-vs-var-bytecode/';
+        this.page.identifier = '2020/02/20/let-vs-var-bytecode/';
+        
+        this.language = 'en';
+        
+    };
+    (function() {
+        var d = document, s = d.createElement('script');  
+        s.src = '//' + 'huli' + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+
+<div id="disqus_thread">
+    
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2020 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow has-text-black" title="GitHub" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment-with-locales.min.js"></script>
+
+<!-- test if the browser is outdated -->
+<div id="outdated">
+    <h6>Your browser is out-of-date!</h6>
+    <p>Update your browser to view this website correctly. <a id="btnUpdateBrowser" href="http://outdatedbrowser.com/">Update my browser now </a></p>
+    <p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">&times;</a></p>
+</div>
+<script src="//cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.js"></script>
+<script>
+    $(document).ready(function () {
+        // plugin function, place inside DOM ready function
+        outdatedBrowser({
+            bgColor: '#f25648',
+            color: '#ffffff',
+            lowerThan: 'flex'
+        })
+    });
+</script>
+
+<script>
+    window.FontAwesomeConfig = {
+        searchPseudoElements: true
+    }
+    moment.locale("zh-tw");
+</script>
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.6.5/js/jquery.justifiedGallery.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof($.fn.justifiedGallery) === 'function') {
+                $('.justified-gallery').justifiedGallery();
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+<script src="/js/script.js"></script>
+
+    
+</body>
+</html>
