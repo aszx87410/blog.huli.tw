@@ -16,13 +16,13 @@
 
 
 
-    <meta name="description" content="前言雖然說從以前就一直聽到 React 要把內部的 reconciler 換成一個叫做 Fiber 的東西，但從沒仔細研究過，也不知道這樣子的改變會對上層造成什麼影響。 真正開始比較深入理解，是在某一次使用 Redux Form 時踩到一個相關的 bug，才知道 React 自從正式改用 Fiber 之後，其實對上層也有一些改變。 這篇的標題「淺談」不是騙你的，這篇真的很淺，我不會談到 Fiber">
+    <meta name="description" content="前言 雖然說從以前就一直聽到 React 要把內部的 reconciler 換成一個叫做 Fiber 的東西，但從沒仔細研究過，也不知道這樣子的改變會對上層造成什麼影響。 真正開始比較深入理解，是在某一次使用 Redux Form 時踩到一個相關的 bug，才知道 React 自從正式改用 Fiber 之後，其實對上層也有一些改變。 這篇的標題「淺談」不是騙你的，這篇真的很淺，我不會談到 Fibe">
 <meta name="keywords" content="Front-end,React">
 <meta property="og:type" content="article">
 <meta property="og:title" content="淺談 React Fiber 及其對 lifecycles 造成的影響">
 <meta property="og:url" content="https://blog.huli.tw/2018/03/31/react-fiber-and-lifecycles/index.html">
 <meta property="og:site_name" content="Huli">
-<meta property="og:description" content="前言雖然說從以前就一直聽到 React 要把內部的 reconciler 換成一個叫做 Fiber 的東西，但從沒仔細研究過，也不知道這樣子的改變會對上層造成什麼影響。 真正開始比較深入理解，是在某一次使用 Redux Form 時踩到一個相關的 bug，才知道 React 自從正式改用 Fiber 之後，其實對上層也有一些改變。 這篇的標題「淺談」不是騙你的，這篇真的很淺，我不會談到 Fiber">
+<meta property="og:description" content="前言 雖然說從以前就一直聽到 React 要把內部的 reconciler 換成一個叫做 Fiber 的東西，但從沒仔細研究過，也不知道這樣子的改變會對上層造成什麼影響。 真正開始比較深入理解，是在某一次使用 Redux Form 時踩到一個相關的 bug，才知道 React 自從正式改用 Fiber 之後，其實對上層也有一些改變。 這篇的標題「淺談」不是騙你的，這篇真的很淺，我不會談到 Fibe">
 <meta property="og:locale" content="zh-tw">
 <meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49351561-fea9f280-f6ee-11e8-834a-89bd7937b17f.png">
 <meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49351564-02d61000-f6ef-11e8-8b36-6323ed4d7620.png">
@@ -31,7 +31,7 @@
 <meta property="og:updated_time" content="2019-09-25T11:43:55.584Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="淺談 React Fiber 及其對 lifecycles 造成的影響">
-<meta name="twitter:description" content="前言雖然說從以前就一直聽到 React 要把內部的 reconciler 換成一個叫做 Fiber 的東西，但從沒仔細研究過，也不知道這樣子的改變會對上層造成什麼影響。 真正開始比較深入理解，是在某一次使用 Redux Form 時踩到一個相關的 bug，才知道 React 自從正式改用 Fiber 之後，其實對上層也有一些改變。 這篇的標題「淺談」不是騙你的，這篇真的很淺，我不會談到 Fiber">
+<meta name="twitter:description" content="前言 雖然說從以前就一直聽到 React 要把內部的 reconciler 換成一個叫做 Fiber 的東西，但從沒仔細研究過，也不知道這樣子的改變會對上層造成什麼影響。 真正開始比較深入理解，是在某一次使用 Redux Form 時踩到一個相關的 bug，才知道 React 自從正式改用 Fiber 之後，其實對上層也有一些改變。 這篇的標題「淺談」不是騙你的，這篇真的很淺，我不會談到 Fibe">
 <meta name="twitter:image" content="https://user-images.githubusercontent.com/2755720/49351561-fea9f280-f6ee-11e8-834a-89bd7937b17f.png">
 
 
@@ -168,12 +168,13 @@
     </div>
     <div class="article-entry is-size-6-mobile" itemprop="articleBody">
     
-        <h1><span id="前言">前言</span></h1><p>雖然說從以前就一直聽到 React 要把內部的 reconciler 換成一個叫做 Fiber 的東西，但從沒仔細研究過，也不知道這樣子的改變會對上層造成什麼影響。</p>
+        <h1><span id="前言">前言</span></h1>
+<p>雖然說從以前就一直聽到 React 要把內部的 reconciler 換成一個叫做 Fiber 的東西，但從沒仔細研究過，也不知道這樣子的改變會對上層造成什麼影響。</p>
 <p>真正開始比較深入理解，是在某一次使用 Redux Form 時踩到一個相關的 bug，才知道 React 自從正式改用 Fiber 之後，其實對上層也有一些改變。</p>
 <p>這篇的標題「淺談」不是騙你的，這篇真的很淺，我不會談到 Fiber 底層的運作（因為我也還沒認真研究過），只會用白話文跟你說 Fiber 大概是怎樣，是為了解決什麼樣子的問題而誕生。</p>
 <a id="more"></a>
-
-<h1><span id="萬里之行始於-bug">萬里之行，始於 Bug</span></h1><p>每一次能踩到 Bug 的機會，我都會好好把握。</p>
+<h1><span id="萬里之行始於-bug">萬里之行，始於 Bug</span></h1>
+<p>每一次能踩到 Bug 的機會，我都會好好把握。</p>
 <p>為什麼？因為這是一次強迫你學習的機會。Bug 解不掉，你就沒辦法繼續下去，所以為了要解決 Bug，你必須去探究原因，必須知道這個問題為什麼產生，以及應該要怎麼解決。</p>
 <p>當然，你也可以直接從 Stack Overflow 找答案然後複製貼上，覆蓋這張牌結束這回合。可是工作久了你會發現，不是所有問題都可以從那上面找到解答。</p>
 <p>舉例來說，我一年前寫的<a href="https://blog.techbridge.cc/2017/03/24/difficult-problem-of-cookie/" target="_blank" rel="noopener">我遇過的最難的 Cookie 問題</a>對我來說就是一個很好的學習機會。</p>
@@ -219,7 +220,8 @@
 <li><a href="https://github.com/facebook/react/issues/12233" target="_blank" rel="noopener">Ordering of componentWillMount/Unmount in React 16</a></li>
 <li><a href="https://github.com/facebook/react/issues/11106" target="_blank" rel="noopener">Asynchronous ComponentWillUnmount in React 16</a></li>
 </ol>
-<h1><span id="fiber-到底是什麼">Fiber 到底是什麼？</span></h1><p>要瞭解一個新的東西，最快的方式就是回答以下問題：</p>
+<h1><span id="fiber-到底是什麼">Fiber 到底是什麼？</span></h1>
+<p>要瞭解一個新的東西，最快的方式就是回答以下問題：</p>
 <ol>
 <li>它是拿來解決什麼問題的？</li>
 <li>解決方法是什麼？</li>
@@ -240,7 +242,7 @@
 <p>比起原本的一次性更新，假如我們能夠把要更新的工作切成一個個小的工作，每次只執行一個小工作，那這樣 main thread 就不會被 block 住了，因為每個小工作之間都可以有空檔去做別的事情（響應使用者的點擊、繪製新的畫面等等）。</p>
 <p>就像下面這張示意圖一樣，每次完成一點點的工作，而不是一次完成全部的：</p>
 <p><img src="https://user-images.githubusercontent.com/2755720/49351571-06699700-f6ef-11e8-916a-a100a6c17974.png" alt="cartoon"></p>
-<p>（圖片來源：<a href="https://www.youtube.com/watch?v=ZCuYPiUIONs" target="_blank" rel="noopener">Lin Clark - A Cartoon Intro to Fiber - React Conf 2017
+<p>（圖片來源：<a href="https://www.youtube.com/watch?v=ZCuYPiUIONs" target="_blank" rel="noopener">Lin Clark - A Cartoon Intro to Fiber - React Conf 2017<br>
 </a>）</p>
 <p>好了，你已經知道什麼是 Fiber 了，這就是 Fiber。每一個小工作就叫做 Fiber，而 Fiber 在英文裡面是纖維的意思，所以又有人把這個機制稱作「纖程」。</p>
 <p>或是換個角度想，原本的問題是因為程式裡面這樣子一層層執行 render function 的方法是透過 call stack，每次 call 一個 function 就把一個新的任務丟到 stack frame 去，可是這樣子的機制會導致任務無法中斷。</p>
@@ -248,32 +250,36 @@
 <p>再幫大家重新整理一次，沒有 Fiber 之前，你要更新的時候都是「一次性」的更新，中間無法中斷，導致 main thread 在這期間會被 block 住。</p>
 <p>有了 Fiber 這個機制之後，我們把一個大更新切成很多塊小的更新，每次只更新一點點，這樣子在更新的空檔 main thread 就能去做其他事情，而不會被綁住。</p>
 <p>聽起來十分美好，問題迎刃而解，可是副作用是什麼呢？</p>
-<h2><span id="fiber-所帶來的改變">Fiber 所帶來的改變</span></h2><p>把核心換成 Fiber 之後，是要付出一些代價的。在 Fiber 裡面的工作其實分成兩個階段：</p>
+<h2><span id="fiber-所帶來的改變">Fiber 所帶來的改變</span></h2>
+<p>把核心換成 Fiber 之後，是要付出一些代價的。在 Fiber 裡面的工作其實分成兩個階段：</p>
 <ol>
 <li>render/reconciliation</li>
 <li>commit</li>
 </ol>
 <p>簡單來說呢，第一階段就是找出需要改變的部分，而第二階段是真正的把這些改變應用到 DOM 上面去。第一階段是可以被中斷，也可以被重新執行的，而第二階段跟以前一樣，必須一口氣做完。</p>
 <p>而這兩個階段也對應到不同的生命週期：</p>
-<h3><span id="第一階段">第一階段</span></h3><ul>
+<h3><span id="第一階段">第一階段</span></h3>
+<ul>
 <li>componentWillMount</li>
 <li>componentWillReceiveProps</li>
 <li>shouldComponentUpdate</li>
 <li>componentWillUpdate</li>
 </ul>
-<h3><span id="第二階段">第二階段</span></h3><ul>
+<h3><span id="第二階段">第二階段</span></h3>
+<ul>
 <li>componentDidMount</li>
 <li>componentDidUpdate</li>
 <li>componentWillUnmount</li>
 </ul>
 <p>因為第一階段是可以中斷並且之後再重新執行的，所以會導致在第一階段裡的這些函數，有可能被 call 很多次。</p>
 <p><img src="https://user-images.githubusercontent.com/2755720/49351577-09fd1e00-f6ef-11e8-8cc5-9e0f849ad52a.png" alt="life"></p>
-<p>（圖片來源：<a href="https://www.youtube.com/watch?v=ZCuYPiUIONs" target="_blank" rel="noopener">Lin Clark - A Cartoon Intro to Fiber - React Conf 2017
+<p>（圖片來源：<a href="https://www.youtube.com/watch?v=ZCuYPiUIONs" target="_blank" rel="noopener">Lin Clark - A Cartoon Intro to Fiber - React Conf 2017<br>
 </a>）</p>
 <p>所以，假設你之前習慣在<code>componentWillMount</code>裡面就呼叫 API 拿資料的話，就會導致你 call 了不只一次的 API，會浪費一些頻寬，要改變的話就要把這些 code 移到<code>componentDidMount</code>去，就只會保證被 call 一次而已。</p>
 <p>總之呢，自從內部機制改成 Fiber 之後（從 React 16 開始，所以如果你是用 16 以上的版本，已經是 Fiber 了），React 的生命週期函數被呼叫的次數跟方式會跟以前不太一樣。</p>
 <p>除此之外就是我開頭提的那個順序的不一樣，這點也是值得注意的一個部分。雖然看起來不是什麼大問題，但如果不知道這點的話可能會生出一些莫名其妙的 Bug。</p>
-<h2><span id="react-的未來">React 的未來</span></h2><p>React 16.3 在昨天<a href="https://reactjs.org/blog/2018/03/29/react-v-16-3.html" target="_blank" rel="noopener">正式發佈</a>了，伴隨而來的是正式的 context API 以及 lifecycle 的改變。</p>
+<h2><span id="react-的未來">React 的未來</span></h2>
+<p>React 16.3 在昨天<a href="https://reactjs.org/blog/2018/03/29/react-v-16-3.html" target="_blank" rel="noopener">正式發佈</a>了，伴隨而來的是正式的 context API 以及 lifecycle 的改變。</p>
 <p>隨著 Fiber 的正式上線，未來可以期待會有更多令人興奮的新功能。比如說在<a href="https://reactjs.org/blog/2018/03/01/sneak-peek-beyond-react-16.html" target="_blank" rel="noopener">Sneak Peek: Beyond React 16</a>這篇提到的<code>time slicing</code>，把整個 App 的體驗變得更順暢。</p>
 <p>而<a href="https://reactjs.org/blog/2018/03/27/update-on-async-rendering.html" target="_blank" rel="noopener">Update on Async Rendering</a>這篇文章也提到了非同步渲染的進展。</p>
 <p>自從內部的機制改成 Fiber 之後，就讓 async rendering 得以發揮最大的效能。</p>
@@ -295,7 +301,7 @@
 <p>舊的不去新的不來，在最新發佈的 16.3 中，引入了兩個新的 lifecycle 來解決上面的那些問題：</p>
 <ol>
 <li>getDerivedStateFromProps</li>
-<li>getSnapshotBeforeUpdate </li>
+<li>getSnapshotBeforeUpdate</li>
 </ol>
 <p>第一個很顯然是要來取代<code>componentWillReceiveProps</code>的，而第二個是拿來取代<code>componentWillUpdate</code>的。或其實有些場景底下，用<code>componentDidUpdate</code>也可以取代原本那兩個生命週期。</p>
 <p>至於最前面所提到的<code>componentWillMount</code>，則建議把裡面的程式碼搬到<code>componentDidMount</code>去。</p>
@@ -319,7 +325,8 @@
 <p><figure class="highlight js hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ScrollingList</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">React</span>.<span class="hljs-title">Component</span> </span>&#123;</span><br><span class="line">  listRef = <span class="hljs-literal">null</span>;</span><br><span class="line">  </span><br><span class="line">  getSnapshotBeforeUpdate(prevProps, prevState) &#123;</span><br><span class="line">    <span class="hljs-comment">// 如果 list 有變動，就回傳現在的捲軸高度</span></span><br><span class="line">    <span class="hljs-comment">// 這個回傳值會被當作 componentDidUpdate 的第三個參數</span></span><br><span class="line">    <span class="hljs-keyword">if</span> (prevProps.list.length &lt; <span class="hljs-keyword">this</span>.props.list.length) &#123;</span><br><span class="line">      <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.listRef.scrollHeight;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="hljs-keyword">return</span> <span class="hljs-literal">null</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  componentDidUpdate(prevProps, prevState, snapshot) &#123;</span><br><span class="line">    <span class="hljs-comment">// snapshot 就是上面回傳的那個值</span></span><br><span class="line">    <span class="hljs-comment">// 如果不是 null，就利用 snapshot 來調整捲軸高度</span></span><br><span class="line">    <span class="hljs-keyword">if</span> (snapshot !== <span class="hljs-literal">null</span>) &#123;</span><br><span class="line">      <span class="hljs-keyword">this</span>.listRef.scrollTop +=</span><br><span class="line">        <span class="hljs-keyword">this</span>.listRef.scrollHeight - snapshot;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  render() &#123;</span><br><span class="line">    <span class="hljs-keyword">return</span> (</span><br><span class="line">      &lt;div ref=&#123;<span class="hljs-keyword">this</span>.setListRef&#125;&gt;</span><br><span class="line">        &#123;<span class="hljs-comment">/* ...contents... */</span>&#125;</span><br><span class="line">      &lt;<span class="hljs-regexp">/div&gt;</span></span><br><span class="line"><span class="hljs-regexp">    );</span></span><br><span class="line"><span class="hljs-regexp">  &#125;</span></span><br><span class="line"><span class="hljs-regexp">  </span></span><br><span class="line"><span class="hljs-regexp">  setListRef = ref =&gt; &#123;</span></span><br><span class="line"><span class="hljs-regexp">    this.listRef = ref;</span></span><br><span class="line"><span class="hljs-regexp">  &#125;;</span></span><br><span class="line"><span class="hljs-regexp">&#125;</span></span><br></pre></td></tr></table></figure></p>
 <p>總之呢，結合搭配使用 commit phase 的 lifecycle（<code>componentDidMount</code>、<code>componentDidUpdate</code>、<code>componentWillUnmount</code>）以及新引進的<code>getDerivedStateFromProps</code>與<code>getSnapshotBeforeUpdate</code>，就可以取代掉舊的那些有可能會造成問題的 lifecycle。</p>
 <p>如果想要看更多範例的話，這篇很值得參考：<a href="https://reactjs.org/blog/2018/03/27/update-on-async-rendering.html" target="_blank" rel="noopener">Update on Async Rendering</a>。</p>
-<h2><span id="結論">結論</span></h2><p>效能一直是 Web App 很注重的一個點，而需要把握的原則就只有一個：不要 block main thread。只要 main thread 可以做事，它就可以去處理其他事情，例如說響應使用者的 click 或是繪製新的畫面等等。</p>
+<h2><span id="結論">結論</span></h2>
+<p>效能一直是 Web App 很注重的一個點，而需要把握的原則就只有一個：不要 block main thread。只要 main thread 可以做事，它就可以去處理其他事情，例如說響應使用者的 click 或是繪製新的畫面等等。</p>
 <p>而 React 原本的機制會造成問題，因此將內部核心用 Fiber 改寫，把一大個不可中斷的任務切割成許多小的、可以中斷的工作，而可以切割之後也使得以後有平行化的可能，render 的速度可能又會更快一點。</p>
 <p>但也因為這樣機制的改變，影響到原本的生命週期，一個不小心就會出狀況，而官方也發布了新的兩個生命週期來解決這個問題。</p>
 <p>身為 React 長期的使用者，對這種大的改變雖然覺得要改 code 很煩，但長期來看其實是利多，畢竟可以做的事情又更多了，效能也會愈來愈好。</p>
