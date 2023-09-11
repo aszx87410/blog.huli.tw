@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>React Performance Optimization Challenge: Understanding Immutable Data and shouldComponentUpdate - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2018/01/15/react-performance-immutable-and-scu/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2018/01/15/en/react-performance-immutable-and-scu/">
+    
+
+
+
+
+
+    <meta name="description" content="Recently, while refactoring a project at my company, I tried some things and found that I didn’t really understand React’s rendering mechanism and when render would be triggered. Later, I found that n">
+<meta property="og:type" content="article">
+<meta property="og:title" content="React Performance Optimization Challenge: Understanding Immutable Data and shouldComponentUpdate">
+<meta property="og:url" content="https://blog.huli.tw/2018/01/15/en/react-performance-immutable-and-scu/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="Recently, while refactoring a project at my company, I tried some things and found that I didn’t really understand React’s rendering mechanism and when render would be triggered. Later, I found that n">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2018-01-15T14:10:00.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:10:49.073Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="React">
+<meta property="article:tag" content="Front-end">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+<link rel="alternative" href="/atom.xml" title="React Performance Optimization Challenge: Understanding Immutable Data and shouldComponentUpdate" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#react-quiz">1&nbsp;&nbsp;<b>React Quiz</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#question-1">1.1&nbsp;&nbsp;Question 1</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#question-2">1.2&nbsp;&nbsp;Question 2</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#question-3">2&nbsp;&nbsp;<b>Question 3</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#reacts-rendering-mechanism">3&nbsp;&nbsp;<b>React’s Rendering Mechanism</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#improving-react-performance-keeping-the-virtual-dom-consistent">4&nbsp;&nbsp;<b>Improving React Performance: Keeping the Virtual DOM Consistent</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#boosting-react-performance-avoid-triggering-render-function">5&nbsp;&nbsp;<b>Boosting React Performance: Avoid Triggering Render Function</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#shallowequal-and-immutable-data-structures">6&nbsp;&nbsp;<b>shallowEqual and Immutable Data Structures</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#pitfalls-of-purecomponent">7&nbsp;&nbsp;<b>Pitfalls of PureComponent</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2018/01/15/react-performance-immutable-and-scu/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            React Performance Optimization Challenge: Understanding Immutable Data and shouldComponentUpdate
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2018-01-15T14:10:00.000Z" itemprop="datePublished">15 January 2018</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/React/">React</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>Recently, while refactoring a project at my company, I tried some things and found that I didn’t really understand React’s rendering mechanism and when <code>render</code> would be triggered. Later, I found that not only me, but many people were not familiar with the whole mechanism, so I decided to write this article to share my experience.</p>
+<p>Actually, it’s not too bad if you don’t know how to optimize, but the worse thing is that you think you’re optimizing, but you’re actually slowing down performance, and the root cause is that you’re not familiar enough with the whole mechanism of React. The “optimized” component is slower! This is serious.</p>
+<p>Therefore, this article will cover the following topics:</p>
+<ol>
+<li>The difference between <code>Component</code> and <code>PureComponent</code></li>
+<li>The role of <code>shouldComponentUpdate</code></li>
+<li>React’s rendering mechanism</li>
+<li>Why use Immutable data structures</li>
+</ol>
+<p>To determine how much you understand the above, let’s take a few quizzes right away! Some of them have traps, so please keep your eyes open!</p>
+<span id="more"></span>
+
+<h1><span id="react-quiz">React Quiz</span></h1><h2><span id="question-1">Question 1</span></h2><p>The following code is a very simple web page with just a button and a component called <code>Content</code>. When the button is clicked, it changes the state of the <code>App</code> component.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Content</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'render content!'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token operator">&lt;</span>div<span class="token operator">></span>Content<span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">class</span> <span class="token class-name">App</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function-variable function">handleClick</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">1</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'render App!'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>div<span class="token operator">></span>
+        <span class="token operator">&lt;</span>button onClick<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>handleClick<span class="token punctuation">&#125;</span><span class="token operator">></span>setState<span class="token operator">&lt;</span><span class="token operator">/</span>button<span class="token operator">></span>
+        <span class="token operator">&lt;</span>Content <span class="token operator">/</span><span class="token operator">></span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+ReactDOM<span class="token punctuation">.</span><span class="token function">render</span><span class="token punctuation">(</span>
+  <span class="token operator">&lt;</span>App <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">,</span>
+  document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span><span class="token string">'container'</span><span class="token punctuation">)</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Question: What will be output to the console when you click the button?</p>
+<p>A. Nothing (neither the <code>render</code> function of <code>App</code> nor the <code>render</code> function of <code>Content</code> is executed)<br>B. Only <code>render App!</code> (only the <code>render</code> function of <code>App</code> is executed)<br>C. <code>render App!</code> and <code>render content!</code> (both <code>render</code> functions are executed)</p>
+<h2><span id="question-2">Question 2</span></h2><p>The following code is also very simple, divided into three components: <code>App</code>, <code>Table</code>, and <code>Row</code>. <code>App</code> passes <code>list</code> to <code>Table</code>, and <code>Table</code> uses <code>map</code> to render each <code>Row</code>.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Row</span> <span class="token keyword">extends</span> <span class="token class-name">Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> <span class="token punctuation">&#123;</span>item<span class="token punctuation">,</span> style<span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>tr style<span class="token operator">=</span><span class="token punctuation">&#123;</span>style<span class="token punctuation">&#125;</span><span class="token operator">></span>
+        <span class="token operator">&lt;</span>td<span class="token operator">></span><span class="token punctuation">&#123;</span>item<span class="token punctuation">.</span>id<span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>td<span class="token operator">></span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>tr<span class="token operator">></span>
+    <span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">class</span> <span class="token class-name">Table</span> <span class="token keyword">extends</span> <span class="token class-name">Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> <span class="token punctuation">&#123;</span>list<span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">;</span>
+    <span class="token keyword">const</span> itemStyle <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'red'</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>table<span class="token operator">></span>
+          <span class="token punctuation">&#123;</span>list<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token parameter">item</span> <span class="token operator">=></span> <span class="token operator">&lt;</span>Row key<span class="token operator">=</span><span class="token punctuation">&#123;</span>item<span class="token punctuation">.</span>id<span class="token punctuation">&#125;</span> item<span class="token operator">=</span><span class="token punctuation">&#123;</span>item<span class="token punctuation">&#125;</span> style<span class="token operator">=</span><span class="token punctuation">&#123;</span>itemStyle<span class="token punctuation">&#125;</span> <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>table<span class="token operator">></span>
+    <span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">class</span> <span class="token class-name">App</span> <span class="token keyword">extends</span> <span class="token class-name">Component</span> <span class="token punctuation">&#123;</span>
+  state <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">list</span><span class="token operator">:</span> <span class="token function">Array</span><span class="token punctuation">(</span><span class="token number">10000</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">fill</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">val<span class="token punctuation">,</span> index</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">id</span><span class="token operator">:</span> index<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function-variable function">handleClick</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">otherState</span><span class="token operator">:</span> <span class="token number">1</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> <span class="token punctuation">&#123;</span>list<span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>div<span class="token operator">></span>
+        <span class="token operator">&lt;</span>button onClick<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>handleClick<span class="token punctuation">&#125;</span><span class="token operator">></span>change state<span class="token operator">!</span><span class="token operator">&lt;</span><span class="token operator">/</span>button<span class="token operator">></span>
+        <span class="token operator">&lt;</span>Table list<span class="token operator">=</span><span class="token punctuation">&#123;</span>list<span class="token punctuation">&#125;</span> <span class="token operator">/</span><span class="token operator">></span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The problem with this code is that when the button is clicked, the <code>render</code> function of <code>App</code> is triggered, and then the <code>render</code> function of <code>Table</code> is also triggered, so the entire list is re-rendered.</p>
+<p>However, when we click the button, <code>list</code> hasn’t changed at all, so it doesn’t need to be re-rendered. So clever Xiao Ming changed <code>Table</code> from a <code>Component</code> to a <code>PureComponent</code>, which won’t re-render as long as <code>state</code> and <code>props</code> haven’t changed, like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Table</span> <span class="token keyword">extends</span> <span class="token class-name">PureComponent</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> <span class="token punctuation">&#123;</span>list<span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">;</span>
+    <span class="token keyword">const</span> itemStyle <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'red'</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>table<span class="token operator">></span>
+          <span class="token punctuation">&#123;</span>list<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token parameter">item</span> <span class="token operator">=></span> <span class="token operator">&lt;</span>Row key<span class="token operator">=</span><span class="token punctuation">&#123;</span>item<span class="token punctuation">.</span>id<span class="token punctuation">&#125;</span> item<span class="token operator">=</span><span class="token punctuation">&#123;</span>item<span class="token punctuation">&#125;</span> style<span class="token operator">=</span><span class="token punctuation">&#123;</span>itemStyle<span class="token punctuation">&#125;</span> <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>table<span class="token operator">></span>
+    <span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token comment">// 不知道什麼是 PureComponent 的朋友，可以想成他自己幫你加了下面的 function</span>
+<span class="token function">shouldComponentUpdate</span> <span class="token punctuation">(</span><span class="token parameter">nextProps<span class="token punctuation">,</span> nextState</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token operator">!</span><span class="token function">shallowEqual</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">,</span> nextProps<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token operator">!</span><span class="token function">shallowEqual</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">,</span> nextState<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>After changing <code>Table</code> from a <code>Component</code> to a <code>PureComponent</code>, will efficiency be improved if we do the same operation again, that is, click the <code>change state</code> button to change the state of <code>App</code>?</p>
+<p>A. Yes, in this case, <code>PureComponent</code> is more efficient than <code>Component</code><br>B. No, both are about the same<br>C. No, in this case, <code>Component</code> is more efficient than <code>PureComponent</code></p>
+<h1><span id="question-3">Question 3</span></h1><p>Next, let’s look at an example that is very similar to the previous one, except that this time the list changes when the button is pressed:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Row</span> <span class="token keyword">extends</span> <span class="token class-name">Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> <span class="token punctuation">&#123;</span>item<span class="token punctuation">,</span> style<span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>tr style<span class="token operator">=</span><span class="token punctuation">&#123;</span>style<span class="token punctuation">&#125;</span><span class="token operator">></span>
+        <span class="token operator">&lt;</span>td<span class="token operator">></span><span class="token punctuation">&#123;</span>item<span class="token punctuation">.</span>id<span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>td<span class="token operator">></span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>tr<span class="token operator">></span>
+    <span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">class</span> <span class="token class-name">Table</span> <span class="token keyword">extends</span> <span class="token class-name">PureComponent</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> <span class="token punctuation">&#123;</span>list<span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">;</span>
+    <span class="token keyword">const</span> itemStyle <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'red'</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>table<span class="token operator">></span>
+          <span class="token punctuation">&#123;</span>list<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token parameter">item</span> <span class="token operator">=></span> <span class="token operator">&lt;</span>Row key<span class="token operator">=</span><span class="token punctuation">&#123;</span>item<span class="token punctuation">.</span>id<span class="token punctuation">&#125;</span> item<span class="token operator">=</span><span class="token punctuation">&#123;</span>item<span class="token punctuation">&#125;</span> style<span class="token operator">=</span><span class="token punctuation">&#123;</span>itemStyle<span class="token punctuation">&#125;</span> <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>table<span class="token operator">></span>
+    <span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">class</span> <span class="token class-name">App</span> <span class="token keyword">extends</span> <span class="token class-name">Component</span> <span class="token punctuation">&#123;</span>
+  state <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">list</span><span class="token operator">:</span> <span class="token function">Array</span><span class="token punctuation">(</span><span class="token number">10000</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">fill</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">val<span class="token punctuation">,</span> index</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">id</span><span class="token operator">:</span> index<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function-variable function">handleClick</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">list</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token operator">...</span><span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">.</span>list<span class="token punctuation">,</span> <span class="token number">1234567</span><span class="token punctuation">]</span> <span class="token comment">// 增加一個元素</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> <span class="token punctuation">&#123;</span>list<span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>div<span class="token operator">></span>
+        <span class="token operator">&lt;</span>button onClick<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>handleClick<span class="token punctuation">&#125;</span><span class="token operator">></span>change state<span class="token operator">!</span><span class="token operator">&lt;</span><span class="token operator">/</span>button<span class="token operator">></span>
+        <span class="token operator">&lt;</span>Table list<span class="token operator">=</span><span class="token punctuation">&#123;</span>list<span class="token punctuation">&#125;</span> <span class="token operator">/</span><span class="token operator">></span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>At this point, the <code>PureComponent</code> optimization of <code>Table</code> is no longer useful because <code>list</code> has changed, so the <code>render</code> function will be triggered. To continue optimizing, a more common approach is to change <code>Row</code> to a <code>PureComponent</code>, which ensures that the same <code>Row</code> will not be rendered again.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Row</span> <span class="token keyword">extends</span> <span class="token class-name">PureComponent</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> <span class="token punctuation">&#123;</span>item<span class="token punctuation">,</span> style<span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>tr style<span class="token operator">=</span><span class="token punctuation">&#123;</span>style<span class="token punctuation">&#125;</span><span class="token operator">></span>
+        <span class="token operator">&lt;</span>td<span class="token operator">></span><span class="token punctuation">&#123;</span>item<span class="token punctuation">.</span>id<span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>td<span class="token operator">></span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>tr<span class="token operator">></span>
+    <span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">class</span> <span class="token class-name">Table</span> <span class="token keyword">extends</span> <span class="token class-name">PureComponent</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> <span class="token punctuation">&#123;</span>list<span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">;</span>
+    <span class="token keyword">const</span> itemStyle <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'red'</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>table<span class="token operator">></span>
+          <span class="token punctuation">&#123;</span>list<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token parameter">item</span> <span class="token operator">=></span> <span class="token operator">&lt;</span>Row key<span class="token operator">=</span><span class="token punctuation">&#123;</span>item<span class="token punctuation">.</span>id<span class="token punctuation">&#125;</span> item<span class="token operator">=</span><span class="token punctuation">&#123;</span>item<span class="token punctuation">&#125;</span> style<span class="token operator">=</span><span class="token punctuation">&#123;</span>itemStyle<span class="token punctuation">&#125;</span> <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>table<span class="token operator">></span>
+    <span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Question: After changing <code>Row</code> from a <code>Component</code> to a <code>PureComponent</code>, if we do the same operation again, that is, click the <code>change state</code> button to change the <code>list</code>, will efficiency be improved?</p>
+<p>A. Yes, in this case, <code>PureComponent</code> is more efficient than <code>Component</code><br>B. No, both are about the same<br>C. No, in this case, <code>Component</code> is more efficient than <code>PureComponent</code></p>
+<h1><span id="reacts-rendering-mechanism">React’s Rendering Mechanism</span></h1><p>Before revealing the answers, let’s briefly review how React renders your screen.</p>
+<p>First of all, everyone knows that you can return what you want to render in the <code>render</code> function, for example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Content</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token operator">&lt;</span>div<span class="token operator">></span>Content<span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It should be noted that what is returned here will not be directly placed on the DOM, but will first go through a layer of virtual DOM. In fact, you can simply think of this virtual DOM as a JavaScript object. For example, the result rendered by the Content above may be:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">tagName</span><span class="token operator">:</span> <span class="token string">'div'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">children</span><span class="token operator">:</span> <span class="token string">'Content'</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The last step is for React to perform virtual DOM diff, compare the last and current virtual DOM, and update the changed parts to the real DOM.</p>
+<p>In short, a layer of virtual DOM is added between the React Component and the DOM, the things you want to render are first converted into virtual DOM, and then the things that need to be updated are updated to the real DOM.</p>
+<p>In this way, the number of times the real DOM is touched can be reduced and performance can be improved.</p>
+<p>For example, suppose we implement a very simple example that changes the state after clicking a button:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Content</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token operator">&lt;</span>div<span class="token operator">></span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>text<span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">class</span> <span class="token class-name">App</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  state <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">text</span><span class="token operator">:</span> <span class="token string">'hello'</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token function-variable function">handleClick</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">text</span><span class="token operator">:</span> <span class="token string">'world'</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>div<span class="token operator">></span>
+        <span class="token operator">&lt;</span>button onClick<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>handleClick<span class="token punctuation">&#125;</span><span class="token operator">></span>setState<span class="token operator">&lt;</span><span class="token operator">/</span>button<span class="token operator">></span>
+        <span class="token operator">&lt;</span>Content text<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">.</span>text<span class="token punctuation">&#125;</span> <span class="token operator">/</span><span class="token operator">></span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>At the beginning of the program execution, the rendering order is as follows:</p>
+<ol>
+<li>Call the render of App</li>
+<li>Call the render of Content</li>
+<li>Get the virtual DOM</li>
+<li>Compare with the last virtual DOM</li>
+<li>Apply the changes to the real DOM</li>
+</ol>
+<p>At this time, the overall virtual DOM should look like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">tagName</span><span class="token operator">:</span> <span class="token string">'div'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">children</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">tagName</span><span class="token operator">:</span> <span class="token string">'button'</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">children</span><span class="token operator">:</span> <span class="token string">'setState'</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">tagName</span><span class="token operator">:</span> <span class="token string">'div'</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">children</span><span class="token operator">:</span> <span class="token string">'hello'</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>When you click the button and change the state, the execution order is the same as before:</p>
+<ol>
+<li>Call the render of App</li>
+<li>Call the render of Content</li>
+<li>Get the virtual DOM</li>
+</ol>
+<p>At this time, the obtained virtual DOM should look like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">tagName</span><span class="token operator">:</span> <span class="token string">'div'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">children</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">tagName</span><span class="token operator">:</span> <span class="token string">'button'</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">children</span><span class="token operator">:</span> <span class="token string">'setState'</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">tagName</span><span class="token operator">:</span> <span class="token string">'div'</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">children</span><span class="token operator">:</span> <span class="token string">'world'</span> <span class="token comment">// 只有這邊變了</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The virtual DOM diff algorithm of React will find that only one place has changed, and then replace the text there, and other parts will not be affected.</p>
+<p>In fact, the <a target="_blank" rel="noopener" href="https://reactjs.org/docs/reconciliation.html#motivation">official document</a> explains this part very well:</p>
+<blockquote>
+<p>When you use React, at a single point in time you can think of the render() function as creating a tree of React elements. On the next state or props update, that render() function will return a different tree of React elements. React then needs to figure out how to efficiently update the UI to match the most recent tree.</p>
+</blockquote>
+<p>In summary, you can think of the render function as creating a tree of React elements, and then React compares this tree with the last one to find out how to efficiently update the UI to match the most recent tree.</p>
+<p>Therefore, to successfully update the UI, you must go through two steps:</p>
+<ol>
+<li>render function</li>
+<li>virtual DOM diff</li>
+</ol>
+<p>Therefore, if you want to optimize performance, you have two directions:</p>
+<ol>
+<li>Do not trigger the render function</li>
+<li>Keep the virtual DOM consistent</li>
+</ol>
+<p>Let’s start with the latter!</p>
+<h1><span id="improving-react-performance-keeping-the-virtual-dom-consistent">Improving React Performance: Keeping the Virtual DOM Consistent</span></h1><p>Because of the protection of the virtual DOM, you usually don’t have to worry too much about React’s performance.</p>
+<p>For example, the first question in the Q&amp;A at the beginning:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Content</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'render content!'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token operator">&lt;</span>div<span class="token operator">></span>Content<span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">class</span> <span class="token class-name">App</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function-variable function">handleClick</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">1</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'render App!'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>div<span class="token operator">></span>
+        <span class="token operator">&lt;</span>button onClick<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>handleClick<span class="token punctuation">&#125;</span><span class="token operator">></span>setState<span class="token operator">&lt;</span><span class="token operator">/</span>button<span class="token operator">></span>
+        <span class="token operator">&lt;</span>Content <span class="token operator">/</span><span class="token operator">></span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+ReactDOM<span class="token punctuation">.</span><span class="token function">render</span><span class="token punctuation">(</span>
+  <span class="token operator">&lt;</span>App <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">,</span>
+  document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span><span class="token string">'container'</span><span class="token punctuation">)</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Every time you click the button, because the state of App has changed, the render function of App will be triggered first, and because it returns <code>&lt;Content /&gt;</code>, the render function of Content will also be triggered.</p>
+<p>So every time you click the button, the render function of these two components will be called once. Therefore, the answer is <code>C. render App! and render content! (Both render functions are executed)</code></p>
+<p>However, even so, the real DOM will not change. Because during the virtual DOM diff, React will find that the current and last virtual DOM are exactly the same (because nothing has changed), so it will not make any changes to the DOM.</p>
+<p>If you can maintain the similarity of the structure of the virtual DOM as much as possible, you can reduce some unnecessary operations. There are still many optimizations that can be done in this regard, which can be referred to in the <a target="_blank" rel="noopener" href="https://reactjs.org/docs/reconciliation.html">official document</a>, which is written in detail.</p>
+<h1><span id="boosting-react-performance-avoid-triggering-render-function">Boosting React Performance: Avoid Triggering Render Function</span></h1><p>Although we don’t need to worry too much, the virtual DOM diff also takes execution time. Although it’s fast, it’s still not as fast as not calling it at all, right?</p>
+<p>For situations where “we already know there should be no changes,” we shouldn’t even call the render function because it’s unnecessary. If the render function isn’t called, the virtual DOM diff doesn’t need to be executed, which improves performance.</p>
+<p>You may have heard of the <code>shouldComponentUpdate</code> function, which is used for this purpose. If you return false in this function, the render function won’t be called again.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Content</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">shouldComponentUpdate</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token function">render</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'render content!'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token operator">&lt;</span>div<span class="token operator">></span>Content<span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">class</span> <span class="token class-name">App</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function-variable function">handleClick</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">1</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'render App!'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>div<span class="token operator">></span>
+        <span class="token operator">&lt;</span>button onClick<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>handleClick<span class="token punctuation">&#125;</span><span class="token operator">></span>setState<span class="token operator">&lt;</span><span class="token operator">/</span>button<span class="token operator">></span>
+        <span class="token operator">&lt;</span>Content <span class="token operator">/</span><span class="token operator">></span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>After adding it, you’ll notice that the Content render function won’t be triggered no matter how many times you press the button.</p>
+<p>But be careful when using this, as you may encounter situations where the state and UI don’t match if you’re not careful. For example, the state may have changed to “world,” but the UI still displays “Hello”:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Content</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">shouldComponentUpdate</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">render</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token operator">&lt;</span>div<span class="token operator">></span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>text<span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">class</span> <span class="token class-name">App</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  state <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">text</span><span class="token operator">:</span> <span class="token string">'hello'</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token function-variable function">handleClick</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">text</span><span class="token operator">:</span> <span class="token string">'world'</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>div<span class="token operator">></span>
+        <span class="token operator">&lt;</span>button onClick<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>handleClick<span class="token punctuation">&#125;</span><span class="token operator">></span>setState<span class="token operator">&lt;</span><span class="token operator">/</span>button<span class="token operator">></span>
+        <span class="token operator">&lt;</span>Content text<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">.</span>text<span class="token punctuation">&#125;</span> <span class="token operator">/</span><span class="token operator">></span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In the example above, the state did change to “world” after pressing the button, but because the <code>shouldComponentUpdate</code> of Content always returns false, the render won’t be triggered again, and you won’t see the corresponding new state on the screen.</p>
+<p>However, this is a bit extreme because usually, you won’t always return false unless you’re sure that this component doesn’t need to re-render at all.</p>
+<p>Instead, there’s a more reasonable criterion:</p>
+<blockquote>
+<p>If none of the props and state have changed, return false.</p>
+</blockquote>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Content</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">shouldComponentUpdate</span><span class="token punctuation">(</span><span class="token parameter">nextProps<span class="token punctuation">,</span> nextState</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token operator">!</span><span class="token function">shallowEqual</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">,</span> nextProps<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token operator">!</span><span class="token function">shallowEqual</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">,</span> nextState<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">render</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token operator">&lt;</span>div<span class="token operator">></span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>text<span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Suppose <code>this.props</code> is:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">text</span><span class="token operator">:</span> <span class="token string">'hello'</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>And <code>nextProps</code> is:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">text</span><span class="token operator">:</span> <span class="token string">'world'</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>When comparing them, you’ll notice that <code>props.text</code> has changed, so it’s natural to call the render function again. Also, <code>shallowEqual</code> is used here to compare the differences between the previous and current states, not <code>deepEqual</code>.</p>
+<p>This is due to performance considerations. Don’t forget that comparing like this also consumes resources, especially when your object is very deep, and there are many things to compare. Therefore, we tend to use <code>shallowEqual</code> to compare only one layer.</p>
+<p>Also, as mentioned earlier, there’s <code>PureComponent</code>, which is another type of component provided by React. The difference is that it automatically adds the comparison mentioned above. If you want to see the source code, it’s <a target="_blank" rel="noopener" href="https://github.com/facebook/react/blob/1637b43e27c40c73f9489603145f9bb1d0ece618/packages/react-reconciler/src/ReactFiberClassComponent.js#L194">here</a>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>type<span class="token punctuation">.</span>prototype <span class="token operator">&amp;&amp;</span> type<span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>isPureReactComponent<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token operator">!</span><span class="token function">shallowEqual</span><span class="token punctuation">(</span>oldProps<span class="token punctuation">,</span> newProps<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token operator">!</span><span class="token function">shallowEqual</span><span class="token punctuation">(</span>oldState<span class="token punctuation">,</span> newState<span class="token punctuation">)</span>
+  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Now, let’s reveal the answer to the second question. The answer is: <code>A. Yes, in this case, PureComponent is more efficient than Component</code> because after inheriting PureComponent, if the props and state haven’t changed, the render function won’t be executed, and the virtual DOM diff won’t be executed, saving a lot of overhead.</p>
+<h1><span id="shallowequal-and-immutable-data-structures">shallowEqual and Immutable Data Structures</span></h1><p>When you first start learning React, you may be told that you can’t modify data like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 不能這樣</span>
+<span class="token keyword">const</span> newObject <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">.</span>obj
+newObject<span class="token punctuation">.</span>id <span class="token operator">=</span> <span class="token number">2</span><span class="token punctuation">;</span>
+<span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">obj</span><span class="token operator">:</span> newObject
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// 也不能這樣</span>
+<span class="token keyword">const</span> arr <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">.</span>arr<span class="token punctuation">;</span>
+arr<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token number">123</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">list</span><span class="token operator">:</span> arr
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Instead, you should do it like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">obj</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token operator">...</span><span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">.</span>obj<span class="token punctuation">,</span>
+    <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token number">2</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  
+<span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">list</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token operator">...</span><span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">.</span>arr<span class="token punctuation">,</span> <span class="token number">123</span><span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Do you know why?</p>
+<p>This is related to what we talked about earlier. As mentioned above, using <code>PureComponent</code> is normal because if the state and props haven’t changed, the render function shouldn’t be triggered.</p>
+<p>And as mentioned earlier, <code>PureComponent</code> helps you <code>shallowEqual</code> the state and props to determine whether to call the render function.</p>
+<p>In this case, if you use the first method mentioned above, you’ll encounter problems, such as:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> newObject <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">.</span>obj
+newObject<span class="token punctuation">.</span>id <span class="token operator">=</span> <span class="token number">2</span><span class="token punctuation">;</span>
+<span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">obj</span><span class="token operator">:</span> newObject
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In the code above, <code>this.state.obj</code> and <code>newObject</code> actually point to the same object, the same memory block. So when we’re doing <code>shallowEqual</code>, we’ll judge that these two things are equal, and the render function won’t be executed.</p>
+<p>At this point, we need Immutable data, which means “once a data is created, it will never change”. So, if you need to modify the data, you can only create a new one.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">text</span><span class="token operator">:</span> <span class="token string">'hello'</span>
+<span class="token punctuation">&#125;</span>
+  
+obj<span class="token punctuation">.</span>text <span class="token operator">=</span> <span class="token string">'world'</span> <span class="token comment">// 這樣不行，因為你改變了 obj 這個物件</span>
+  
+<span class="token comment">// 你必須要像這樣創造一個新的物件</span>
+<span class="token keyword">const</span> newObj <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token operator">...</span>obj<span class="token punctuation">,</span>
+  <span class="token literal-property property">text</span><span class="token operator">:</span> <span class="token string">'world'</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>With the concept of Immutable, <code>shallowEqual</code> won’t fail because if we have new data, we can ensure that it is a new object. This is why we always generate a new object when using <code>setState</code>, instead of directly manipulating the existing one.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 沒有 Immutable 的概念前 </span>
+<span class="token keyword">const</span> props <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">list</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">const</span> list <span class="token operator">=</span> props<span class="token punctuation">.</span>list<span class="token punctuation">;</span>
+list<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token number">4</span><span class="token punctuation">)</span>
+nextProps <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token operator">...</span>props<span class="token punctuation">,</span>
+  list
+<span class="token punctuation">&#125;</span>
+  
+props<span class="token punctuation">.</span>list <span class="token operator">===</span> nextProps<span class="token punctuation">.</span>list <span class="token comment">// true</span>
+  
+<span class="token comment">// 有了 Immutable 的概念後</span>
+<span class="token keyword">const</span> props <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">list</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">const</span> nextProps <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token operator">...</span>props<span class="token punctuation">,</span>
+  <span class="token literal-property property">list</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token operator">...</span>props<span class="token punctuation">.</span>list<span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span>
+  
+props<span class="token punctuation">.</span>list <span class="token operator">===</span> nextProps<span class="token punctuation">.</span>list <span class="token comment">// false</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>One thing to note here is that the spread operator only copies the first layer of data, it is not a deep clone:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> test <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">nest</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">title</span><span class="token operator">:</span> <span class="token string">'hello'</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">const</span> copy <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token operator">...</span>test<span class="token punctuation">&#125;</span>
+  
+copy<span class="token punctuation">.</span>nest <span class="token operator">===</span> test<span class="token punctuation">.</span>nest <span class="token comment">// true</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>So when your state has a more complex structure, changing the data will become more complicated because you have to do similar things for each layer to avoid directly modifying the object you want to change:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 沒有 Immutable 的概念前 </span>
+<span class="token keyword">const</span> props <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">title</span><span class="token operator">:</span> <span class="token string">'123'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">list</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'hello'</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'world'</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">const</span> list <span class="token operator">=</span> props<span class="token punctuation">.</span>list<span class="token punctuation">;</span>
+list<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>name <span class="token operator">=</span> <span class="token string">'world2'</span><span class="token punctuation">;</span> <span class="token comment">// 直接改</span>
+nextProps <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token operator">...</span>props<span class="token punctuation">,</span>
+  list
+<span class="token punctuation">&#125;</span>
+  
+props<span class="token punctuation">.</span>list <span class="token operator">===</span> nextProps<span class="token punctuation">.</span>list <span class="token comment">// true</span>
+props<span class="token punctuation">.</span>list<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token operator">===</span> nextProps<span class="token punctuation">.</span>list<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token comment">// true</span>
+  
+<span class="token comment">// 有了 Immutable 的概念後</span>
+<span class="token keyword">const</span> props <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">title</span><span class="token operator">:</span> <span class="token string">'123'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">list</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'hello'</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'world'</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token comment">// 要注意這邊只是 shallow copy 而已</span>
+<span class="token comment">// list[0] === props.list[0] => true</span>
+<span class="token keyword">const</span> list <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token operator">...</span>props<span class="token punctuation">.</span>list<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">]</span>
+<span class="token keyword">const</span> data <span class="token operator">=</span> props<span class="token punctuation">.</span>list<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+  
+<span class="token keyword">const</span> nextProps <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token operator">...</span>props<span class="token punctuation">,</span>
+  <span class="token literal-property property">list</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token operator">...</span>list<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+    <span class="token operator">...</span>data<span class="token punctuation">,</span> <span class="token comment">// 再做一次 spread oprator</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'world2'</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span>
+  
+props<span class="token punctuation">.</span>list <span class="token operator">===</span> nextProps<span class="token punctuation">.</span>list <span class="token comment">// false</span>
+props<span class="token punctuation">.</span>list<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token operator">===</span> nextProps<span class="token punctuation">.</span>list<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token comment">// true</span>
+props<span class="token punctuation">.</span>list<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token operator">===</span> nextProps<span class="token punctuation">.</span>list<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token comment">// false</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>If your state structure has many layers, it will become very difficult to change. In this case, you have three options:</p>
+<ol>
+<li>Avoid having too many layers of state, try to flatten it (refer to <a target="_blank" rel="noopener" href="https://github.com/paularmstrong/normalizr">normalizr</a>)</li>
+<li>Find a library that will help you with Immutable, such as Facebook’s <a target="_blank" rel="noopener" href="https://facebook.github.io/immutable-js/">Immutable.js</a></li>
+<li>Just use deep clone to copy all the data, and then change it however you want (not recommended)</li>
+</ol>
+<p>Note: Thanks to KanYueh Chen for pointing out the above paragraph.</p>
+<h1><span id="pitfalls-of-purecomponent">Pitfalls of PureComponent</span></h1><p>After following the rules of Immutable, we naturally want to set all Components as PureComponent because the default of PureComponent is reasonable. If the data hasn’t changed, the render function won’t be called, which can save a lot of unnecessary comparisons.</p>
+<p>Let’s go back to the last question of the quiz:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Row</span> <span class="token keyword">extends</span> <span class="token class-name">PureComponent</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> <span class="token punctuation">&#123;</span>item<span class="token punctuation">,</span> style<span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>tr style<span class="token operator">=</span><span class="token punctuation">&#123;</span>style<span class="token punctuation">&#125;</span><span class="token operator">></span>
+        <span class="token operator">&lt;</span>td<span class="token operator">></span><span class="token punctuation">&#123;</span>item<span class="token punctuation">.</span>id<span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>td<span class="token operator">></span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>tr<span class="token operator">></span>
+    <span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">class</span> <span class="token class-name">Table</span> <span class="token keyword">extends</span> <span class="token class-name">PureComponent</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> <span class="token punctuation">&#123;</span>list<span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">;</span>
+    <span class="token keyword">const</span> itemStyle <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">'red'</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>table<span class="token operator">></span>
+          <span class="token punctuation">&#123;</span>list<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token parameter">item</span> <span class="token operator">=></span> <span class="token operator">&lt;</span>Row key<span class="token operator">=</span><span class="token punctuation">&#123;</span>item<span class="token punctuation">.</span>id<span class="token punctuation">&#125;</span> item<span class="token operator">=</span><span class="token punctuation">&#123;</span>item<span class="token punctuation">&#125;</span> style<span class="token operator">=</span><span class="token punctuation">&#123;</span>itemStyle<span class="token punctuation">&#125;</span> <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>table<span class="token operator">></span>
+    <span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>We changed <code>Row</code> to PureComponent, so it won’t re-render as long as the state and props haven’t changed. So the answer should be “A. Yes, in this case, PureComponent is more efficient than Component”?</p>
+<p>Wrong. If you look at the code more carefully, you will find that the answer is actually “C. No, in this case, Component is more efficient than PureComponent”.</p>
+<p>Your premise is correct, “if the state and props haven’t changed, PureComponent is more efficient than Component”. But there is another sentence that is also correct: “If your state or props ‘will always change’, then PureComponent won’t be faster”.</p>
+<p>So the difference in using these two lies in whether the state and props will change frequently or not.</p>
+<p>In the example above, the trap is in the <code>itemStyle</code> props. We create a new object every time we render, so for Row, even though props.item is the same, props.style is “always different”.</p>
+<p>If you already know that the props comparison will fail every time, then PureComponent is useless and even worse. Why? Because it does <code>shallowEqual</code>.</p>
+<p>Don’t forget that <code>shallowEqual</code> also takes time to execute.</p>
+<p>If you already expect that the props or state of a certain component will “change frequently”, then you don’t need to switch to PureComponent because your implementation will become slower.</p>
+<p>To sum up, when studying performance-related issues, I highly recommend this article: <a target="_blank" rel="noopener" href="https://cdb.reacttraining.com/react-inline-functions-and-performance-bdff784f5578">React, Inline Functions, and Performance</a>, which has solved many of my doubts and brought me many new ideas.</p>
+<p>For example, the article mentioned at the end that sometimes PureComponent can actually slow down, which I also learned from this article. I highly recommend everyone to take the time to read it.</p>
+<p>Recently, I worked with my colleagues to rebuild a project, and the original consensus was to use PureComponent as much as possible. However, after reading this article and carefully considering it, I realized that it’s better not to use it if you don’t know the underlying principles. Therefore, I suggested that we switch to using Component for everything, and slowly adjust when we encounter performance issues that need to be optimized.</p>
+<p>Finally, I’d like to share a quote I really like from the article on optimizing nested React components (which also discusses the issues with PureComponent):</p>
+<blockquote>
+<p>Just because you can optimize, doesn’t mean you should.</p>
+</blockquote>
+<p>References:</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://medium.freecodecamp.org/make-react-fast-again-tools-and-techniques-for-speeding-up-your-react-app-7ad39d3c1b82">High Performance React: 3 New Tools to Speed Up Your Apps</a></li>
+<li><a target="_blank" rel="noopener" href="https://reactjs.org/docs/reconciliation.html#motivation">reactjs - Reconciliation</a></li>
+<li><a target="_blank" rel="noopener" href="https://reactjs.org/docs/optimizing-performance.html">reactjs- Optimizing Performance</a></li>
+<li><a target="_blank" rel="noopener" href="https://marmelab.com/blog/2017/02/06/react-is-slow-react-is-fast.html">React is Slow, React is Fast: Optimizing React Apps in Practice</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.toptal.com/react/optimizing-react-performance">Efficient React Components: A Guide to Optimizing React Performance</a></li>
+</ul>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/React/">#React</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Front-end/">#Front-end</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2018/02/03/en/github-classroom-and-travis-ci/">Using Github Classroom and Travis CI to Build a Homework Submission System</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2017/12/08/en/introduction-to-rxjs-observable/">The Most Beginner-Friendly RxJS Tutorial</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2018/01/15/react-performance-immutable-and-scu/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

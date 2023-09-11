@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Understanding keyPress and keyDown events in React source code - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2019/03/24/react-keypress-keydown/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2019/03/24/en/react-keypress-keydown/">
+    
+
+
+
+
+
+    <meta name="description" content="IntroductionRecently, a student asked me a question about the difference between keyPress and keyDown events in React, as well as the difference between keyCode and charCode. Sometimes, they could get">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Understanding keyPress and keyDown events in React source code">
+<meta property="og:url" content="https://blog.huli.tw/2019/03/24/en/react-keypress-keydown/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="IntroductionRecently, a student asked me a question about the difference between keyPress and keyDown events in React, as well as the difference between keyCode and charCode. Sometimes, they could get">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/54873875-07980e80-4e1b-11e9-91a4-1a3cc7036b8d.gif">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/54873879-0d8def80-4e1b-11e9-86fe-e907bc0591ab.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/54873906-71181d00-4e1b-11e9-8745-ef2e21a79d7c.gif">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/54873885-21d1ec80-4e1b-11e9-8f52-714a52c2c46c.png">
+<meta property="article:published_time" content="2019-03-24T14:10:00.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:10:49.072Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="React">
+<meta property="article:tag" content="Front-end">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://user-images.githubusercontent.com/2755720/54873875-07980e80-4e1b-11e9-91a4-1a3cc7036b8d.gif">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Understanding keyPress and keyDown events in React source code" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#introduction">1&nbsp;&nbsp;<b>Introduction</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#differences-between-keypress-and-keydown">2&nbsp;&nbsp;<b>Differences between keyPress and keyDown</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#differences-between-keycode-and-charcode">3&nbsp;&nbsp;<b>Differences between keyCode and charCode</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#key-and-which">4&nbsp;&nbsp;<b>key and which</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#exploring-the-react-source-code">5&nbsp;&nbsp;<b>Exploring the React Source Code</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">6&nbsp;&nbsp;<b>Conclusion</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2019/03/24/react-keypress-keydown/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Understanding keyPress and keyDown events in React source code
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2019-03-24T14:10:00.000Z" itemprop="datePublished">24 March 2019</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/React/">React</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="introduction">Introduction</span></h2><p>Recently, a student asked me a question about the difference between keyPress and keyDown events in React, as well as the difference between keyCode and charCode. Sometimes, they could get the values, but sometimes they couldn’t, and they were confused.</p>
+<p>At first, I thought React had done some processing, so I looked at the source code. Later, I found that React did indeed do some processing, but in fact, this problem had nothing to do with React. The difference between keyPress and keyDown is a native JavaScript event mechanism.</p>
+<p>Although this problem has nothing to do with React, it is still a good thing to be able to refer to React’s implementation through an actual problem, and React’s comments are well written.</p>
+<p>Therefore, this article will first show you the differences between these two events, and finally, we will see how React handles them.</p>
+<span id="more"></span>
+
+<h2><span id="differences-between-keypress-and-keydown">Differences between keyPress and keyDown</span></h2><p>First, let’s take a look at the differences between keyPress and keyDown events. We can directly ask MDN to explain this part for us:</p>
+<blockquote>
+<p>The keypress event is fired when a key that produces a character value is pressed down. Examples of keys that produce a character value are alphabetic, numeric, and punctuation keys. Examples of keys that don’t produce a character value are modifier keys such as Alt, Shift, Ctrl, or Meta.</p>
+</blockquote>
+<p>Source: <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/Events/keypress">https://developer.mozilla.org/en-US/docs/Web/Events/keypress</a></p>
+<blockquote>
+<p>The keydown event is fired when a key is pressed down.</p>
+<p>Unlike the keypress event, the keydown event is fired for all keys, regardless of whether they produce a character value.</p>
+</blockquote>
+<p>Source: <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/Events/keydown">https://developer.mozilla.org/en-US/docs/Web/Events/keydown</a></p>
+<p>In short, keyDown is triggered when you press any key, but keyPress is only triggered when the key you press can produce a character. In other words, you are typing when you press this key.</p>
+<p>For example, when you press <code>a</code>, a character <code>a</code> will appear on the screen, so both keyDown and keyPress will be triggered. But if you press <code>shift</code>, nothing will appear on the screen, so only keyDown will be triggered.</p>
+<p>W3C provides a very good webpage: <a target="_blank" rel="noopener" href="https://www.w3.org/2002/09/tests/keys.html">Key and Character Codes vs. Event Types</a>, which allows you to experiment for yourself.</p>
+<p>In the figure below, I enter <code>a</code>, and both events will be triggered. Then I press <code>shift</code>, only keyDown will be triggered, and then I press backspace to delete the text, only keyDown will be triggered:</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/54873875-07980e80-4e1b-11e9-91a4-1a3cc7036b8d.gif" alt="keyboard"></p>
+<p>So I believe you should be very clear about the differences between these two events. keyDown can be regarded as “pressing a key”, and keyPress can be regarded as an event triggered when “entering something”.</p>
+<p>Next, let’s talk about the differences between keyCode and charCode.</p>
+<h2><span id="differences-between-keycode-and-charcode">Differences between keyCode and charCode</span></h2><p>Let’s talk about charCode first. Maybe you have seen a function in JavaScript like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>String<span class="token punctuation">.</span><span class="token function">fromCharCode</span><span class="token punctuation">(</span><span class="token number">65</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment">// A</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>charCode is actually a number representing a character, or more precisely, its Unicode encoding.</p>
+<p>If you are not familiar with this, you can refer to this article: <a target="_blank" rel="noopener" href="https://pjchender.blogspot.com/2018/06/guide-unicode-javascript.html">[Guide] Understanding the encoding that cannot be understood in web pages: the use of Unicode in JavaScript</a>.</p>
+<p>In JavaScript, you can also use another function to get the encoding of a character:</p>
+<pre class="line-numbers language-none"><code class="language-none">console.log(&#39;嗨&#39;.charCodeAt(0)) &#x2F;&#x2F; 21992<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>If you convert 21992 to hexadecimal, it becomes 0x55E8, which is the Unicode for “嗨”:</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/54873879-0d8def80-4e1b-11e9-86fe-e907bc0591ab.png" alt="hi"></p>
+<p>(Source: <a target="_blank" rel="noopener" href="https://www.cns11643.gov.tw/wordView.jsp?ID=90944">https://www.cns11643.gov.tw/wordView.jsp?ID=90944</a>)</p>
+<p>So what is keyCode? Since charCode represents the code of a character, keyCode obviously represents the code of a key.</p>
+<p>Each “key” also has its own code, and sometimes it can be confusing because it may be the same as charCode.</p>
+<p>For example: the keyCode of the “A” key is 65, and the charCode of the “A” character is also 65. This is probably designed for some convenience, but you should note that:</p>
+<blockquote>
+<p>When I press the “A” key, I may want to type “a” or “A”, there are two possibilities.</p>
+</blockquote>
+<p>Or take another example, when you want to type the number 1, if you use the key above Q instead of the numeric keypad, the character you want to type may be “1” or “!” or even “ㄅ”, because they are all on the same key.</p>
+<p>One key corresponds to more than one character, so you cannot determine what the user wants to type from keyCode alone.</p>
+<p>Now that we’ve talked about the relationship between keyPress and keyDown, let’s think about these two and their relationship with keyCode and charCode.</p>
+<p>As mentioned earlier, keyPress is triggered when you want to enter text, so this event will get charCode because you need to know what the user typed. Why not keyCode? Because you don’t know what he typed from keyCode, so it’s useless to get keyCode.</p>
+<p>keyDown is triggered when you press any key, and you must get keyCode at this time because you need to know what key the user pressed. If you get charCode, you won’t get a value when you press shift or ctrl, because this is not a character, so you won’t know what the user pressed.</p>
+<p>In summary, when you want to detect user input, use keyPress and use charCode to see what the user just typed; when you want to detect the user pressing a key, use keyDown and use keyCode to get the key the user pressed.</p>
+<p>This is the difference between keyPress, keyDown, keyCode, and charCode.</p>
+<p>By the way, when inputting Chinese, keyPress will not have a value, and keyDown will return a mysterious code 229:</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/54873906-71181d00-4e1b-11e9-8745-ef2e21a79d7c.gif" alt="chinese"></p>
+<h2><span id="key-and-which">key and which</span></h2><p>In the keyPress and keyDown events, there are actually two more properties: key and which.</p>
+<p>Let’s first look at what which is:</p>
+<blockquote>
+<p>The which read-only property of the KeyboardEvent interface returns the numeric keyCode of the key pressed, or the character code (charCode) for an alphanumeric key pressed.</p>
+</blockquote>
+<p>Source: <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/which">https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/which</a></p>
+<p>In my understanding, when you use which in keyPress, you should get charCode; when you use it in keyDown, it should be keyCode. Therefore, when writing code, you can use event.which to get this information without distinguishing between keyCode or charCode.</p>
+<p>However, the reference materials attached to MDN are quite vague, so I am not sure about this part:</p>
+<blockquote>
+<p>which holds a system- and implementation-dependent numerical code signifying the unmodified identifier associated with the key pressed. In most cases, the value is identical to keyCode.</p>
+</blockquote>
+<p>Source: <a target="_blank" rel="noopener" href="https://www.w3.org/TR/2014/WD-DOM-Level-3-Events-20140925/#widl-KeyboardEvent-which">https://www.w3.org/TR/2014/WD-DOM-Level-3-Events-20140925/#widl-KeyboardEvent-which</a></p>
+<p>Let’s take a look at the <code>key</code> property:</p>
+<blockquote>
+<p>The KeyboardEvent.key read-only property returns the value of the key pressed by the user while taking into considerations the state of modifier keys such as the shiftKey as well as the keyboard locale&#x2F;layou</p>
+</blockquote>
+<p>Source: <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key">https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key</a></p>
+<p>In short, <code>key</code> will be a string representing the key or character that was pressed. For example, if you type “A”, <code>key</code> will be “A”. If you press the Shift key, <code>key</code> will be “Shift”.</p>
+<p>It’s important to note that this property can be accessed in both the <code>keyPress</code> and <code>keyDown</code> events. So even in a <code>keyDown</code> event, you can still know what key or character the user just typed.</p>
+<p>However, when it comes to detecting user input, the <code>keyPress</code> event is the most appropriate, unless you want to detect other non-character keys (such as Ctrl, Delete, Shift, etc.) in which case you would use the <code>keyDown</code> event.</p>
+<p>To summarize, the <code>which</code>, <code>keyCode</code>, and <code>charCode</code> properties may behave differently across different browsers, making cross-browser support a challenging aspect. However, as older browsers are gradually being phased out, most users are likely using browsers that are more standards-compliant, so compatibility is not the focus of this article.</p>
+<p>Now let’s move on to the most exciting part: the React source code.</p>
+<h2><span id="exploring-the-react-source-code">Exploring the React Source Code</span></h2><p>The React source code is so large, where do we even begin?</p>
+<p>Here’s a super useful method: GitHub search. Usually, if you search for the function name or related keywords, you can narrow down the scope and find the corresponding source code with just a little bit of manual searching. It’s a convenient and useful method.</p>
+<p>Let’s use <code>keyPress</code> as our keyword and see what we get. We get 12 results:</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/54873885-21d1ec80-4e1b-11e9-8f52-714a52c2c46c.png" alt="search"></p>
+<p>After a quick glance, we can see that many of them are tests, which we can skip. You should be able to quickly locate a few relevant files, such as these two:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/facebook/react/blob/b87aabdfe1b7461e7331abb3601d9e6bb27544bc/packages/react-dom/src/events/SyntheticKeyboardEvent.js">packages&#x2F;react-dom&#x2F;src&#x2F;events&#x2F;SyntheticKeyboardEvent.js</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/facebook/react/blob/b87aabdfe1b7461e7331abb3601d9e6bb27544bc/packages/react-dom/src/events/getEventKey.js">packages&#x2F;react-dom&#x2F;src&#x2F;events&#x2F;getEventKey.js</a></li>
+</ol>
+<p>Yes, these two are our main focus today.</p>
+<p>Let’s start with <code>SyntheticKeyboardEvent.js</code>. If you’re familiar with React, you should know that the events you get inside it are not native events, but rather events that have been wrapped by React. This <code>SyntheticKeyboardEvent</code> is the event that has been wrapped by React, and it’s what you get when you use <code>onKeyPress</code> or <code>onKeyDown</code>.</p>
+<p>For convenience, let’s break it down into several functions and take a closer look.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function-variable function">charCode</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// `charCode` is the result of a KeyPress event and represents the value of</span>
+  <span class="token comment">// the actual printable character.</span>
+  
+  <span class="token comment">// KeyPress is deprecated, but its replacement is not yet final and not</span>
+  <span class="token comment">// implemented in any major browser. Only KeyPress has charCode.</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'keypress'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token function">getEventCharCode</span><span class="token punctuation">(</span>event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The comments here are great. It mentions that <code>keyPress</code> has been deprecated, but the replacement is not ready yet. It also mentions that only <code>keyPress</code> has <code>charCode</code>.</p>
+<p>So this function checks if the event type is <code>keyPress</code>. If it is, it returns <code>getEventCharCode(event)</code>, otherwise it returns 0.</p>
+<p>Now let’s take a look at what <code>getEventCharCode</code> does (note that this function is in another file):</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">/**
+ * `charCode` represents the actual "character code" and is safe to use with
+ * `String.fromCharCode`. As such, only keys that correspond to printable
+ * characters produce a valid `charCode`, the only exception to this is Enter.
+ * The Tab-key is considered non-printable and does not have a `charCode`,
+ * presumably because it does not produce a tab-character in browsers.
+ *
+ * @param &#123;object&#125; nativeEvent Native browser event.
+ * @return &#123;number&#125; Normalized `charCode` property.
+ */</span>
+<span class="token keyword">function</span> <span class="token function">getEventCharCode</span><span class="token punctuation">(</span><span class="token parameter">nativeEvent</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">let</span> charCode<span class="token punctuation">;</span>
+  <span class="token keyword">const</span> keyCode <span class="token operator">=</span> nativeEvent<span class="token punctuation">.</span>keyCode<span class="token punctuation">;</span>
+  
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token string">'charCode'</span> <span class="token keyword">in</span> nativeEvent<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    charCode <span class="token operator">=</span> nativeEvent<span class="token punctuation">.</span>charCode<span class="token punctuation">;</span>
+  
+    <span class="token comment">// FF does not set `charCode` for the Enter-key, check against `keyCode`.</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>charCode <span class="token operator">===</span> <span class="token number">0</span> <span class="token operator">&amp;&amp;</span> keyCode <span class="token operator">===</span> <span class="token number">13</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      charCode <span class="token operator">=</span> <span class="token number">13</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// IE8 does not implement `charCode`, but `keyCode` has the correct value.</span>
+    charCode <span class="token operator">=</span> keyCode<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token comment">// IE and Edge (on Windows) and Chrome / Safari (on Windows and Linux)</span>
+  <span class="token comment">// report Enter as charCode 10 when ctrl is pressed.</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>charCode <span class="token operator">===</span> <span class="token number">10</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    charCode <span class="token operator">=</span> <span class="token number">13</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token comment">// Some non-printable keys are reported in `charCode`/`keyCode`, discard them.</span>
+  <span class="token comment">// Must not discard the (non-)printable Enter-key.</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>charCode <span class="token operator">>=</span> <span class="token number">32</span> <span class="token operator">||</span> charCode <span class="token operator">===</span> <span class="token number">13</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> charCode<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Let’s break it down into sections for easier understanding:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">/**
+ * `charCode` represents the actual "character code" and is safe to use with
+ * `String.fromCharCode`. As such, only keys that correspond to printable
+ * characters produce a valid `charCode`, the only exception to this is Enter.
+ * The Tab-key is considered non-printable and does not have a `charCode`,
+ * presumably because it does not produce a tab-character in browsers.
+ *
+ * @param &#123;object&#125; nativeEvent Native browser event.
+ * @return &#123;number&#125; Normalized `charCode` property.
+ */</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The comment at the beginning tells you that <code>charCode</code> represents the character code, so you can use <code>String.fromCharCode</code> to find the corresponding character.</p>
+<p>Therefore, only characters that can be printed (or displayed) have <code>charCode</code>, and Enter is an exception because Enter produces a blank line. But Tab is not, because pressing Tab does not produce a character representing Tab.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">let</span> charCode<span class="token punctuation">;</span>
+<span class="token keyword">const</span> keyCode <span class="token operator">=</span> nativeEvent<span class="token punctuation">.</span>keyCode<span class="token punctuation">;</span>
+  
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token string">'charCode'</span> <span class="token keyword">in</span> nativeEvent<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  charCode <span class="token operator">=</span> nativeEvent<span class="token punctuation">.</span>charCode<span class="token punctuation">;</span>
+  
+  <span class="token comment">// FF does not set `charCode` for the Enter-key, check against `keyCode`.</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>charCode <span class="token operator">===</span> <span class="token number">0</span> <span class="token operator">&amp;&amp;</span> keyCode <span class="token operator">===</span> <span class="token number">13</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    charCode <span class="token operator">=</span> <span class="token number">13</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// IE8 does not implement `charCode`, but `keyCode` has the correct value.</span>
+  charCode <span class="token operator">=</span> keyCode<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Here, processing is done for browser compatibility. FireFox does not set <code>charCode</code> for Enter, so you need to check if the <code>keyCode</code> is 13. And IE8 does not implement <code>charCode</code>, so the value of <code>keyCode</code> is used instead.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// IE and Edge (on Windows) and Chrome / Safari (on Windows and Linux)</span>
+<span class="token comment">// report Enter as charCode 10 when ctrl is pressed.</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>charCode <span class="token operator">===</span> <span class="token number">10</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  charCode <span class="token operator">=</span> <span class="token number">13</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token comment">// Some non-printable keys are reported in `charCode`/`keyCode`, discard them.</span>
+<span class="token comment">// Must not discard the (non-)printable Enter-key.</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>charCode <span class="token operator">>=</span> <span class="token number">32</span> <span class="token operator">||</span> charCode <span class="token operator">===</span> <span class="token number">13</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> charCode<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This is a special case where the <code>charCode</code> is 10 when the user presses Ctrl + Enter, and React wants to treat this as pressing Enter.</p>
+<p>Also, some characters that cannot be printed should be removed, so a range check is performed at the end.</p>
+<p>That’s how <code>charCode</code> is handled. It’s actually quite interesting when you look closely, as it checks for special cases and browser compatibility.</p>
+<p>Now let’s go back to <code>SyntheticKeyboardEvent.js</code> to see how <code>keyCode</code> is handled:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function-variable function">keyCode</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// `keyCode` is the result of a KeyDown/Up event and represents the value of</span>
+  <span class="token comment">// physical keyboard key.</span>
+  
+  <span class="token comment">// The actual meaning of the value depends on the users' keyboard layout</span>
+  <span class="token comment">// which cannot be detected. Assuming that it is a US keyboard layout</span>
+  <span class="token comment">// provides a surprisingly accurate mapping for US and European users.</span>
+  <span class="token comment">// Due to this, it is left to the user to implement at this time.</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'keydown'</span> <span class="token operator">||</span> event<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'keyup'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> event<span class="token punctuation">.</span>keyCode<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Here, it is said that the value of <code>keyCode</code> actually depends on the keyboard, meaning that some keyboards may produce different <code>keyCode</code>s. However, since most users in the US and Europe use a US keyboard, <code>keyCode</code> is simply returned without special handling.</p>
+<p>Actually, I didn’t fully understand this part, I just guessed the meaning roughly. The “keyboard layout” referred to here may be a layout like QWERTY or Dvorak, where the arrangement of keys is completely different. But if this results in different <code>keyCode</code>s, does that mean that some websites may have bugs?</p>
+<p>However, most people have the same keyboard layout, so this issue doesn’t seem to be a big concern.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function-variable function">which</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">event</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// `which` is an alias for either `keyCode` or `charCode` depending on the</span>
+  <span class="token comment">// type of the event.</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'keypress'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token function">getEventCharCode</span><span class="token punctuation">(</span>event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'keydown'</span> <span class="token operator">||</span> event<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'keyup'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> event<span class="token punctuation">.</span>keyCode<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Finally, for <code>which</code>, if it is <code>keypress</code>, <code>charCode</code> is returned, and if it is <code>keydown</code> or <code>keyup</code>, <code>keyCode</code> is returned.</p>
+<p>So far, we have seen how React handles <code>charCode</code>, <code>keyCode</code>, and <code>which</code>. <code>charCode</code> checks for special cases and browser compatibility, <code>keyCode</code> is simply returned, and <code>which</code> returns the corresponding value depending on the event.</p>
+<p>Finally, let’s take a look at how <code>key</code> is handled, which is in another file called <code>getEventKey.js</code>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">/**
+ * Normalization of deprecated HTML5 `key` values
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent#Key_names
+ */</span>
+<span class="token keyword">const</span> normalizeKey <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">Esc</span><span class="token operator">:</span> <span class="token string">'Escape'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">Spacebar</span><span class="token operator">:</span> <span class="token string">' '</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">Left</span><span class="token operator">:</span> <span class="token string">'ArrowLeft'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">Up</span><span class="token operator">:</span> <span class="token string">'ArrowUp'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">Right</span><span class="token operator">:</span> <span class="token string">'ArrowRight'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">Down</span><span class="token operator">:</span> <span class="token string">'ArrowDown'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">Del</span><span class="token operator">:</span> <span class="token string">'Delete'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">Win</span><span class="token operator">:</span> <span class="token string">'OS'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">Menu</span><span class="token operator">:</span> <span class="token string">'ContextMenu'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">Apps</span><span class="token operator">:</span> <span class="token string">'ContextMenu'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">Scroll</span><span class="token operator">:</span> <span class="token string">'ScrollLock'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">MozPrintableKey</span><span class="token operator">:</span> <span class="token string">'Unidentified'</span><span class="token punctuation">,</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+  
+<span class="token comment">/**
+ * Translation from legacy `keyCode` to HTML5 `key`
+ * Only special keys supported, all others depend on keyboard layout or browser
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent#Key_names
+ */</span>
+<span class="token keyword">const</span> translateToKey <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token string-property property">'8'</span><span class="token operator">:</span> <span class="token string">'Backspace'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'9'</span><span class="token operator">:</span> <span class="token string">'Tab'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'12'</span><span class="token operator">:</span> <span class="token string">'Clear'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'13'</span><span class="token operator">:</span> <span class="token string">'Enter'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'16'</span><span class="token operator">:</span> <span class="token string">'Shift'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'17'</span><span class="token operator">:</span> <span class="token string">'Control'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'18'</span><span class="token operator">:</span> <span class="token string">'Alt'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'19'</span><span class="token operator">:</span> <span class="token string">'Pause'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'20'</span><span class="token operator">:</span> <span class="token string">'CapsLock'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'27'</span><span class="token operator">:</span> <span class="token string">'Escape'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'32'</span><span class="token operator">:</span> <span class="token string">' '</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'33'</span><span class="token operator">:</span> <span class="token string">'PageUp'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'34'</span><span class="token operator">:</span> <span class="token string">'PageDown'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'35'</span><span class="token operator">:</span> <span class="token string">'End'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'36'</span><span class="token operator">:</span> <span class="token string">'Home'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'37'</span><span class="token operator">:</span> <span class="token string">'ArrowLeft'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'38'</span><span class="token operator">:</span> <span class="token string">'ArrowUp'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'39'</span><span class="token operator">:</span> <span class="token string">'ArrowRight'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'40'</span><span class="token operator">:</span> <span class="token string">'ArrowDown'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'45'</span><span class="token operator">:</span> <span class="token string">'Insert'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'46'</span><span class="token operator">:</span> <span class="token string">'Delete'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'112'</span><span class="token operator">:</span> <span class="token string">'F1'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'113'</span><span class="token operator">:</span> <span class="token string">'F2'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'114'</span><span class="token operator">:</span> <span class="token string">'F3'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'115'</span><span class="token operator">:</span> <span class="token string">'F4'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'116'</span><span class="token operator">:</span> <span class="token string">'F5'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'117'</span><span class="token operator">:</span> <span class="token string">'F6'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'118'</span><span class="token operator">:</span> <span class="token string">'F7'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'119'</span><span class="token operator">:</span> <span class="token string">'F8'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'120'</span><span class="token operator">:</span> <span class="token string">'F9'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'121'</span><span class="token operator">:</span> <span class="token string">'F10'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'122'</span><span class="token operator">:</span> <span class="token string">'F11'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'123'</span><span class="token operator">:</span> <span class="token string">'F12'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'144'</span><span class="token operator">:</span> <span class="token string">'NumLock'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'145'</span><span class="token operator">:</span> <span class="token string">'ScrollLock'</span><span class="token punctuation">,</span>
+  <span class="token string-property property">'224'</span><span class="token operator">:</span> <span class="token string">'Meta'</span><span class="token punctuation">,</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+  
+<span class="token comment">/**
+ * @param &#123;object&#125; nativeEvent Native browser event.
+ * @return &#123;string&#125; Normalized `key` property.
+ */</span>
+<span class="token keyword">function</span> <span class="token function">getEventKey</span><span class="token punctuation">(</span><span class="token parameter"><span class="token literal-property property">nativeEvent</span><span class="token operator">:</span> KeyboardEvent</span><span class="token punctuation">)</span><span class="token operator">:</span> string <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>nativeEvent<span class="token punctuation">.</span>key<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// Normalize inconsistent values reported by browsers due to</span>
+    <span class="token comment">// implementations of a working draft specification.</span>
+  
+    <span class="token comment">// FireFox implements `key` but returns `MozPrintableKey` for all</span>
+    <span class="token comment">// printable characters (normalized to `Unidentified`), ignore it.</span>
+    <span class="token keyword">const</span> key <span class="token operator">=</span> normalizeKey<span class="token punctuation">[</span>nativeEvent<span class="token punctuation">.</span>key<span class="token punctuation">]</span> <span class="token operator">||</span> nativeEvent<span class="token punctuation">.</span>key<span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>key <span class="token operator">!==</span> <span class="token string">'Unidentified'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> key<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token comment">// Browser does not implement `key`, polyfill as much of it as we can.</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>nativeEvent<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'keypress'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> charCode <span class="token operator">=</span> <span class="token function">getEventCharCode</span><span class="token punctuation">(</span>nativeEvent<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+    <span class="token comment">// The enter-key is technically both printable and non-printable and can</span>
+    <span class="token comment">// thus be captured by `keypress`, no other non-printable key should.</span>
+    <span class="token keyword">return</span> charCode <span class="token operator">===</span> <span class="token number">13</span> <span class="token operator">?</span> <span class="token string">'Enter'</span> <span class="token operator">:</span> String<span class="token punctuation">.</span><span class="token function">fromCharCode</span><span class="token punctuation">(</span>charCode<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>nativeEvent<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'keydown'</span> <span class="token operator">||</span> nativeEvent<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'keyup'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// While user keyboard layout determines the actual meaning of each</span>
+    <span class="token comment">// `keyCode` value, almost all function keys have a universal value.</span>
+    <span class="token keyword">return</span> translateToKey<span class="token punctuation">[</span>nativeEvent<span class="token punctuation">.</span>keyCode<span class="token punctuation">]</span> <span class="token operator">||</span> <span class="token string">'Unidentified'</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> <span class="token string">''</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Here, processing is also done for browser compatibility. If the event already has a <code>key</code>, it is first normalized to return the result in a consistent format. FireFox sets all printable characters to <code>MozPrintableKey</code>, which is normalized to <code>Unidentified</code>.</p>
+<p>If the normalized <code>key</code> is not <code>Unidentified</code>, it is returned, otherwise further processing is done.</p>
+<p>This further processing refers to polyfilling. If there is no <code>key</code> available, processing is done based on <code>charCode</code> or <code>keyCode</code> to return the corresponding character or key name.</p>
+<p>That’s about it for how React handles these keyboard-related events.</p>
+<p>The code comments are well written and provide a lot of relevant information. The code is short and not complicated, and it looks easy to read, making it a good entry point for beginners.</p>
+<h2><span id="conclusion">Conclusion</span></h2><p>I’ve used these keyboard-related events so many times before, but I’ve never thought about their differences. Either I just wrote something and it caused a bug, or I just copied the best answer from Stack Overflow without really understanding the differences.</p>
+<p>This time, I happened to delve into it because I wanted to help someone, and I didn’t expect that a simple keyboard event would be so deep. You may need to step on a few mines to really appreciate it. The most troublesome thing is actually browser compatibility, as each browser may have its own implementation, and how to handle these different situations is the tricky part.</p>
+<p>When it comes to React source code, what most people think of is the rendering mechanism or component handling, which is very complex and requires a certain understanding of the overall architecture to understand. </p>
+<p>This article chose to start with keyboard events to see how React handles them. I believe everyone can understand the code and it doesn’t seem particularly difficult. I just want to tell you that if you want to study other people’s source code, you don’t necessarily have to understand the whole project, you can start with some small parts. You can learn a lot from it.</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/React/">#React</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Front-end/">#Front-end</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2019/04/19/en/fix-spectrum-bug/">My Experience Fixing a Bug in the Open Source Project Spectrum</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2019/02/23/en/javascript-what-is-this/">Understanding JavaScript&#39;s Number One Headache: this</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2019/03/24/react-keypress-keydown/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Android App Reverse Engineering Part 4: Dynamic Analysis with Frida - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2023/04/27/android-apk-decompile-intro-4/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2023/04/27/en/android-apk-decompile-intro-4/">
+    
+
+
+
+
+
+    <meta name="description" content="In the previous articles, we talked about static analysis, which means we didn’t actually run the app. Instead, we studied the logic of the app’s operation through decompiled code and modified the cod">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Android App Reverse Engineering Part 4: Dynamic Analysis with Frida">
+<meta property="og:url" content="https://blog.huli.tw/2023/04/27/en/android-apk-decompile-intro-4/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="In the previous articles, we talked about static analysis, which means we didn’t actually run the app. Instead, we studied the logic of the app’s operation through decompiled code and modified the cod">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/android-apk-decompile-intro-4/cover-en.png">
+<meta property="article:published_time" content="2023-04-27T07:10:44.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:10:49.041Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/android-apk-decompile-intro-4/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Android App Reverse Engineering Part 4: Dynamic Analysis with Frida" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#tool-introduction-frida">1&nbsp;&nbsp;<b>Tool Introduction: Frida</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#basic-usage-of-frida">2&nbsp;&nbsp;<b>Basic Usage of Frida</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#bypassing-root-detection-with-frida">3&nbsp;&nbsp;<b>Bypassing Root Detection with Frida</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#other-frida-tips">4&nbsp;&nbsp;<b>Other Frida Tips</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#print-stack-trace">4.1&nbsp;&nbsp;Print stack trace</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#hook-reflect-related-methods">4.2&nbsp;&nbsp;Hook Reflect-related methods</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#hook-string-operations">4.3&nbsp;&nbsp;Hook string operations</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#hook-encryption-and-decryption-related-operations">4.4&nbsp;&nbsp;Hook encryption and decryption-related operations</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#ssl-pinning">5&nbsp;&nbsp;<b>SSL Pinning</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#detecting-frida">6&nbsp;&nbsp;<b>Detecting Frida</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">7&nbsp;&nbsp;<b>Conclusion</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2023/04/27/android-apk-decompile-intro-4/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Android App Reverse Engineering Part 4: Dynamic Analysis with Frida
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2023-04-27T07:10:44.000Z" itemprop="datePublished">27 April 2023</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>In the previous articles, we talked about static analysis, which means we didn’t actually run the app. Instead, we studied the logic of the app’s operation through decompiled code and modified the code before repackaging and executing it.</p>
+<p>Dynamic analysis, on the other hand, means that we will run the app and use various methods to hook various methods to monitor the input and output of certain methods, and even tamper with them.</p>
+<p>In this article, let’s learn how to use Frida for dynamic analysis.</p>
+<span id="more"></span>
+
+<p>Series links:</p>
+<ol>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-1/">Android App Reverse Engineering Part 1: Decompiling and Rebuilding APKs</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-2/">Android App Reverse Engineering Part 2: Modifying Smali Code</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-3/">Android App Reverse Engineering Part 3: Monitoring App Packets</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-4/">Android App Reverse Engineering Part 4: Dynamic Analysis with Frida</a></li>
+</ol>
+<h2><span id="tool-introduction-frida">Tool Introduction: Frida</span></h2><p>The dynamic analysis tool we will be using this time is <a target="_blank" rel="noopener" href="https://frida.re/">Frida</a>. The official website describes it as a “Dynamic instrumentation toolkit for developers, reverse-engineers, and security researchers.” It can be used for dynamic analysis on not only Android but also other platforms.</p>
+<p>There is a tool called Objection that is based on Frida, and it is recommended to install it directly because it will also install Frida. Installation instructions can be found here: <a target="_blank" rel="noopener" href="https://github.com/sensepost/objection/wiki/Installation">https://github.com/sensepost/objection/wiki/Installation</a></p>
+<p>To use Frida, it must be installed on both the phone and the computer. Installation instructions can be found on the official website: <a target="_blank" rel="noopener" href="https://frida.re/docs/installation/">https://frida.re/docs/installation/</a></p>
+<p>Also, if you have Frida installed on your phone but are switching to a different computer, make sure to install the same version. The steps are:</p>
+<ol>
+<li>Check the version of Frida on your phone: <code>frida-server --version</code>, assuming it is 15.1.14.</li>
+<li>Find the version number of frida-tools here: <a target="_blank" rel="noopener" href="https://github.com/frida/frida/releases/tag/15.1.14">https://github.com/frida/frida/releases/tag/15.1.14</a></li>
+<li>Install these two on your computer:</li>
+</ol>
+<pre class="line-numbers language-none"><code class="language-none">pip install frida&#x3D;&#x3D;15.1.14
+pip install frida-tools&#x3D;&#x3D;10.4.1<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>Make sure the version numbers match, or you will encounter errors.</p>
+<p>Although Frida may seem like it requires root access, there are actually two ways to run it: one that requires root access and one that does not.</p>
+<p>To use the version that requires root access, install frida-server on your phone. Details can be found on the official website: <a target="_blank" rel="noopener" href="https://frida.re/docs/android/">https://frida.re/docs/android/</a></p>
+<p>Basically, you just need to run an executable on your phone with root privileges. If it is not the default root when you run the file, you can use <code>adb shell</code> to change it:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">adb shell
+
+<span class="token comment"># kill old process</span>
+<span class="token function">ps</span> <span class="token parameter variable">-e</span> <span class="token operator">|</span> <span class="token function">grep</span> frida-server
+<span class="token function">kill</span> <span class="token parameter variable">-9</span> <span class="token punctuation">&#123;</span>your_process_id<span class="token punctuation">&#125;</span>
+
+<span class="token comment"># run as root</span>
+<span class="token function">su</span>
+/data/local/tmp/frida-server <span class="token operator">&amp;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>After running it, you can use <code>frida-ps -U</code> to confirm that it is running.</p>
+<p>The second method, which does not require root access, involves modifying the APK. You add a Frida so file to the APK and add a line of <code>System.loadLibrary()</code> at the entry point to use Frida. Details can be found in the wiki: <a target="_blank" rel="noopener" href="https://github.com/sensepost/objection/wiki/Patching-Android-Applications">https://github.com/sensepost/objection/wiki/Patching-Android-Applications</a></p>
+<p>You don’t need to execute the above process yourself; there are ready-made commands to help you. If you can’t package it, you can use this command:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">objection patchapk <span class="token parameter variable">--source</span> test.apk --skip-resources --ignore-nativelibs<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>If it still doesn’t work, you can use the knowledge we learned earlier to modify it yourself. First, use <code>apktool d</code> to unpack the packaged APK, then modify the contents yourself. For example, sometimes there may be an alignment issue with the so file, so you can change <code>android:extractNativeLibs</code> in <code>AndroidManifest.xml</code> to true and then repack it.</p>
+<h2><span id="basic-usage-of-frida">Basic Usage of Frida</span></h2><p>First, let’s talk about what Frida does. The most common use case is to write some code to hook functions. Hooking means that you can override the implementation of any function, observe input and output, and change the return value of the function.</p>
+<p>These codes are written in JavaScript and injected into the app when it is launched. In my experience, after seeing more examples, it is quite easy to get started.</p>
+<p>Instead of talking so much, let’s try it out. The sample app used this time is the same as the first article, which is an app that checks whether the device is rooted after pressing a button: <a target="_blank" rel="noopener" href="https://github.com/aszx87410/demo/raw/master/android/demoapp.apk">https://github.com/aszx87410/demo/raw/master/android/demoapp.apk</a></p>
+<p>After opening this app, the default activity will be <code>com.cymetrics.demo/MainActivity</code>. Let’s hook the onCreate method of this class.</p>
+<p>First, create a file named <code>script.js</code> with the following content:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> MainActivity <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'com.cymetrics.demo.MainActivity'</span><span class="token punctuation">)</span>
+    MainActivity<span class="token punctuation">.</span>onCreate<span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'MainActivity onCreate'</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">setImmediate</span><span class="token punctuation">(</span>run<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Then run the command:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">frida <span class="token parameter variable">-U</span> --no-pause <span class="token parameter variable">-l</span> script.js <span class="token parameter variable">-f</span> <span class="token string">"com.cymetrics.demo"</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>If you don’t have root, the startup method will be different. First, patch the app as mentioned above, then install it on your phone, and then enter the following command in the terminal:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">frida <span class="token parameter variable">-U</span> Gadget <span class="token parameter variable">-l</span> script.js<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Then you should see a new log line on your terminal, which is <code>MainActivity onCreate</code>, and the app on your phone crashes. This is normal.</p>
+<p>Let’s briefly talk about the basic structure of Frida scripts. The starting point is:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// code</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">setImmediate</span><span class="token punctuation">(</span>run<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Then it depends on what method you want to hook. In our previous code, we first use <code>Java.use</code> to get the class we want to hook, and then use <code>MainActivity.onCreate.implementation</code> to replace the original implementation with our own function.</p>
+<p>Why did the app crash after hooking? Because the function we implemented ourselves did nothing except log, which means that everything the original onCreate should have done was removed, so the crash is reasonable. To find out the root cause of the crash, you can use <code>adb logcat | grep AndroidRuntime</code>:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">android.util.SuperNotCalledException: Activity <span class="token punctuation">&#123;</span>com.cymetrics.demo/com.cymetrics.demo.MainActivity<span class="token punctuation">&#125;</span> did not call through to super.onCreate<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>So what should we do? Just remember to call the original implementation at the end, like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> MainActivity <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'com.cymetrics.demo.MainActivity'</span><span class="token punctuation">)</span>
+    MainActivity<span class="token punctuation">.</span>onCreate<span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'MainActivity onCreate'</span><span class="token punctuation">)</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">onCreate</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">setImmediate</span><span class="token punctuation">(</span>run<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>this</code> will be the original MainActivity, and <code>this.onCreate.call</code> can call the original implementation, with the first parameter of the call method being <code>this</code>, followed by the parameters.</p>
+<p>After executing the above script, another error will appear:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">Error: onCreate<span class="token punctuation">(</span><span class="token punctuation">)</span>: argument types <span class="token keyword">do</span> not match any of:
+  .overload<span class="token punctuation">(</span><span class="token string">'android.os.Bundle'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>This is because onCreate should actually have parameters, but we did not receive any parameters when we overrode it, so an error occurred. To avoid this problem, I would recommend adding <code>.overload()</code> at the beginning when overriding the implementation, like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">MainActivity<span class="token punctuation">.</span>onCreate<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Frida will then show an error message again to tell you what the correct parameters should be, so you can follow it. Finally, it will look like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> MainActivity <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'com.cymetrics.demo.MainActivity'</span><span class="token punctuation">)</span>
+    MainActivity<span class="token punctuation">.</span>onCreate<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">'android.os.Bundle'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">a</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'MainActivity onCreate'</span><span class="token punctuation">)</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">onCreate</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> a<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">setImmediate</span><span class="token punctuation">(</span>run<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In this way, you can know what the parameters are, and you can also pass in parameters when calling the original implementation, so there will be no errors.</p>
+<p>Since we can insert code, we can do a lot of things, such as displaying a new message directly on the UI:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> MainActivity <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'com.cymetrics.demo.MainActivity'</span><span class="token punctuation">)</span>
+    MainActivity<span class="token punctuation">.</span>onCreate<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">'android.os.Bundle'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">a</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'MainActivity onCreate'</span><span class="token punctuation">)</span>
+      <span class="token comment">// Toast should be run on the main thread(UI thread)</span>
+      Java<span class="token punctuation">.</span><span class="token function">scheduleOnMainThread</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">var</span> Toast <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">"android.widget.Toast"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">var</span> currentApplication <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'android.app.ActivityThread'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">currentApplication</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">// We need context for displaying the Toast</span>
+        <span class="token keyword">var</span> context <span class="token operator">=</span> currentApplication<span class="token punctuation">.</span><span class="token function">getApplicationContext</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        Toast<span class="token punctuation">.</span><span class="token function">makeText</span><span class="token punctuation">(</span>
+          context<span class="token punctuation">,</span>
+          <span class="token comment">// The type should be correct</span>
+          Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">"java.lang.String"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>$<span class="token keyword">new</span><span class="token punctuation">(</span><span class="token string">"Hello!"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+          Toast<span class="token punctuation">.</span><span class="token constant">LENGTH_SHORT</span><span class="token punctuation">.</span>value
+        <span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">show</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">onCreate</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> a<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">setImmediate</span><span class="token punctuation">(</span>run<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Code from: <a target="_blank" rel="noopener" href="https://gist.github.com/myzhan/ab13068463cd7f77b7f06ae561ea853a">makeToast.js</a>.</p>
+<h2><span id="bypassing-root-detection-with-frida">Bypassing Root Detection with Frida</span></h2><p>In our previous article, we bypassed root detection by directly modifying the smali code and patching the function that performs the detection. With Frida, we don’t need to modify the smali code anymore. We can directly hook the function that performs the detection and replace its implementation, like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> RootBeer <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'com.scottyab.rootbeer.RootBeer'</span><span class="token punctuation">)</span>    
+    RootBeer<span class="token punctuation">.</span>isRooted<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'bypass rootbeer'</span><span class="token punctuation">)</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">setImmediate</span><span class="token punctuation">(</span>run<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Yes, it’s that easy.</p>
+<p>You may ask, how do we know to hook this function? This part still requires static analysis. From static analysis, we know that this function is doing a check, so we use Frida to hook this function.</p>
+<p>For myself, I usually use two methods in combination. First, I disassemble and statically analyze the code, take a quick look at the code, and then use Frida to hook it to see if I can achieve what I want. If I can, I will go to the corresponding place in smali and then repack the app. This way, I can execute the process I want even on a phone without Frida.</p>
+<p>In fact, the basic use of Frida is like this. The rest depends on understanding of the code and Android development to determine which function to hook.</p>
+<h2><span id="other-frida-tips">Other Frida Tips</span></h2><p>Below are some Frida tips that I found on the internet and have used in practice for your reference.</p>
+<h3><span id="print-stack-trace">Print stack trace</span></h3><p>Suppose an app has a check mechanism that detects whether it has root, and the source code is obfuscated, making it difficult to trace. However, when checking, it will output check-related information using Log.d. At this time, we can hook Log.d and use <code>Log.getStackTraceString</code> to output the stack trace to know where this function is called:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> Log <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">"android.util.Log"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">var</span> Exception <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">"java.lang.Exception"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+Log<span class="token punctuation">.</span>d<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">"java.lang.String"</span><span class="token punctuation">,</span> <span class="token string">"java.lang.String"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span> b</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+   <span class="token keyword">if</span> <span class="token punctuation">(</span>b<span class="token punctuation">.</span><span class="token function">indexOf</span><span class="token punctuation">(</span><span class="token string">'root'</span><span class="token punctuation">)</span> <span class="token operator">>=</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// print stack trace</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>Log<span class="token punctuation">.</span><span class="token function">getStackTraceString</span><span class="token punctuation">(</span> Exception<span class="token punctuation">.</span>$<span class="token keyword">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+   <span class="token punctuation">&#125;</span>
+   <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span>d<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">"java.lang.String"</span><span class="token punctuation">,</span> <span class="token string">"java.lang.String"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> a<span class="token punctuation">,</span> b<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="hook-reflect-related-methods">Hook Reflect-related methods</span></h3><p>In Java, in addition to calling methods directly, you can also call them through reflection (Reflect). Some obfuscated programs use this technique extensively to enhance the difficulty of static analysis. We can print out every dynamically called method to see if there are any clues:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// hook Class.forName</span>
+<span class="token keyword">var</span> JavaClass <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'java.lang.Class'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+JavaClass<span class="token punctuation">.</span>forName<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">'java.lang.String'</span><span class="token punctuation">,</span> <span class="token string">'boolean'</span><span class="token punctuation">,</span> <span class="token string">'java.lang.ClassLoader'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">name<span class="token punctuation">,</span> b<span class="token punctuation">,</span> c</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'Class.forName'</span><span class="token punctuation">,</span> name<span class="token punctuation">)</span>
+  <span class="token comment">// we can log all methods in certain class</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>name<span class="token punctuation">.</span><span class="token function">indexOf</span><span class="token punctuation">(</span><span class="token string">'cymetrics'</span><span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> TargetClass <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span>name<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">var</span> methodsList <span class="token operator">=</span> TargetClass<span class="token punctuation">.</span>class<span class="token punctuation">.</span><span class="token function">getDeclaredMethods</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">var</span> k<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span> k<span class="token operator">&lt;</span>methodsList<span class="token punctuation">.</span>length<span class="token punctuation">;</span> k<span class="token operator">++</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>methodsList<span class="token punctuation">[</span>k<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>  
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span>forName<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">'java.lang.String'</span><span class="token punctuation">,</span> <span class="token string">'boolean'</span><span class="token punctuation">,</span> <span class="token string">'java.lang.ClassLoader'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> name<span class="token punctuation">,</span> b<span class="token punctuation">,</span> c<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// hook Method.invoke</span>
+<span class="token keyword">var</span> Method <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'java.lang.reflect.Method'</span><span class="token punctuation">)</span>
+Method<span class="token punctuation">.</span>invoke<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">'java.lang.Object'</span><span class="token punctuation">,</span> <span class="token string">'[Ljava.lang.Object;'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span>b</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'reflect'</span><span class="token punctuation">,</span> a<span class="token punctuation">,</span> b<span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">invoke</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span>a<span class="token punctuation">,</span>b<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="hook-string-operations">Hook string operations</span></h3><p>Some obfuscated programs will scramble all the fixed strings in the program through various steps to make them difficult to search, such as turning strings into numbers and then restoring them. Usually, when restoring, string operations will be performed. At this time, we can directly hook the string operations and use the stack trace mentioned earlier to trace:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">[</span><span class="token string">'java.lang.StringBuilder'</span><span class="token punctuation">,</span> <span class="token string">'java.lang.StringBuffer'</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">forEach</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">clazz<span class="token punctuation">,</span> i</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span>clazz<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'toString'</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> ret <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'ret:'</span><span class="token punctuation">,</span> ret<span class="token punctuation">)</span>
+    <span class="token keyword">return</span> ret<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>   
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="hook-encryption-and-decryption-related-operations">Hook encryption and decryption-related operations</span></h3><p>Usually, in an Android app, if you want to perform encryption and decryption, you will use the built-in API, like this (source: <a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1647740">AES encryption in Android–Part 1</a>):</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token class-name">String</span> <span class="token constant">CODE_TYPE</span> <span class="token operator">=</span> <span class="token string">"UTF-8"</span><span class="token punctuation">;</span>
+<span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token class-name">String</span> <span class="token constant">AES_TYPE</span> <span class="token operator">=</span> <span class="token string">"AES/ECB/PKCS5Padding"</span><span class="token punctuation">;</span>
+<span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token class-name">String</span> <span class="token constant">AES_KEY</span><span class="token operator">=</span><span class="token string">"1111222233334444"</span><span class="token punctuation">;</span>
+
+<span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token class-name">String</span> <span class="token function">encrypt</span><span class="token punctuation">(</span><span class="token class-name">String</span> cleartext<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+        <span class="token class-name">SecretKeySpec</span> key <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">SecretKeySpec</span><span class="token punctuation">(</span><span class="token constant">AES_KEY</span><span class="token punctuation">.</span><span class="token function">getBytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">"AES"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token class-name">Cipher</span> cipher <span class="token operator">=</span> <span class="token class-name">Cipher</span><span class="token punctuation">.</span><span class="token function">getInstance</span><span class="token punctuation">(</span><span class="token constant">AES_TYPE</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        cipher<span class="token punctuation">.</span><span class="token function">init</span><span class="token punctuation">(</span><span class="token class-name">Cipher</span><span class="token punctuation">.</span><span class="token constant">ENCRYPT_MODE</span><span class="token punctuation">,</span> key<span class="token punctuation">)</span><span class="token punctuation">;</span> 
+        <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> encryptedData <span class="token operator">=</span> cipher<span class="token punctuation">.</span><span class="token function">doFinal</span><span class="token punctuation">(</span>cleartext<span class="token punctuation">.</span><span class="token function">getBytes</span><span class="token punctuation">(</span><span class="token constant">CODE_TYPE</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token class-name">Base64</span><span class="token punctuation">.</span><span class="token function">encodeToString</span><span class="token punctuation">(</span>encryptedData<span class="token punctuation">,</span><span class="token class-name">Base64</span><span class="token punctuation">.</span><span class="token constant">DEFAULT</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span><span class="token class-name">Exception</span> e<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        e<span class="token punctuation">.</span><span class="token function">printStackTrace</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token string">""</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Therefore, as long as you can hook methods like <code>SecretKeySpec</code> or <code>doFinal</code>, you can intercept the key and plaintext before encryption.</p>
+<p>This article is worth reading: <a target="_blank" rel="noopener" href="https://labs.f-secure.com/blog/how-secure-is-your-android-keystore-authentication/">How Secure is your Android Keystore Authentication?</a>, which includes a bunch of Frida scripts related to encryption and decryption. Here: <a target="_blank" rel="noopener" href="https://github.com/FSecureLABS/android-keystore-audit/blob/master/frida-scripts/tracer-cipher.js">https://github.com/FSecureLABS/android-keystore-audit/blob/master/frida-scripts/tracer-cipher.js</a></p>
+<p>By the way, the script does not directly convert byte arrays to strings. Here is a more convenient way (source: <a target="_blank" rel="noopener" href="https://lingwu111.github.io/frida%E5%B0%8F%E6%8A%80%E5%B7%A7%E4%B9%8Bstring%E4%B8%8Ebyte%E8%BD%AC%E5%8C%96.html">frida小技巧之string与byte转化</a>):</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">bytesToString</span><span class="token punctuation">(</span><span class="token parameter">bytes</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> javaString <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'java.lang.String'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> javaString<span class="token punctuation">.</span>$<span class="token keyword">new</span><span class="token punctuation">(</span>bytes<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">var</span> Base64 <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'android.util.Base64'</span><span class="token punctuation">)</span>
+Base64<span class="token punctuation">.</span>decode<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">'[B'</span><span class="token punctuation">,</span> <span class="token string">'int'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span> b</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token function">bytesToString</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">decode</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> a<span class="token punctuation">,</span> b<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2><span id="ssl-pinning">SSL Pinning</span></h2><p>I saw a great script in <a target="_blank" rel="noopener" href="https://httptoolkit.tech/blog/frida-certificate-pinning/">Defeating Android Certificate Pinning with Frida</a> that automatically hooks various functions that do SSL pinning, allowing you to bypass this mechanism. I saved a copy here: <a target="_blank" rel="noopener" href="https://gist.github.com/aszx87410/f7ae60826d436d8e5bd17deb3e40c249">https://gist.github.com/aszx87410/f7ae60826d436d8e5bd17deb3e40c249</a></p>
+<p>After saving, run it like this:</p>
+<pre class="line-numbers language-none"><code class="language-none">frida -U --no-pause -l ssl.js -f &quot;com.example&quot;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h2><span id="detecting-frida">Detecting Frida</span></h2><p>Since Frida is so powerful, some app security mechanisms naturally want to block it. Once Frida is detected, the app will either exit directly or cause a crash. You can refer to the following two articles:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/f679cb404524">Android Reverse Engineering: Multiple Feature Detection of Frida</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/zhangmiaoping23/article/details/109697329">Multiple Feature Detection of Frida</a></li>
+</ol>
+<p>There are many ways to anti-detection, one of which is to hook the various methods mentioned in the above articles. After all, we have root privileges and Frida hook in front, so as long as we know how it is judged, we can definitely remove the check. If you can’t find the check, you can use various hooks mentioned above to find it out step by step.</p>
+<h2><span id="conclusion">Conclusion</span></h2><p>In this article, we introduced the basic usage of Frida and learned how to use Frida to hook various methods to obtain various information we want.</p>
+<p>In the first four articles, we covered some basic things, including:</p>
+<ol>
+<li>Basic Android App composition</li>
+<li>How to use Apktool to unpack and repack apk</li>
+<li>How to use jadx to restore smali to java files</li>
+<li>Familiar with a little bit of smali syntax, know how to modify code and add code</li>
+<li>How to intercept packets through a proxy on a computer</li>
+<li>How to modify the apk to allow the proxy to intercept smoothly</li>
+<li>How to use Frida to hook function</li>
+<li>Various tricks of Frida</li>
+</ol>
+<p>If you go further, you will enter the field of native.</p>
+<p>In addition to using Java to write Android Apps, you can also use <a target="_blank" rel="noopener" href="https://developer.android.com/ndk">Android NDK</a> to write code in C&#x2F;C++, which can be provided to Android apps.</p>
+<p>When do you need it? The first is the more performance-consuming places, such as image recognition, using C++ to write will be faster than Java, so native is usually used. The second is some more secretive operations, such as encryption and decryption. If placed in the Java layer, it is easy to decompile and see what is being done. If written in native, more binary-related knowledge is required to crack it.</p>
+<p>In addition, the apps in the real world are not as simple as the apps we demonstrated earlier. They may be encapsulated or more strongly obfuscated. Even if the apk can be unpacked, if the shell cannot be removed, the real logic cannot be seen. Some shells also have mechanisms for anti-tampering and anti-dynamic analysis, which can block attackers with insufficient skills. Relevant introductions can refer to the agenda of <a target="_blank" rel="noopener" href="http://confapi.ithome.com.tw/session/4186">2019 Taiwan Cyber Security Week</a>: <a target="_blank" rel="noopener" href="https://s.itho.me/cybersec/2019/slides/321/I_%E4%B8%96%E8%B2%BF%E4%B8%89/0321I51610%E7%8E%8B%E7%BE%BF%E5%BB%B7.pdf">Building a Secure and Convenient App Security Protection Product</a></p>
+<p>The reason why this series is called “Introduction” is because it completely does not mention the practical things that will be encountered, and only focuses on the basics and tools of the introduction. However, for apps without special obfuscation or encapsulation, this should be enough.</p>
+<p>References:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/hookmaster/frida-all-in-one">Frida Handbook</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.giantbranch.cn/2019/10/25/%E7%BF%BB%E8%AF%91%E2%80%94%E2%80%94N%E7%A7%8D%E8%84%B1%E5%A3%B3%E5%AE%89%E5%8D%93%E6%81%B6%E6%84%8F%E8%BD%AF%E4%BB%B6%E7%9A%84%E6%96%B9%E5%BC%8F/">Translation-N Ways to Unpack Android Malware</a></li>
+<li><a target="_blank" rel="noopener" href="https://kevinspider.github.io/fridahookjava/">frida hook java</a></li>
+<li><a target="_blank" rel="noopener" href="https://juejin.cn/post/6847902219757420552#heading-39">This is probably the most detailed notes for learning Frida</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/iddoeldor/frida-snippets#class-description">frida-snippets</a></li>
+<li><a target="_blank" rel="noopener" href="https://book.hacktricks.xyz/mobile-apps-pentesting/android-app-pentesting/frida-tutorial">Frida Tutorial</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.anquanke.com/post/id/197657">Practical FRIDA Advanced: Memory Roaming, Hook Anywhere, Packet Capture</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2023/06/12/en/redos-regular-expression-denial-of-service/">ReDoS: Attacks using regexp</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2023/04/27/en/android-apk-decompile-intro-3/">Android App Reverse Engineering Part 3: Monitoring App Packets</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2023/04/27/android-apk-decompile-intro-4/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

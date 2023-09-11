@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>記一次幫開源專案 spectrum 修 bug 的經歷 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2019/04/19/en/fix-spectrum-bug/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2019/04/19/fix-spectrum-bug/">
+    
+
+
+
+
+
+    <meta name="description" content="前言最近又開始了自己的教學計畫，第一期的時候寫了這篇：利用 Github Classroom 加 Travis CI 打造改作業系統，第二期寫了這篇：AWS Lambda + GitHub API + Google Sheet &#x3D; 自動化簽到系統，都是利用現成工具來快速湊出符合自己需求的系統。 而第三期開始前我希望課程能有個討論區，讓學生們可以在上面很方便地問問題。一直以來都是用 Sla">
+<meta property="og:type" content="article">
+<meta property="og:title" content="記一次幫開源專案 spectrum 修 bug 的經歷">
+<meta property="og:url" content="https://blog.huli.tw/2019/04/19/fix-spectrum-bug/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言最近又開始了自己的教學計畫，第一期的時候寫了這篇：利用 Github Classroom 加 Travis CI 打造改作業系統，第二期寫了這篇：AWS Lambda + GitHub API + Google Sheet &#x3D; 自動化簽到系統，都是利用現成工具來快速湊出符合自己需求的系統。 而第三期開始前我希望課程能有個討論區，讓學生們可以在上面很方便地問問題。一直以來都是用 Sla">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/56428306-791b8d80-62f1-11e9-9cad-ac46ddc8052c.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/56428318-85074f80-62f1-11e9-9134-4f9138eeb035.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/56428324-8a649a00-62f1-11e9-88d2-f95f8c39b66d.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/56428342-97818900-62f1-11e9-9771-d8f85426e079.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/56428348-9cded380-62f1-11e9-9136-0c3283be8505.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/56428350-a1a38780-62f1-11e9-9bf0-884030c56f93.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/56428356-a7996880-62f1-11e9-98fd-7670bf8b38fa.png">
+<meta property="article:published_time" content="2019-04-19T12:10:00.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.480Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Others">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://user-images.githubusercontent.com/2755720/56428306-791b8d80-62f1-11e9-9cad-ac46ddc8052c.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="記一次幫開源專案 spectrum 修 bug 的經歷" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#事情沒有那麼順利">2&nbsp;&nbsp;<b>事情沒有那麼順利…</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#修-bug-之旅">3&nbsp;&nbsp;<b>修 bug 之旅</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#意猶未盡再修一個">4&nbsp;&nbsp;<b>意猶未盡，再修一個！</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">5&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2019/04/19/en/fix-spectrum-bug/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            記一次幫開源專案 spectrum 修 bug 的經歷
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2019-04-19T12:10:00.000Z" itemprop="datePublished">2019年4月19日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Others/">Others</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="前言">前言</span></h2><p>最近又開始了自己的教學計畫，第一期的時候寫了這篇：<a target="_blank" rel="noopener" href="https://github.com/aszx87410/blog/issues/27">利用 Github Classroom 加 Travis CI 打造改作業系統</a>，第二期寫了這篇：<a target="_blank" rel="noopener" href="https://github.com/aszx87410/blog/issues/32">AWS Lambda + GitHub API + Google Sheet &#x3D; 自動化簽到系統</a>，都是利用現成工具來快速湊出符合自己需求的系統。</p>
+<p>而第三期開始前我希望課程能有個討論區，讓學生們可以在上面很方便地問問題。一直以來都是用 Slack，但 Slack 最大的缺點就是免費版會吃訊息，很多不錯的資訊被洗掉就覺得滿可惜的，希望能有個論壇或是討論區之類的地方會比較好。</p>
+<p>在兩年前我也寫過一篇：<a target="_blank" rel="noopener" href="http://huli.logdown.com/posts/1989995-the-forums-solution-flarum-discourse-github-issue">自架論壇的解決方案：flarum, github issue, nodeBB, discourse</a>，研究了幾套方案，最後選擇 GitHub Issue。因為最簡單、最方便，但最大的缺點是學生好像不太習慣，因為左看右看上看下看其實都不像是個論壇。</p>
+<span id="more"></span>
+
+<p>前陣子因緣際會之下知道了這一個平台：<a target="_blank" rel="noopener" href="https://spectrum.chat/">spectrum</a>，首頁的 slogan 寫得很清楚：</p>
+<blockquote>
+<p>The community platform for the future.</p>
+</blockquote>
+<p>去年被 GitHub 買下來之後變成完全免費的，以前付費版的功能也變免費了。在我看來，其實就是「更像討論區」的 Slack。先給大家看一張截圖：</p>
+<img width="1221" alt="sc" src="https://user-images.githubusercontent.com/2755720/56428306-791b8d80-62f1-11e9-9cad-ac46ddc8052c.png">
+
+<p>最左邊是不同的 workspace，這跟 Slack 一樣。再來你可以看到各個 Channles，這跟 Slack 也一樣，唯一不同的是右邊，原本 Slack 的訊息變成了一個個討論串，有標題跟內文。</p>
+<p>這樣你大概可以懂我在說什麼了，這套跟 Slack 很像，但是更適合當作是討論區。</p>
+<p>免費、背後是 GitHub、可以有 private 的論壇、開源，這簡直是完美的解決方案。除了沒有手機 App 以外，其他沒什麼可以挑剔的，就決定是這一套了！</p>
+<h2><span id="事情沒有那麼順利">事情沒有那麼順利…</span></h2><p>開始試用幾天之後，發現有一個超級大問題，雖然說在功能上沒什麼問題，但是在體驗上我覺得極差，這一個小缺點就足夠讓我放棄這個平台。</p>
+<p>是什麼問題呢？排版。</p>
+<p>spectrum 原生支援 Markdown，使用起來十分順手，可是換行卻出了問題。在有些地方只有空行是沒有用的，結尾要加兩個空格才會換行，雖然我覺得這很不方便，但勉強可以接受。</p>
+<p>可是！在 spectrum 上面，要兩個換行才會真的換行。</p>
+<p>底下是範例，最下面的 line1 跟 line2 應該要換行：</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/56428318-85074f80-62f1-11e9-9134-4f9138eeb035.png" alt="layout1"></p>
+<p>可是 po 文之後卻會變成這樣：</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/56428324-8a649a00-62f1-11e9-88d2-f95f8c39b66d.png" alt="layout2"></p>
+<p>換行變成了空格，如果是英文還好，但如果是中文的話排版就變得超級無敵奇怪，完全不能接受。</p>
+<p>心灰意冷的我去了官方討論區<a target="_blank" rel="noopener" href="https://spectrum.chat/spectrum/general/how-to-input-new-line-when-creating-a-new-post~2e53fc58-990a-433c-8f86-d2e28cdeaf87">發文</a>，想說會不會有什麼其他換行的方法只是我不知道。</p>
+<p>結果官方給我的回覆是：「對，現在你只能換行兩次才會真的換行」。</p>
+<p>原本槁木死灰的我想說那就乾脆放棄吧，研究看看有沒有其他解法，甚至還一度想說要不要自己寫一套出來，但一想到要支援一大堆功能就覺得很麻煩，遲遲無法下定決心。</p>
+<p>經過幾天的深思之後，覺得 spectrum 這個平台真的很好，但唯一的缺點就是排版問題，如果這個缺點解決了，沒道理不用它。</p>
+<p>馬特拉不拉，我們自己拉。官方有 bug 沒空修，沒關係，我們自己修！這就是開源的好處。</p>
+<h2><span id="修-bug-之旅">修 bug 之旅</span></h2><p>要幫開源專案修 bug 的第一步很簡單，就是想辦法把整個環境跑起來。你要有辦法在本機跑起來才有辦法驗證自己到底有沒有修成功，所以官方文件是很重要的。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/withspectrum/spectrum">spectrum</a> 的文件很齊全，有一連串的指示告訴你應該要怎麼做。照著做之後，就能把前後端都在自己的 local 跑起來了。</p>
+<p>在等待安裝這些套件的途中，可以自己稍微猜一下問題出在哪裡。那時的我猜說應該是 markdown 的編輯器出了什麼問題，可能在把 markdown 轉成 HTML 的時候出了問題，沒有處理好，所以少了換行。</p>
+<p>光猜是沒有用的，第一步要縮小問題範圍並且定位問題，先找出最重要的發文這一段到底發生了什麼事情。</p>
+<p>在 Chrome 我們可以用 React Devtool，看到發文的介面是一個叫做 composer 的 component。接著在 <a target="_blank" rel="noopener" href="https://github.com/withspectrum/spectrum/blob/0cef471b45779adcdfbb22dcc57884712c015e91/src/components/composer/index.js#L500">composer&#x2F;index.js</a> 裡面可以看到是由一個叫做 Inputs 的元件負責。</p>
+<p>在 <a target="_blank" rel="noopener" href="https://github.com/withspectrum/spectrum/blob/0cef471b45779adcdfbb22dcc57884712c015e91/src/components/composer/inputs.js#L54">Inputs.js</a> 裡面發現了一件驚人的事情，原來按下 Preview 的時候，會直接送 request 到一個寫死的路徑並且把結果顯示出來：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token function-variable function">onClick</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter"><span class="token literal-property property">show</span><span class="token operator">:</span> boolean</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  <span class="token function">setShowPreview</span><span class="token punctuation">(</span>show<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>show<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">setPreviewBody</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'https://convert.spectrum.chat/from'</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">method</span><span class="token operator">:</span> <span class="token string">'POST'</span><span class="token punctuation">,</span>
+      body<span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token parameter">res</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>res<span class="token punctuation">.</span>status <span class="token operator">&lt;</span> <span class="token number">200</span> <span class="token operator">||</span> res<span class="token punctuation">.</span>status <span class="token operator">>=</span> <span class="token number">300</span><span class="token punctuation">)</span>
+          <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'Oops, something went wrong'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> res<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token parameter">json</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token function">setPreviewBody</span><span class="token punctuation">(</span>json<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>既然轉換是 Server 做的，那接下來就要來找找 Server 到底做了什麼。</p>
+<p>可是我又不知道<code>https://convert.spectrum.chat/from</code>是對應到 Server 的哪裡，要怎麼找到 Server 是怎麼處理的呢？</p>
+<p>這邊可以換一個想法，雖然說預覽的時候的確是送到這邊沒錯，但是發文的時候 Server 一定也會處理這個格式轉換，所以可以先找出發文的時候 Server 到底做了什麼，應該會有一些線索。</p>
+<p>接著在前端發文之後查看 Network tab，因為後端是 GraphQL 所以滿好看的，是一個叫做<code>publushThread</code>的操作。</p>
+<p>立刻往 Server 的部分找，循線找到了這個檔案：<a target="_blank" rel="noopener" href="https://github.com/withspectrum/spectrum/blob/0cef471b45779adcdfbb22dcc57884712c015e91/api/mutations/thread/publishThread.js#L76">publishThread.js</a>，並且發現裡面呼叫了一個 <code>processThreadContent</code> 來做轉換。</p>
+<p>往下追這個 function，<a target="_blank" rel="noopener" href="https://github.com/withspectrum/spectrum/blob/0cef471b45779adcdfbb22dcc57884712c015e91/shared/draft-utils/process-thread-content.js#L12">看程式碼</a>之後發現這應該是最底層了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// @flow</span>
+<span class="token keyword">import</span> <span class="token punctuation">&#123;</span> stateFromMarkdown <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'draft-js-import-markdown'</span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token punctuation">&#123;</span> convertFromRaw<span class="token punctuation">,</span> convertToRaw<span class="token punctuation">,</span> EditorState <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'draft-js'</span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token punctuation">&#123;</span> addEmbedsToEditorState <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'./add-embeds-to-draft-js'</span><span class="token punctuation">;</span>
+  
+<span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token punctuation">(</span>type<span class="token operator">:</span> <span class="token string">'TEXT'</span> <span class="token operator">|</span> <span class="token string">'DRAFTJS'</span><span class="token punctuation">,</span> <span class="token literal-property property">body</span><span class="token operator">:</span> <span class="token operator">?</span>string<span class="token punctuation">)</span><span class="token operator">:</span> <span class="token parameter">string</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">let</span> newBody <span class="token operator">=</span> body<span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>type <span class="token operator">===</span> <span class="token string">'TEXT'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// workaround react-mentions bug by replacing @[username] with @username</span>
+    <span class="token comment">// @see withspectrum/spectrum#4587</span>
+    newBody <span class="token operator">=</span> newBody <span class="token operator">?</span> newBody<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">@\[([a-z0-9_-]+)\]</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">,</span> <span class="token string">'@$1'</span><span class="token punctuation">)</span> <span class="token operator">:</span> <span class="token string">''</span><span class="token punctuation">;</span>
+    newBody <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>
+      <span class="token function">convertToRaw</span><span class="token punctuation">(</span>
+        <span class="token function">stateFromMarkdown</span><span class="token punctuation">(</span>newBody<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+          <span class="token function-variable function">customBlockFn</span><span class="token operator">:</span> <span class="token parameter">elem</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>elem<span class="token punctuation">.</span>nodeName <span class="token operator">!==</span> <span class="token string">'PRE'</span><span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>
+  
+            <span class="token keyword">const</span> code <span class="token operator">=</span> elem<span class="token punctuation">.</span>childNodes<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token parameter">node</span> <span class="token operator">=></span> node<span class="token punctuation">.</span>nodeName <span class="token operator">===</span> <span class="token string">'CODE'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>code<span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>
+  
+            <span class="token keyword">const</span> className <span class="token operator">=</span> code<span class="token punctuation">.</span>attributes<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span>
+              <span class="token punctuation">(</span><span class="token parameter"><span class="token punctuation">&#123;</span> name <span class="token punctuation">&#125;</span></span><span class="token punctuation">)</span> <span class="token operator">=></span> name <span class="token operator">===</span> <span class="token string">'class'</span>
+            <span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>className<span class="token punctuation">)</span> <span class="token keyword">return</span><span class="token punctuation">;</span>
+  
+            <span class="token keyword">const</span> lang <span class="token operator">=</span> className<span class="token punctuation">.</span>value<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token string">'lang-'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+            <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+              <span class="token literal-property property">type</span><span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+              <span class="token literal-property property">data</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+                <span class="token literal-property property">language</span><span class="token operator">:</span> lang<span class="token punctuation">,</span>
+              <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+          <span class="token literal-property property">parserOptions</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+            <span class="token literal-property property">atomicImages</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">breaks</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+      <span class="token punctuation">)</span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token comment">// Add automatic embeds to body</span>
+  <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span><span class="token function">addEmbedsToEditorState</span><span class="token punctuation">(</span><span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>newBody <span class="token operator">||</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment">// Ignore errors during automatic embed detection</span>
+  <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> newBody <span class="token operator">||</span> <span class="token string">''</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>而且沒有看出任何跡象，看起來一切正常。此時的我想說：該不會要往下追到 draft-js 或是其他的 library 吧？</p>
+<p>但是既然都找到這了，應該先來看一下它轉出來會是什麼東西，再決定下一步該怎麼辦，於是我在這個 function 加了 log，把它最後轉換的東西印出來。</p>
+<p>我的輸入是：</p>
+<pre class="line-numbers language-none"><code class="language-none">oneline
+newline  
+thirdline
+  
+fourline
+  
+fiveline<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>輸出是：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"blocks"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+    <span class="token punctuation">&#123;</span>
+      <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"bq56i"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"text"</span><span class="token operator">:</span><span class="token string">"oneline\nnewline\nthirdline"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"unstyled"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"depth"</span><span class="token operator">:</span><span class="token number">0</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"inlineStyleRanges"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"entityRanges"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"data"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#123;</span>
+      <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"9h38b"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"text"</span><span class="token operator">:</span><span class="token string">"fourline"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"unstyled"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"depth"</span><span class="token operator">:</span><span class="token number">0</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"inlineStyleRanges"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"entityRanges"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"data"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#123;</span>
+      <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"fuprm"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"text"</span><span class="token operator">:</span><span class="token string">"fiveline"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"unstyled"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"depth"</span><span class="token operator">:</span><span class="token number">0</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"inlineStyleRanges"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"entityRanges"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"data"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"entityMap"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>不印則已，一印驚人！</p>
+<p>沒想到上面的測資轉換出來是：<code>&quot;text&quot;:&quot;oneline\nnewline\nthirdline&quot;</code>，看來 Server 的轉換完全正常，換行被轉為<code>\n</code>，兩個換行被轉為一個新的 block，看來問題是出在前端沒有把這個換行好好輸出。</p>
+<p>接著再用差不多的方法一樣用 React Devtool 來看，發現前端顯示是 <a target="_blank" rel="noopener" href="https://github.com/withspectrum/spectrum/blob/be3d7cc2b2bafec6715c7623db59c897902073ff/src/views/thread/components/threadDetail.js#L359">threadDetail.js</a> 在處理，而裡面呼叫了 threadRenderer.js，看來這就是真的 render 的地方了。</p>
+<p>找到 <a target="_blank" rel="noopener" href="https://github.com/withspectrum/spectrum/blob/c34bb1fa4b9957bcfcc6ff0165582e2f635bf5e7/src/components/threadRenderer/index.js#L4">threadRenderer.js</a> 之後，發現裡面只是單純地呼叫了 <a target="_blank" rel="noopener" href="https://github.com/lokiuz/redraft">redraft</a> 這個 library。</p>
+<p>好，雖然又有新的東西要研究，但離答案愈來愈近了。</p>
+<p>仔細看了一下 redraft 的文件，看起來是可以自定義每一個型態最後的輸出要長什麼樣子。往下把官方文件看完，發現有一區是 <a target="_blank" rel="noopener" href="https://github.com/lokiuz/redraft#common-issues">Common issues
+</a>，裡面寫著：</p>
+<blockquote>
+<p>Can the multiple spaces between text be persisted?</p>
+<p>Add white-space: pre-wrap to a parent div, this way it will preserve spaces and wrap to new lines (as editor js does)</p>
+</blockquote>
+<p>看到這邊，答案已經很明顯了，就是前端顯示忘記加 <code>white-space: pre-wrap</code>，所以預設的行為會把換行當作是空格。</p>
+<p>真相大白的時候我在心裡暗罵了一聲髒話，但是是罵自己。因為這問題在前端其實滿常見的，我也用過這屬性很多次。可是在我看到這問題的時候我第一點居然是往後端去懷疑，完全沒想到有可能是前端的問題，更沒有想到原來是加一行 CSS 就可以搞定的事。</p>
+<p>接著就先發了一個 <a target="_blank" rel="noopener" href="https://github.com/withspectrum/spectrum/issues/4885">Issue</a> 記錄了一下調查的過程跟成因，然後發了個 <a target="_blank" rel="noopener" href="https://github.com/withspectrum/spectrum/issues/4885">PR</a>，雖然只是改這麼一行而已，但是對我意義重大。因為只要這個 bug 修好，這套就立刻海放其他現成的論壇系統。</p>
+<p>他們的速度很快，發 PR 之後隔天就被 merge 了，再隔個一週就被 deploy 到 production 了，真的很有效率。</p>
+<h2><span id="意猶未盡再修一個">意猶未盡，再修一個！</span></h2><p>雖然只有一行，但探索的過程獲益良多，而且 PR 能被 merge 就很開心。既然都修了一個，那來找找看有沒有其他容易修的好了，可以一起順手修掉。</p>
+<p>在官方的 Issues 翻一翻，找到一個看起來不難的：<a target="_blank" rel="noopener" href="https://github.com/withspectrum/spectrum/issues/4812">Weird image failed rendering in thread body</a>，這個 Issue 很簡單，就是不知道為什麼會出現下面的 bug：</p>
+<img width="716" alt="alt" src="https://user-images.githubusercontent.com/2755720/56428342-97818900-62f1-11e9-9771-d8f85426e079.png">
+
+<p>文字覆蓋住了後面的圖片。</p>
+<p>Issue 裡面有附上原文網址，點進去以後用 devtool 看了一下，發現問題出在當瀏覽器無法載入 img 標籤的圖片時，就會變成這樣。</p>
+<p>我之前完全沒碰過這問題，但自己試了一下，發現 img 原本有 margin，可是在圖片沒辦法載入的時候會失效。直覺告訴我這可能是 <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Box_Model/Mastering_margin_collapsing">margin collapsing</a> 有關的問題。</p>
+<p>後來我自己試了一下，問題出在當圖片無法載入，img 的高度就會變成 0，然後 margin 就會失效。因為一些排版跟 CSS 的元素，下面的文字就會蓋上來，變成下面的圖片那樣。</p>
+<img width="1306" alt="height" src="https://user-images.githubusercontent.com/2755720/56428348-9cded380-62f1-11e9-9136-0c3283be8505.png">
+
+<p>那有什麼好解法嗎？</p>
+<p>我發現一個最簡單的解法就是加上 <code>alt</code> 屬性，當圖片無法載入時就會就會顯示這個文字，img 就能保有高度，margin 也能作用。</p>
+<img width="1324" alt="height2" src="https://user-images.githubusercontent.com/2755720/56428350-a1a38780-62f1-11e9-9bf0-884030c56f93.png">
+
+<p>查到解法之後一樣先回在 <a target="_blank" rel="noopener" href="https://github.com/withspectrum/spectrum/issues/4812">Issue</a> 下面跟他們討論，看他們覺得如何。</p>
+<p>後來我發現原本上傳圖片時其實就有設定 alt，但可能在一些邊界條件下會是空的，或者是使用者手動把 alt 移除掉。</p>
+<p>所以最後的解法也很簡單，就是幫 alt 加一個預設值，<a target="_blank" rel="noopener" href="https://github.com/withspectrum/spectrum/pull/4887">PR: Add default alt text to img</a>：</p>
+<pre class="line-numbers language-none"><code class="language-none">-  &lt;img key&#x3D;&#123;key&#125; src&#x3D;&#123;data.src&#125; alt&#x3D;&#123;data.alt&#125; &#x2F;&gt;,
++  &lt;img key&#x3D;&#123;key&#125; src&#x3D;&#123;data.src&#125; alt&#x3D;&#123;data.alt || &#39;Image&#39;&#125; &#x2F;&gt;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<h2><span id="總結">總結</span></h2><p>雖然只有貢獻了兩行，但能看到自己的帳號出現在 release log 上面還是滿開心的：</p>
+<img width="849" alt="re" src="https://user-images.githubusercontent.com/2755720/56428356-a7996880-62f1-11e9-98fd-7670bf8b38fa.png">
+
+<p>如果是以前的自己，我絕對不會幹這種事。絕對是發現 bug 之後就停住了，然後等著官方團隊來修 bug。</p>
+<p>但這幾年漸漸開始熟悉起看其他人的 code，工作的時候偶爾沒事就可以看一下 redux-form 或是 redux 的 source code 等等，看著看著覺得也沒那麼可怕。而且 GitHub 還有個超好用功能叫做「搜尋」，很多時候直接搜關鍵字就能找到相關的原始碼，節省超級多時間。</p>
+<p>在看其他人的專案時，我覺得最難的是定位問題，一但你定位問題之後其他都沒那麼難了，因為你已經知道是哪個檔案、哪段程式碼有問題，接著只要朝那邊去研究就好。至於該怎麼定位問題，有以下幾個建議：</p>
+<ol>
+<li>直接搜尋程式碼，看能不能找到相關段落</li>
+<li>利用 devtool 找出相關的元件</li>
+<li>看文件，看上面有沒有附一些架構</li>
+</ol>
+<p>當你要修 bug 的時候，方向是很明確的，沒有必要整個專案都看過，只要找到你要修的地方就好。這一篇希望能分享我的經驗給大家。</p>
+<p>最後，當個工程師真好，有開源專案真好，有 bug 都可以自己修掉。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Others/">#Others</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2019/05/18/lidemy-http-challenge/">幕後花絮：Lidemy HTTP Challenge 的設計以及彩蛋</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2019/03/24/react-keypress-keydown/">從 React 原始碼看 keyPress 與 keyDown 事件</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2019/04/19/en/fix-spectrum-bug/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

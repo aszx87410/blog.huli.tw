@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Let&#39;s talk about CSRF - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2017/03/12/csrf-introduction/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2017/03/12/en/csrf-introduction/">
+    
+
+
+
+
+
+    <meta name="description" content="IntroductionRecently, I encountered some cases of CSRF and took the opportunity to study it thoroughly. After in-depth research, I found that this attack is actually quite scary because it is easy to">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Let&#39;s talk about CSRF">
+<meta property="og:url" content="https://blog.huli.tw/2017/03/12/en/csrf-introduction/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="IntroductionRecently, I encountered some cases of CSRF and took the opportunity to study it thoroughly. After in-depth research, I found that this attack is actually quite scary because it is easy to">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/csrf/csrf1.png">
+<meta property="article:published_time" content="2017-03-12T12:47:00.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:10:49.048Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="Back-end">
+<meta property="article:tag" content="CSRF">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/csrf/csrf1.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Let&#39;s talk about CSRF" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#introduction">1&nbsp;&nbsp;<b>Introduction</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#lazy-deletion-function">2&nbsp;&nbsp;<b>Lazy deletion function</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#cant-i-just-change-the-deletion-to-post">3&nbsp;&nbsp;<b>Can’t I just change the deletion to POST?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#what-if-i-change-the-backend-to-only-accept-json">4&nbsp;&nbsp;<b>What if I change the backend to only accept JSON?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#users-defense">5&nbsp;&nbsp;<b>User’s defense</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#servers-defense">6&nbsp;&nbsp;<b>Server’s defense</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#check-referer">6.1&nbsp;&nbsp;Check Referer</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#add-captcha-sms-verification-etc">6.2&nbsp;&nbsp;Add Captcha, SMS Verification, etc.</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#add-csrf-token">6.3&nbsp;&nbsp;Add CSRF Token</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#double-submit-cookie">6.4&nbsp;&nbsp;Double Submit Cookie</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#client-side-double-submit-cookie">6.5&nbsp;&nbsp;Client-side Double Submit Cookie</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#browsers-own-defense">6.6&nbsp;&nbsp;Browser’s own defense</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#summary">7&nbsp;&nbsp;<b>Summary</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#references">8&nbsp;&nbsp;<b>References</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2017/03/12/csrf-introduction/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Let&#39;s talk about CSRF
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2017-03-12T12:47:00.000Z" itemprop="datePublished">12 March 2017</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Front-end/">Front-end</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="introduction">Introduction</span></h2><p>Recently, I encountered some cases of CSRF and took the opportunity to study it thoroughly. After in-depth research, I found that this attack is actually quite scary because it is easy to overlook. Fortunately, some frameworks now have built-in CSRF defense functions that can be easily enabled.</p>
+<p>However, I still think it is necessary to understand what CSRF is, how it attacks, and how to defend against it. Let’s start by briefly introducing it!</p>
+<p>CSRF is a type of attack on the web, which stands for Cross Site Request Forgery. Don’t confuse it with XSS, they are two different things. So what is CSRF? Let’s start with an example of my own.</p>
+<span id="more"></span>
+
+<h2><span id="lazy-deletion-function">Lazy deletion function</span></h2><p>I used to have a simple backend page, which can be considered as a blog! You can publish, delete, and edit articles, and the interface looks like this:</p>
+<p><img src="/img/csrf/csrf1.png"></p>
+<p>You can see the delete button, which can delete an article when clicked. At that time, because I was lazy, I thought that if I made this function into GET, I could complete the deletion with just a link, and I hardly needed to write any code on the front end:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>/delete?id=3<span class="token punctuation">'</span></span><span class="token punctuation">></span></span>Delete<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Very convenient, right? Then I did some verification on the backend of the webpage to verify whether the request carried the session id and whether the article was written by the author of this id. If they all match, the article will be deleted.</p>
+<p>Well, it sounds like I have done everything I should do: “Only the author himself can delete his own article”, so it should be safe. Is there anything missing?</p>
+<p>Yes, it is indeed “Only the author himself can delete his own article”, but what if he does not “actively delete” it, but deletes it without knowing it? You may think I am talking about something, how can someone delete it if it is not the author who actively deletes it?</p>
+<p>Okay, let me show you how it can be deleted!</p>
+<p>Today, let’s assume that Xiaohei is an evil villain who wants Xiaoming to delete his own article without knowing it. How to do it?</p>
+<p>He knows that Xiaoming likes psychological tests, so he made a psychological test website and sent it to Xiaoming. But the difference between this psychological test website and other websites is that the “Start Test” button looks like this:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>https://small-min.blog.com/delete?id=3<span class="token punctuation">'</span></span><span class="token punctuation">></span></span>Start Test<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>After Xiaoming receives the webpage, he is very happy and clicks “Start Test”. After clicking, the browser will send a GET request to <code>https://small-min.blog.com/delete?id=3</code>, and because of the operation mechanism of the browser, all the cookies of <code>small-min.blog.com</code> will be sent together. </p>
+<p>After receiving the request, the server checks the session and finds that it is Xiaoming, and this article is indeed written by Xiaoming, so it deletes the article.</p>
+<p>This is CSRF. You are clearly on the psychological test website, let’s say it is <code>https://test.com</code>, but you unknowingly deleted the article of <code>https://small-min.blog.com</code>. Isn’t it terrible? Super scary!</p>
+<p>This is also why CSRF is also called a one-click attack. You are hit by just one click.</p>
+<p>You may say: “But Xiaoming will know it, won’t he? He will go to the blog, won’t he?”</p>
+<p>Okay, what if we change it to this:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>https://small-min.blog.com/delete?id=3<span class="token punctuation">'</span></span> <span class="token attr-name">width</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>0<span class="token punctuation">'</span></span> <span class="token attr-name">height</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>0<span class="token punctuation">'</span></span> <span class="token punctuation">/></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>/test<span class="token punctuation">'</span></span><span class="token punctuation">></span></span>Start Test<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>At the same time as opening the page, a deletion request is sent out, but this time Xiaoming really has no idea about it. This is in line with it!</p>
+<p>CSRF is a way to forge a “request sent by the user himself” under different domains. To achieve this, it is very simple. Because of the mechanism of the browser, as long as you send a request to a certain domain, the associated cookies will be sent together. If the user is logged in, then this request naturally contains his information (such as session id), and this request looks like it was sent by the user himself.</p>
+<h2><span id="cant-i-just-change-the-deletion-to-post">Can’t I just change the deletion to POST?</span></h2><p>Yes, smart! Let’s not be so lazy and make the deletion function into POST, so that it cannot be attacked through <code>&lt;a&gt;</code> or <code>&lt;img&gt;</code>, right? Unless there is an HTML element that can send a POST request!</p>
+<p>There is a form called “form”.</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">action</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://small-min.blog.com/delete<span class="token punctuation">"</span></span> <span class="token attr-name">method</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>POST<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hidden<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>id<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>3<span class="token punctuation">"</span></span><span class="token punctuation">/></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>submit<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Start Test<span class="token punctuation">"</span></span><span class="token punctuation">/></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>After Xiao Ming clicked it, he was still tricked and the article was deleted. You may wonder, but doesn’t Xiao Ming know now? I was also skeptical, so I Googled and found this article: <a target="_blank" rel="noopener" href="http://stackoverflow.com/questions/17940811/example-of-silently-submitting-a-post-form-csrf">Example of silently submitting a POST FORM (CSRF)</a></p>
+<p>The example provided in this article is as follows. The world of web pages is really vast and profound:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token special-attr"><span class="token attr-name">style</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value css language-css"><span class="token property">display</span><span class="token punctuation">:</span>none</span><span class="token punctuation">"</span></span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>csrf-frame<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">method</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>POST<span class="token punctuation">'</span></span> <span class="token attr-name">action</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>https://small-min.blog.com/delete<span class="token punctuation">'</span></span> <span class="token attr-name">target</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>csrf-frame<span class="token punctuation">"</span></span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>csrf-form<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>hidden<span class="token punctuation">'</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>id<span class="token punctuation">'</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>3<span class="token punctuation">'</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>submit<span class="token punctuation">'</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>submit<span class="token punctuation">'</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span><span class="token string">"csrf-form"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">submit</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Open an invisible iframe, let the result after form submit appear in the iframe, and this form can also be automatically submitted, without any operation by Xiao Ming.</p>
+<p>At this point, you know that changing to POST is useless.</p>
+<h2><span id="what-if-i-change-the-backend-to-only-accept-json">What if I change the backend to only accept JSON?</span></h2><p>You had a bright idea: “Since only form can submit POST on the front end, can’t I change my API to receive data with JSON? Then form can’t be used, right?”</p>
+<p><a target="_blank" rel="noopener" href="https://docs.spring.io/spring-security/site/docs/current/reference/html/csrf.html">spring’s document</a> tells you: this is still useless!</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">action</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://small-min.blog.com/delete<span class="token punctuation">"</span></span> <span class="token attr-name">method</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>post<span class="token punctuation">"</span></span> <span class="token attr-name">enctype</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>text/plain<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>&#123;"id":3, "ignore_me":"<span class="token punctuation">'</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>test"&#125;<span class="token punctuation">'</span></span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>hidden<span class="token punctuation">'</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>submit<span class="token punctuation">"</span></span>
+  <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>delete!<span class="token punctuation">"</span></span><span class="token punctuation">/></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This will generate the following request body:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span> <span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
+<span class="token string-property property">"ignore_me"</span><span class="token operator">:</span> <span class="token string">"=test"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>However, it is worth noting here that <code>form</code> can only carry three types of content types: <code>application/x-www-form-urlencoded</code>, <code>multipart/form-data</code>, and <code>text/plain</code>. In the above attack, we used the last one, <code>text/plain</code>. If your backend server checks this content type, you can avoid the above attack.</p>
+<p>The example we gave was deleting an article, which you may think is not a big deal. But what if it’s a bank transfer? Attackers can write code on their own web pages to transfer money to their own accounts, and then spread this web page to receive a lot of money.</p>
+<p>After talking so much, let’s talk about how to defend! Let’s start with the simplest “user”.</p>
+<h2><span id="users-defense">User’s defense</span></h2><p>The reason why CSRF attacks can succeed is that the user is in a logged-in state on the attacked web page, so they can take some actions. Although these attacks should be handled by the web page, if you are really afraid that the web page will not handle them well, you can log out every time you use the website to avoid CSRF.</p>
+<p>Alternatively, turning off js execution or filtering out the code of these patterns not to execute is also a method (but it should be difficult to determine which code is the code of CSRF attack).</p>
+<p>So what users can do is actually limited. The server side is the one that really needs to do something!</p>
+<h2><span id="servers-defense">Server’s defense</span></h2><p>The reason why CSRF is scary is because of the two letters CS: Cross Site. You can launch attacks under any URL. The defense against CSRF can be thought from this direction, in short: “How can I block requests from other domains.”</p>
+<p>Think about it carefully, what is the difference between a CSRF request and a request made by the user? The difference lies in the domain. The former is sent from any domain, while the latter is sent from the same domain (assuming that your API and frontend website are on the same domain).</p>
+<h3><span id="check-referer">Check Referer</span></h3><p>The request header contains a field called “referer”, which indicates where the request came from. You can check this field to see if it is a valid domain. If it is not, you can reject it. </p>
+<p>However, there are three things to note about this method. First, some browsers may not include the referer field. Second, some users may disable the automatic inclusion of the referer field, which would cause your server to reject requests made by real users. </p>
+<p>The third thing to note is that the code that determines whether a domain is valid must be bug-free. For example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> referer <span class="token operator">=</span> request<span class="token punctuation">.</span>headers<span class="token punctuation">.</span>referer<span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>referer<span class="token punctuation">.</span><span class="token function">indexOf</span><span class="token punctuation">(</span><span class="token string">'small-min.blog.com'</span><span class="token punctuation">)</span> <span class="token operator">></span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// pass</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Do you see the problem with the above code? If the attacker’s webpage is <code>small-min.blog.com.attack.com</code>, your check will fail.</p>
+<p>Therefore, checking the referer is not a very complete solution.</p>
+<h3><span id="add-captcha-sms-verification-etc">Add Captcha, SMS Verification, etc.</span></h3><p>Just like when transferring money on online banking, you are required to receive an SMS verification code. Adding this extra check can ensure that you are not attacked by CSRF.</p>
+<p>The same goes for captcha. Attackers do not know the answer to the captcha, so they cannot attack.</p>
+<p>This is a very complete solution, but if users have to enter a captcha every time they delete a blog, they will probably be annoyed!</p>
+<h3><span id="add-csrf-token">Add CSRF Token</span></h3><p>To prevent CSRF attacks, we just need to ensure that some information is “known only to the user”. How do we do that?</p>
+<p>We add a hidden field called <code>csrftoken</code> to the form. The value of this field is randomly generated by the server and stored in the server’s session.</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">action</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://small-min.blog.com/delete<span class="token punctuation">"</span></span> <span class="token attr-name">method</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>POST<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hidden<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>id<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>3<span class="token punctuation">"</span></span><span class="token punctuation">/></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hidden<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>csrftoken<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>fj1iro2jro12ijoi1<span class="token punctuation">"</span></span><span class="token punctuation">/></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>submit<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Delete Post<span class="token punctuation">"</span></span><span class="token punctuation">/></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>After submitting the form, the server compares the <code>csrftoken</code> in the form with the one stored in its session. If they are the same, it means that this is indeed a request made by the user. This <code>csrftoken</code> is generated by the server and should be changed for each different session.</p>
+<p>Why does this work? Because the attacker does not know the value of the <code>csrftoken</code>, they cannot guess it and therefore cannot attack.</p>
+<p>However, there is another scenario. What if your server supports cross-origin requests? What happens then? The attacker can make a request on their page, successfully obtain the CSRF token, and launch an attack. But this is only possible if your server accepts requests from that domain.</p>
+<p>Now let’s take a look at another solution.</p>
+<h3><span id="double-submit-cookie">Double Submit Cookie</span></h3><p>The previous solution requires server state, i.e. the CSRF token must be stored on the server to verify its correctness. The advantage of this solution is that it does not require the server to store anything.</p>
+<p>The first half of this solution is similar to the previous one. The server generates a random token and adds it to the form. But the difference is that, in addition to not having to write this value in the session, the client side also sets a cookie named <code>csrftoken</code> with the same token value.</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup">Set-Cookie: csrftoken=fj1iro2jro12ijoi1
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">action</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://small-min.blog.com/delete<span class="token punctuation">"</span></span> <span class="token attr-name">method</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>POST<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hidden<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>id<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>3<span class="token punctuation">"</span></span><span class="token punctuation">/></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hidden<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>csrftoken<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>fj1iro2jro12ijoi1<span class="token punctuation">"</span></span><span class="token punctuation">/></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>submit<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Delete Post<span class="token punctuation">"</span></span><span class="token punctuation">/></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>You can think carefully about the differences between a CSRF attack request and a request made by the user. The difference lies in the fact that the former comes from a different domain, while the latter comes from the same domain. So as long as we can distinguish whether this request comes from the same domain, we win.</p>
+<p>And the Double Submit Cookie solution is based on this idea.</p>
+<p>When the user presses submit, the server compares the csrftoken in the cookie with the csrftoken in the form to check if they have a value and are equal, to know if it is from the user.</p>
+<p>Why? Suppose an attacker wants to attack now. He can write a csrf token in the form at will, which is of course no problem, but because of the browser’s restrictions, he cannot set the cookie of <code>small-min.blog.com</code> on his domain! So the csrftoken in the cookie of the request he sends up will not exist, and it will be blocked.</p>
+<p>Of course, this method seems to be useful, but it also has its drawbacks, as can be seen in <a target="_blank" rel="noopener" href="http://security.stackexchange.com/questions/59470/double-submit-cookies-vulnerabilities">Double Submit Cookies vulnerabilities</a>. If the attacker controls any of your subdomains, he can help you write cookies and successfully attack you.</p>
+<h3><span id="client-side-double-submit-cookie">Client-side Double Submit Cookie</span></h3><p>The reason why client-side is mentioned specifically is that the project I previously encountered was a Single Page Application. Searching the web, you will find people asking, “How can SPA get CSRF token?” Do you need to provide another API from the server? This seems a bit strange.</p>
+<p>However, I think we can use the spirit of Double Submit Cookie to solve this problem. The key to solving this problem is to generate the csrf token from the client-side. There is no need to interact with the server API.</p>
+<p>The other processes are the same as before, generating and putting it into the form and writing it to the cookie. Or if you are an SPA, you can also directly put this information in the request header, and you don’t have to do this for every form, just add it in one place.</p>
+<p>In fact, the library I often use, <a target="_blank" rel="noopener" href="https://github.com/mzabriskie/axios">axios</a>, provides such a function. You can set the header name and cookie name. After setting it up, every request it sends will automatically fill in the value in the cookie for you.</p>
+<pre class="line-numbers language-none"><code class="language-none"> &#x2F;&#x2F; &#96;xsrfCookieName&#96; is the name of the cookie to use as a value for xsrf token
+xsrfCookieName: &#39;XSRF-TOKEN&#39;, &#x2F;&#x2F; default
+
+&#x2F;&#x2F; &#96;xsrfHeaderName&#96; is the name of the http header that carries the xsrf token value
+xsrfHeaderName: &#39;X-XSRF-TOKEN&#39;, &#x2F;&#x2F; default<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Why can this token be generated by the client? Because the purpose of this token itself does not contain any information, it is just to prevent “attackers” from guessing, so it doesn’t matter whether it is generated by the client or the server, as long as it is not guessed. The core concept of Double Submit Cookie is: “Attackers cannot read and write cookies of the target website, so the csrf token of the request will be different from that in the cookie.”</p>
+<h3><span id="browsers-own-defense">Browser’s own defense</span></h3><p>We just mentioned what users can do, what web front-end and back-end can do, what about browsers? The reason why CSRF can exist is due to the mechanism of the browser. Is it possible to solve this problem from the browser side?</p>
+<p>Yes! And it already exists. And the method of enabling it is very, very simple.</p>
+<p>Google officially added this feature in Chrome 51: <a target="_blank" rel="noopener" href="https://www.chromestatus.com/feature/4672634709082112">SameSite cookie</a>. For those interested in the detailed operation principle, please refer to <a target="_blank" rel="noopener" href="https://tools.ietf.org/html/draft-west-first-party-cookies-07">draft-west-first-party-cookies-07</a>.</p>
+<p>First, let’s quote Google’s explanation:</p>
+<p>Enabling this feature is very simple. </p>
+<p>Your original cookie header looks like this:</p>
+<pre class="line-numbers language-none"><code class="language-none">Set-Cookie: session_id&#x3D;ewfewjf23o1;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>You just need to add <code>SameSite</code> at the end:</p>
+<pre class="line-numbers language-none"><code class="language-none">Set-Cookie: session_id&#x3D;ewfewjf23o1; SameSite<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>However, there are two modes for <code>SameSite</code>: <code>Lax</code> and <code>Strict</code>, with the latter being the default. You can also specify the mode yourself:</p>
+<pre class="line-numbers language-none"><code class="language-none">Set-Cookie: session_id&#x3D;ewfewjf23o1; SameSite&#x3D;Strict
+Set-Cookie: foo&#x3D;bar; SameSite&#x3D;Lax<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>Let’s first talk about the default <code>Strict</code> mode. When you add the <code>SameSite</code> keyword, it means “this cookie can only be used by the same site and should not be added to any cross-site requests”. </p>
+<p>This means that after you add it, all the <code>&lt;a href=&quot;&quot;&gt;</code>, <code>&lt;form&gt;</code>, and <code>new XMLHttpRequest</code> requests that are not verified by the browser to be initiated from the same site will not carry this cookie.</p>
+<p>However, this will cause a problem. If even <code>&lt;a href=&quot;...&quot;&gt;</code> does not carry the cookie, when I click on a link from a Google search result or a link shared by a friend to enter a website, because the cookie is not carried, the website will become logged out. This is a very bad user experience.</p>
+<p>There are two solutions. The first is like Amazon, where two sets of different cookies are prepared. The first set is used to maintain the login status, and the second set is used for sensitive operations (such as purchasing, account settings, etc.). The first set does not set <code>SameSite</code>, so no matter where you come from, you will be logged in. However, even if the attacker has the first set of cookies, they cannot do anything because they cannot perform any operations. The second set completely avoids CSRF because of the <code>SameSite</code> setting.</p>
+<p>But this is still a bit troublesome, so you can consider the second solution, which is to adjust to the other mode of <code>SameSite</code>: <code>Lax</code>.</p>
+<p>The Lax mode relaxes some restrictions. For example, <code>&lt;a&gt;</code>, <code>&lt;link rel=&quot;prerender&quot;&gt;</code>, and <code>&lt;form method=&quot;GET&quot;&gt;</code> will still carry the cookie. However, forms with POST methods or any methods such as POST, PUT, DELETE will not carry the cookie.</p>
+<p>So on the one hand, you can maintain flexibility, allowing users to maintain their login status when entering your website from other websites, and on the other hand, you can prevent CSRF attacks. However, under the <code>Lax</code> mode, GET-based CSRF cannot be blocked, so this should be noted.</p>
+<p>Speaking of this relatively new feature, I believe everyone is very interested in how well it is supported by browsers. <a target="_blank" rel="noopener" href="http://caniuse.com/#search=samesite">caniuse</a> tells us that currently only Chrome supports this new feature (after all, it is Google’s own solution, so they naturally support it).</p>
+<p>Although the browser support is not very high, other browsers may also implement this feature in the future, so it is worth adding <code>SameSite</code> now and not worrying about CSRF in the future.</p>
+<p>I just briefly introduced it. <a target="_blank" rel="noopener" href="https://tools.ietf.org/html/draft-west-first-party-cookies-07">draft-west-first-party-cookies-07</a> discusses many details, such as what exactly is considered cross-site? Must it be on the same domain? Can subdomains be used?</p>
+<p>You can study it yourself, or this article: <a target="_blank" rel="noopener" href="http://www.cnblogs.com/ziyunfei/p/5637945.html">SameSite Cookie, Preventing CSRF Attacks</a> also mentions it.</p>
+<p>References related to SameSite:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://www.sjoerdlangkemper.nl/2016/04/14/preventing-csrf-with-samesite-cookie-attribute/">Preventing CSRF with the same-site cookie attribute</a></li>
+<li><a target="_blank" rel="noopener" href="http://bobao.360.cn/learning/detail/2844.html">Goodbye, CSRF: Explaining the SameSite property in set-cookie</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.cnblogs.com/ziyunfei/p/5637945.html">SameSite Cookie, Preventing CSRF Attacks</a></li>
+<li><a target="_blank" rel="noopener" href="https://rlilyyy.github.io/2016/07/10/SameSite-Cookie%E2%80%94%E2%80%94%E9%98%B2%E5%BE%A1-CSRF-XSSI/">SameSite - A new mechanism to prevent CSRF &amp; XSSI</a></li>
+<li><a target="_blank" rel="noopener" href="https://scotthelme.co.uk/csrf-is-dead/">Cross-Site Request Forgery is dead!</a></li>
+</ol>
+<h2><span id="summary">Summary</span></h2><p>This article mainly introduces the attack principle of CSRF and two defense methods, focusing on common scenarios. When developing web pages, CSRF is a more commonly overlooked focus than XSS. When there are any important operations on the web page, special attention should be paid to whether there is a risk of CSRF.</p>
+<p>This time, I found a lot of reference materials, but I found that articles related to CSRF are actually similar. If you want to know more details, you need to spend a lot of effort to find them, but fortunately, there are also many materials on Stackoverflow that can be referenced. Because I haven’t delved too much into information security, if there is any part of the article that is wrong, please feel free to point it out in the comments.</p>
+<p>I would also like to thank my friend shik for his guidance, telling me that there is such a thing as SameSite, which allows me to add the last paragraph.</p>
+<p>I hope this article can give everyone a more comprehensive understanding of CSRF.</p>
+<h2><span id="references">References</span></h2><ol>
+<li><a target="_blank" rel="noopener" href="https://www.owasp.org/index.php/Cross-Site_Request_Forgery_(CSRF)#Prevention_measures_that_do_NOT_work">Cross-Site Request Forgery (CSRF)</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.owasp.org/index.php/Cross-Site_Request_Forgery_(CSRF)_Prevention_Cheat_Sheet">Cross-Site Request Forgery (CSRF) Prevention Cheat Sheet</a></li>
+<li><a target="_blank" rel="noopener" href="http://m.2cto.com/article/201505/400902.html">A more profound understanding of CSRF</a></li>
+<li><a target="_blank" rel="noopener" href="http://cyrilwang.pixnet.net/blog/post/31813672">[Technical Sharing] Cross-site Request Forgery (Part 2)</a></li>
+<li><a target="_blank" rel="noopener" href="http://docs.spring.io/spring-security/site/docs/3.2.5.RELEASE/reference/htmlsingle/#csrf">Spring Security Reference</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/cn/web/1102_niugang_csrf/">Countermeasures for CSRF attacks</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Back-end/">#Back-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/CSRF/">#CSRF</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2017/06/03/en/frontend-tutorial-experiment/">A Free Programming Experiment for Thirty People: Results and Review</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2016/11/26/en/livestreamming-hls-note/">Notes on HLS Protocol</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2017/03/12/csrf-introduction/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>深入 Session 與 Cookie：Express、PHP 與 Rails 的實作 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2019/08/09/en/session-and-cookie-part3/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2019/08/09/session-and-cookie-part3/">
+    
+
+
+
+
+
+    <meta name="description" content="前言這是一系列共三篇的文章，我稱之為 Session 與 Cookie 三部曲。系列文的目標是想要由淺入深來談談這個經典議題，從理解概念一直到理解實作方式。這是系列文的最後一篇，三篇的完整連結如下：  白話 Session 與 Cookie：從經營雜貨店開始 淺談 Session 與 Cookie：一起來讀 RFC 深入 Session 與 Cookie：Express、PHP 與 Rails 的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入 Session 與 Cookie：Express、PHP 與 Rails 的實作">
+<meta property="og:url" content="https://blog.huli.tw/2019/08/09/session-and-cookie-part3/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言這是一系列共三篇的文章，我稱之為 Session 與 Cookie 三部曲。系列文的目標是想要由淺入深來談談這個經典議題，從理解概念一直到理解實作方式。這是系列文的最後一篇，三篇的完整連結如下：  白話 Session 與 Cookie：從經營雜貨店開始 淺談 Session 與 Cookie：一起來讀 RFC 深入 Session 與 Cookie：Express、PHP 與 Rails 的">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/62776748-10456480-bade-11e9-8000-6604aca08c8c.png">
+<meta property="article:published_time" content="2019-08-09T14:10:00.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.490Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Web">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://user-images.githubusercontent.com/2755720/62776748-10456480-bade-11e9-8000-6604aca08c8c.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="深入 Session 與 Cookie：Express、PHP 與 Rails 的實作" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#express">2&nbsp;&nbsp;<b>Express</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#php72-版本">3&nbsp;&nbsp;<b>PHP（7.2 版本）</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#rails52-版本">4&nbsp;&nbsp;<b>Rails（5.2 版本）</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">5&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2019/08/09/en/session-and-cookie-part3/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            深入 Session 與 Cookie：Express、PHP 與 Rails 的實作
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2019-08-09T14:10:00.000Z" itemprop="datePublished">2019年8月9日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Web/">Web</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="前言">前言</span></h2><p>這是一系列共三篇的文章，我稱之為 Session 與 Cookie 三部曲。系列文的目標是想要由淺入深來談談這個經典議題，從理解概念一直到理解實作方式。這是系列文的最後一篇，三篇的完整連結如下：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://medium.com/@hulitw/session-and-cookie-15e47ed838bc">白話 Session 與 Cookie：從經營雜貨店開始</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/aszx87410/blog/issues/45">淺談 Session 與 Cookie：一起來讀 RFC</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/aszx87410/blog/issues/46">深入 Session 與 Cookie：Express、PHP 與 Rails 的實作
+</a></li>
+</ol>
+<p>第一篇以白話的方式來談 Session 與 Cookie，全篇沒有談到太多技術名詞；第二篇直接去看 Cookie 的三份 RFC 來理解到底什麼是 Session，也補齊了一些 Cookie 相關的知識。而這一篇則是要深入 Session，一起帶大家看看三種不同的 Session 實作方式。</p>
+<p>這三樣分別是 Node.js 的 Web 框架 Express、PHP 以及 Ruby on Rails。會挑選這三個是因為他們對於 Session 機制的實作都不同，是我覺得很適合拿來參考的對象。</p>
+<span id="more"></span>
+
+<p>好，接著就開始吧！</p>
+<h2><span id="express">Express</span></h2><p><a target="_blank" rel="noopener" href="https://expressjs.com/">Express</a> 本身是個極度輕量的框架，有許多其他框架底下的基本功能，在這邊都要額外安裝 middleware 才能使用。</p>
+<p>先來簡單介紹一下 middleware 的概念。在 Express 裡面，當收到一個 Request  之後就會轉交給相對應的 middleware 來做處理，處理完以後變成 Response 回傳回去。所以 Express 的本質其實就是一大堆 middleware。</p>
+<p>用圖解釋的話會長這樣：</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/62776748-10456480-bade-11e9-8000-6604aca08c8c.png" alt="螢幕快照 2019-08-08 下午11 22 26"></p>
+<p>舉個例子好了，一段基本的程式碼會長這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> express <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'express'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token function">express</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> port <span class="token operator">=</span> <span class="token number">5001</span>
+  
+<span class="token comment">// global 的 middleware</span>
+app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res<span class="token punctuation">,</span> next</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  req<span class="token punctuation">.</span>greeting <span class="token operator">=</span> <span class="token string">'hello'</span>
+  <span class="token function">next</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// 特定 route 的 middleware</span>
+app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'/'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>greeting<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  
+app<span class="token punctuation">.</span><span class="token function">listen</span><span class="token punctuation">(</span>port<span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Example app listening on port </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>port<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">!</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>第一個 middleware 是 global 的，所以任何 request 都會先到達這個 middleware，而這邊可以對 req 或是 res 這兩個參數設置一些東西，最後呼叫 <code>next</code> 把控制權轉給下一個 middleware。</p>
+<p>而下一個 middleware 就可以拿到前面的 middleware 處理過後的資訊，並且輸出內容。如果沒有呼叫 next，代表不想把控制權轉移給下個 middleware。</p>
+<p>在 Express 裡面，管理 Session 的 middleware 是 <a target="_blank" rel="noopener" href="https://github.com/expressjs/session">express-session</a>，範例程式碼長這樣（改寫自官網範例）：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> express <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'express'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> session <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'express-session'</span><span class="token punctuation">)</span>
+  
+<span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token function">express</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> port <span class="token operator">=</span> <span class="token number">5001</span>
+  
+<span class="token comment">// 使用 session middleware</span>
+app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token function">session</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">secret</span><span class="token operator">:</span> <span class="token string">'keyboard cat'</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+   
+app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'/'</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res<span class="token punctuation">,</span> next</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  
+  <span class="token comment">// 可以用 req.session 拿取存在 session 的值</span>
+  <span class="token comment">// 這邊判斷有沒有 req.session.views</span>
+  <span class="token comment">// 如果有的話就 +1，反之初始化成 1</span>
+  <span class="token comment">// 所以 req.session 可讀也可寫</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>req<span class="token punctuation">.</span>session<span class="token punctuation">.</span>views<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    req<span class="token punctuation">.</span>session<span class="token punctuation">.</span>views<span class="token operator">++</span>
+    res<span class="token punctuation">.</span><span class="token function">write</span><span class="token punctuation">(</span><span class="token string">'views: '</span> <span class="token operator">+</span> req<span class="token punctuation">.</span>session<span class="token punctuation">.</span>views<span class="token punctuation">)</span>
+    res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+    req<span class="token punctuation">.</span>session<span class="token punctuation">.</span>views <span class="token operator">=</span> <span class="token number">1</span>
+    res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token string">'welcome to the session demo. refresh!'</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  
+app<span class="token punctuation">.</span><span class="token function">listen</span><span class="token punctuation">(</span>port<span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Example app listening on port </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>port<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">!</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>使用了 session middleware 以後，可以直接用 <code>req.session.key</code> 來存取你要的資訊，同一個變數可以寫入也可以讀取，跟 PHP 的 $_SESSION 有異曲同工之妙。</p>
+<p>接著我們來看看 express-session 的程式碼吧！主要的程式碼都在 <a target="_blank" rel="noopener" href="https://github.com/expressjs/session/blob/master/index.js">index.js</a> 這個檔案，大概有快七百行，不太可能一行一行講解。</p>
+<p>而且寫得好的 library，會花很多精力在向後相容以及資料合法性的檢查，這些都是一些比較瑣碎而且對於想要理解機制比較沒幫助的東西。</p>
+<p>所以我會直接把程式碼稍微整理一下，去除掉比較不重要的部分並且重新組織程式碼，只挑出相關的段落。</p>
+<p>我們會關注三個重點：</p>
+<ol>
+<li>sessionID 如何產生</li>
+<li>sessionID 儲存方式</li>
+<li>session 資訊儲存方式</li>
+</ol>
+<p>可以先來看產生 sessionID 的地方：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// get the session id generate function</span>
+<span class="token keyword">var</span> generateId <span class="token operator">=</span> opts<span class="token punctuation">.</span>genid <span class="token operator">||</span> generateSessionId
+  
+<span class="token comment">// generates the new session</span>
+store<span class="token punctuation">.</span><span class="token function-variable function">generate</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">req</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  req<span class="token punctuation">.</span>sessionID <span class="token operator">=</span> <span class="token function">generateId</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  req<span class="token punctuation">.</span>session <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Session</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  req<span class="token punctuation">.</span>session<span class="token punctuation">.</span>cookie <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Cookie</span><span class="token punctuation">(</span>cookieOptions<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>cookieOptions<span class="token punctuation">.</span>secure <span class="token operator">===</span> <span class="token string">'auto'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    req<span class="token punctuation">.</span>session<span class="token punctuation">.</span>cookie<span class="token punctuation">.</span>secure <span class="token operator">=</span> <span class="token function">issecure</span><span class="token punctuation">(</span>req<span class="token punctuation">,</span> trustProxy<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+  
+<span class="token keyword">function</span> <span class="token function">generateSessionId</span><span class="token punctuation">(</span><span class="token parameter">sess</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token function">uid</span><span class="token punctuation">(</span><span class="token number">24</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>express-session 的客製化程度很高，可以自己傳進去產生 sessionID 的函式。若是沒有傳，預設會使用 <code>uid(24)</code>，這邊的 uid 指的是 <a target="_blank" rel="noopener" href="https://github.com/crypto-utils/uid-safe">uid-safe</a> 這個 library，會產生一個長度為 24 bytes 的隨機 ID。</p>
+<p>文件上有特別說明這個長度：</p>
+<blockquote>
+<p>Asynchronously create a UID with a specific byte length. Because base64 encoding is used underneath, this is not the string length. For example, to create a UID of length 24, you want a byte length of 18.</p>
+</blockquote>
+<p>所以填入 24，最後產生出來的會是長度為 32 個字元的字串。</p>
+<p>那這個 sessionID 是以什麼樣的形式存進 Cookie 的呢？</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> cookie <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'cookie'</span><span class="token punctuation">)</span>
+<span class="token keyword">var</span> signature <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'cookie-signature'</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// get the session cookie name</span>
+<span class="token keyword">var</span> name <span class="token operator">=</span> opts<span class="token punctuation">.</span>name <span class="token operator">||</span> opts<span class="token punctuation">.</span>key <span class="token operator">||</span> <span class="token string">'connect.sid'</span>
+  
+<span class="token comment">// get the cookie signing secret</span>
+<span class="token keyword">var</span> secret <span class="token operator">=</span> opts<span class="token punctuation">.</span>secret
+  
+<span class="token keyword">if</span> <span class="token punctuation">(</span>secret <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span>Array<span class="token punctuation">.</span><span class="token function">isArray</span><span class="token punctuation">(</span>secret<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  secret <span class="token operator">=</span> <span class="token punctuation">[</span>secret<span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token comment">// set-cookie</span>
+<span class="token function">onHeaders</span><span class="token punctuation">(</span>res<span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  
+  <span class="token comment">// set cookie</span>
+  <span class="token function">setcookie</span><span class="token punctuation">(</span>res<span class="token punctuation">,</span> name<span class="token punctuation">,</span> req<span class="token punctuation">.</span>sessionID<span class="token punctuation">,</span> secrets<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> req<span class="token punctuation">.</span>session<span class="token punctuation">.</span>cookie<span class="token punctuation">.</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+<span class="token keyword">function</span> <span class="token function">setcookie</span><span class="token punctuation">(</span><span class="token parameter">res<span class="token punctuation">,</span> name<span class="token punctuation">,</span> val<span class="token punctuation">,</span> secret<span class="token punctuation">,</span> options</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> signed <span class="token operator">=</span> <span class="token string">'s:'</span> <span class="token operator">+</span> signature<span class="token punctuation">.</span><span class="token function">sign</span><span class="token punctuation">(</span>val<span class="token punctuation">,</span> secret<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">var</span> data <span class="token operator">=</span> cookie<span class="token punctuation">.</span><span class="token function">serialize</span><span class="token punctuation">(</span>name<span class="token punctuation">,</span> signed<span class="token punctuation">,</span> options<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+  <span class="token function">debug</span><span class="token punctuation">(</span><span class="token string">'set-cookie %s'</span><span class="token punctuation">,</span> data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+  <span class="token keyword">var</span> prev <span class="token operator">=</span> res<span class="token punctuation">.</span><span class="token function">getHeader</span><span class="token punctuation">(</span><span class="token string">'Set-Cookie'</span><span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+  <span class="token keyword">var</span> header <span class="token operator">=</span> Array<span class="token punctuation">.</span><span class="token function">isArray</span><span class="token punctuation">(</span>prev<span class="token punctuation">)</span> <span class="token operator">?</span> prev<span class="token punctuation">.</span><span class="token function">concat</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span> <span class="token operator">:</span> <span class="token punctuation">[</span>prev<span class="token punctuation">,</span> data<span class="token punctuation">]</span><span class="token punctuation">;</span>
+  
+  res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">'Set-Cookie'</span><span class="token punctuation">,</span> header<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>存在 cookie 裡面的 sessionID 的 key 一樣可以自己指定，但預設會是 <code>connect.sid</code>，所以以後一看到這個 key 就知道這是 express-session 預設的 sessionID 名稱。</p>
+<p>內容的部分比較特別一點，會以 <code>s:</code> 開頭，後面接上 <code>signature.sign(sessionID, secret)</code> 的結果。</p>
+<p>這邊要再看到 <a target="_blank" rel="noopener" href="https://github.com/tj/node-cookie-signature">cookie-signature</a> 這個 library，底下是一個簡單範例：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> cookie <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'cookie-signature'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+<span class="token keyword">var</span> val <span class="token operator">=</span> cookie<span class="token punctuation">.</span><span class="token function">sign</span><span class="token punctuation">(</span><span class="token string">'hello'</span><span class="token punctuation">,</span> <span class="token string">'tobiiscool'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+val<span class="token punctuation">.</span>should<span class="token punctuation">.</span><span class="token function">equal</span><span class="token punctuation">(</span><span class="token string">'hello.DGDUkGlIkCzPz+C0B064FNgHdEjox7ch8tOBGslZ5QI'</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這邊的 sign 到底做了什麼呢？原始碼很簡單，可以稍微看一下：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> crypto <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'crypto'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+<span class="token comment">/**
+ * Sign the given `val` with `secret`.
+ *
+ * @param &#123;String&#125; val
+ * @param &#123;String&#125; secret
+ * @return &#123;String&#125;
+ * @api private
+ */</span>
+  
+exports<span class="token punctuation">.</span><span class="token function-variable function">sign</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">val<span class="token punctuation">,</span> secret</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token string">'string'</span> <span class="token operator">!=</span> <span class="token keyword">typeof</span> val<span class="token punctuation">)</span> <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">TypeError</span><span class="token punctuation">(</span><span class="token string">"Cookie value must be provided as a string."</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token string">'string'</span> <span class="token operator">!=</span> <span class="token keyword">typeof</span> secret<span class="token punctuation">)</span> <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">TypeError</span><span class="token punctuation">(</span><span class="token string">"Secret string must be provided."</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">return</span> val <span class="token operator">+</span> <span class="token string">'.'</span> <span class="token operator">+</span> crypto
+    <span class="token punctuation">.</span><span class="token function">createHmac</span><span class="token punctuation">(</span><span class="token string">'sha256'</span><span class="token punctuation">,</span> secret<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">update</span><span class="token punctuation">(</span>val<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">digest</span><span class="token punctuation">(</span><span class="token string">'base64'</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">\=+$</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>就只是把你要 sign 的內容用 hmac-sha256 產生一個<a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/%E9%87%91%E9%91%B0%E9%9B%9C%E6%B9%8A%E8%A8%8A%E6%81%AF%E9%91%91%E5%88%A5%E7%A2%BC">鑑別碼</a>，並且加在字串後面而已，中間會用<code>.</code>來分割資料。</p>
+<p>若是你不知道什麼是 hmac 的話我稍微提一下，簡單來說就是可以對一串訊息產生鑑別碼，目的是為了保持資料的完整性讓它不被竄改。你可以想成它就是訊息對應到的一組獨一無二的代碼，如果訊息被改掉了，代碼也會不一樣。</p>
+<p>以上面的範例來說，<code>hello</code> 利用 <code>tobiiscool</code> 這個 secret，得到的結果為：<code>DGDUkGlIkCzPz+C0B064FNgHdEjox7ch8tOBGslZ5QI</code>，於是完整字串就變為：<code>hello.DGDUkGlIkCzPz+C0B064FNgHdEjox7ch8tOBGslZ5QI</code>，前面是我的資料，後面是資料的鑑別碼。</p>
+<p>如果有人想竄改資料，例如說把前面改成 hello2，那這個資料的鑑別碼就不會是後面那一串，我就知道有人篡改資料了。所以藉由這樣的方式來保持資料完整性，其實原理跟 <a target="_blank" rel="noopener" href="https://jwt.io/">JWT</a> 是差不多的，你看得到資料但沒辦法改它，因為改了會被發現。</p>
+<p>你可能會疑惑說：那我幹嘛不把整個 sessionID 加密就好？為什麼要多此一舉用這種方式？我自己猜測是因為原始資料其實不怕別人看，只是怕人改而已；若是原始資料是敏感資訊，會用加密的方式。但因為原始資料只是 sessionID 而已，被別人看到也沒什麼關係，只要保障資料完整性即可。而且加密需要的系統資源應該比這種訊息驗證還多，因此才採用這種方式。</p>
+<p>好，我們再講回來前面，所以 express-session 會把 sessionID 存在 cookie 裡面，key 是 <code>connect.sid</code>，value 則是 <code>s:&#123;sessionID&#125;.&#123;hmac-sha256(sessionID, secret)&#125;</code>。</p>
+<p>好奇的話你可以去任何使用 Express 的網站然後看一下 cookie 內容，就可以找到實際的資料（或是自己隨便執行一個也行），這邊我用我的當作範例，我的 connect.sid 是： s%3AfZZVCDHefchle2LDK4PzghaR3Ao9NruG.J%2BsOPkTubkeMJ4EMBcnunPXW0Y7TWTucRSKIPNVgnRM，把特殊字元 decode 之後變成： <code>s:fZZVCDHefchle2LDK4PzghaR3Ao9NruG.J+sOPkTubkeMJ4EMBcnunPXW0Y7TWTucRSKIPNVgnRM</code>。</p>
+<p>也就是說我的 sessionID 是<code>fZZVCDHefchle2LDK4PzghaR3Ao9NruG</code>，鑑別碼是<code>J+sOPkTubkeMJ4EMBcnunPXW0Y7TWTucRSKIPNVgnRM</code>。</p>
+<p>知道儲存 sessionID 的方式以後，從 cookie 裡面取得 sessionID 的方式應該也能看懂，就是把事情反過來做而已：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// get the session ID from the cookie</span>
+<span class="token keyword">var</span> cookieId <span class="token operator">=</span> req<span class="token punctuation">.</span>sessionID <span class="token operator">=</span> <span class="token function">getcookie</span><span class="token punctuation">(</span>req<span class="token punctuation">,</span> name<span class="token punctuation">,</span> secrets<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+<span class="token keyword">function</span> <span class="token function">getcookie</span><span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> name<span class="token punctuation">,</span> secrets</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> header <span class="token operator">=</span> req<span class="token punctuation">.</span>headers<span class="token punctuation">.</span>cookie<span class="token punctuation">;</span>
+  <span class="token keyword">var</span> raw<span class="token punctuation">;</span>
+  <span class="token keyword">var</span> val<span class="token punctuation">;</span>
+  
+  <span class="token comment">// read from cookie header</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>header<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> cookies <span class="token operator">=</span> cookie<span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>header<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+    raw <span class="token operator">=</span> cookies<span class="token punctuation">[</span>name<span class="token punctuation">]</span><span class="token punctuation">;</span>
+  
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>raw<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>raw<span class="token punctuation">.</span><span class="token function">substr</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token string">'s:'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        val <span class="token operator">=</span> <span class="token function">unsigncookie</span><span class="token punctuation">(</span>raw<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">,</span> secrets<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>val <span class="token operator">===</span> <span class="token boolean">false</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token function">debug</span><span class="token punctuation">(</span><span class="token string">'cookie signature invalid'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+          val <span class="token operator">=</span> <span class="token keyword">undefined</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">debug</span><span class="token punctuation">(</span><span class="token string">'cookie unsigned'</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token keyword">return</span> val<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token comment">/**
+ * Verify and decode the given `val` with `secrets`.
+ *
+ * @param &#123;String&#125; val
+ * @param &#123;Array&#125; secrets
+ * @returns &#123;String|Boolean&#125;
+ * @private
+ */</span>
+<span class="token keyword">function</span> <span class="token function">unsigncookie</span><span class="token punctuation">(</span><span class="token parameter">val<span class="token punctuation">,</span> secrets</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">var</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> secrets<span class="token punctuation">.</span>length<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> result <span class="token operator">=</span> signature<span class="token punctuation">.</span><span class="token function">unsign</span><span class="token punctuation">(</span>val<span class="token punctuation">,</span> secrets<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>result <span class="token operator">!==</span> <span class="token boolean">false</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> result<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>接下來就剩最後一個了，session 資訊到底存在哪裡？是存在記憶體、檔案，還是其他地方？</p>
+<p>其實這個在程式碼裡面寫得很清楚了，預設是存在記憶體裡面的：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> warning <span class="token operator">=</span> <span class="token string">'Warning: connect.session() MemoryStore is not\n'</span>
+  <span class="token operator">+</span> <span class="token string">'designed for a production environment, as it will leak\n'</span>
+  <span class="token operator">+</span> <span class="token string">'memory, and will not scale past a single process.'</span><span class="token punctuation">;</span>
+  
+<span class="token comment">// get the session store</span>
+<span class="token keyword">var</span> store <span class="token operator">=</span> opts<span class="token punctuation">.</span>store <span class="token operator">||</span> <span class="token keyword">new</span> <span class="token class-name">MemoryStore</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// notify user that this store is not</span>
+<span class="token comment">// meant for a production environment</span>
+<span class="token comment">/* istanbul ignore next: not tested */</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>env <span class="token operator">===</span> <span class="token string">'production'</span> <span class="token operator">&amp;&amp;</span> store <span class="token keyword">instanceof</span> <span class="token class-name">MemoryStore</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span>warning<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>那到底是怎麼存呢？可以參考 <a target="_blank" rel="noopener" href="https://github.com/expressjs/session/blob/master/session/memory.js">session&#x2F;memory.js</a>：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">MemoryStore</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">Store</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>sessions <span class="token operator">=</span> Object<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token class-name">MemoryStore</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span><span class="token function-variable function">get</span> <span class="token operator">=</span> <span class="token keyword">function</span> <span class="token function">get</span><span class="token punctuation">(</span><span class="token parameter">sessionId<span class="token punctuation">,</span> callback</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">defer</span><span class="token punctuation">(</span>callback<span class="token punctuation">,</span> <span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token function">getSession</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> sessionId<span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token class-name">MemoryStore</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span><span class="token function-variable function">set</span> <span class="token operator">=</span> <span class="token keyword">function</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token parameter">sessionId<span class="token punctuation">,</span> session<span class="token punctuation">,</span> callback</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>sessions<span class="token punctuation">[</span>sessionId<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>session<span class="token punctuation">)</span>
+  callback <span class="token operator">&amp;&amp;</span> <span class="token function">defer</span><span class="token punctuation">(</span>callback<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">function</span> <span class="token function">getSession</span><span class="token punctuation">(</span><span class="token parameter">sessionId</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> sess <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>sessions<span class="token punctuation">[</span>sessionId<span class="token punctuation">]</span>
+  
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>sess<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token comment">// parse</span>
+  sess <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>sess<span class="token punctuation">)</span>
+  
+  <span class="token keyword">return</span> sess
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>首先用 <code>Object.create(null)</code> 創造出一個乾淨的 Object（這是很常用的一個方法，沒看過的可以參考：<a target="_blank" rel="noopener" href="https://juejin.im/post/5acd8ced6fb9a028d444ee4e">詳解 Object.create(null)</a>），然後以 sessionID 作為 key，<code>JSON.stringigy(session)</code>作為 value，存到這個 object 裡面。</p>
+<p>所以說穿了其實 express-session 的 session information 預設就是存在一個變數裡面而已啦，因此你只要一把 process 結束掉重開，session 的資料就都全部不見了。而且會有 memory leak 的問題，所以官方也不推薦用在 production 上面。</p>
+<p>如果要用在 production 上面，必須額外再找<code>store</code>來用，例如說 <a target="_blank" rel="noopener" href="https://github.com/tj/connect-redis#readme">connect-redis</a> 就可以跟 express-session 搭配，把 session information 存在 redis 裡。</p>
+<p>以上就是 Express 常用的 middleware：express-session 的原始碼分析。從上面的段落我們清楚知道了 sessionID 的產生方式以及如何存在 cookie，還有 session information 所儲存的地方。</p>
+<h2><span id="php72-版本">PHP（7.2 版本）</span></h2><p>PHP 內建就有 session 機制，不必使用任何的 framework，而使用的方法也很簡單：</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token php language-php"><span class="token delimiter important">&lt;?php</span>
+<span class="token function">session_start</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">empty</span><span class="token punctuation">(</span><span class="token variable">$_SESSION</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'views'</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token variable">$_SESSION</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'views'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+  <span class="token variable">$_SESSION</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'views'</span><span class="token punctuation">]</span><span class="token operator">++</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">echo</span> <span class="token variable">$_SESSION</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'views'</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token delimiter important">?></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>其實跟 express-session 的用法有點像，只是一個是 <code>req.session</code>，一個是<code>$_SESSION</code>。</p>
+<p>我原本也想跟剛剛看 express-session 一樣，直接去看 PHP 的原始碼，然後從中發現如何實作。但因為 PHP 的原始碼全部都是 C，對我這種幾乎沒寫過 C 的人來說很難看懂，因此我也只能反過來。先跟大家介紹 PHP 的 Session 機制是如何實作的，再從原始碼裡面去找證據支援。</p>
+<p>首先呢，PHP 的 Session 機制與 express-session 差不多，都會在 Cookie 裡存放一個 sessionID，並且把 session information 存在伺服器。express-session 預設是存在記憶體，PHP 預設則是存在檔案裡面。</p>
+<p>以上這些都可以在 PHP 的設定檔調整，都寫在 <code>php.ini</code> 裡面，底下以我的為例，列出一些相關的設定：</p>
+<pre class="line-numbers language-ini" data-language="ini"><code class="language-ini"><span class="token section"><span class="token punctuation">[</span><span class="token section-name selector">Session</span><span class="token punctuation">]</span></span>
+<span class="token comment">; Handler used to store/retrieve data.</span>
+<span class="token comment">; http://php.net/session.save-handler</span>
+<span class="token key attr-name">session.save_handler</span><span class="token punctuation">=</span><span class="token value attr-value">files</span>
+  
+<span class="token comment">; Argument passed to save_handler.  In the case of files, this is the path</span>
+<span class="token comment">; where data files are stored. Note: Windows users have to change this</span>
+<span class="token comment">; variable in order to use PHP's session functions.</span>
+<span class="token comment">;</span>
+<span class="token comment">; The path can be defined as:</span>
+<span class="token comment">;</span>
+<span class="token comment">;     session.save_path = "N;/path"</span>
+  
+<span class="token key attr-name">session.save_path</span><span class="token punctuation">=</span><span class="token value attr-value">"<span class="token inner-value">/opt/lampp/temp/</span>"</span>
+  
+<span class="token comment">; Name of the session (used as cookie name).</span>
+<span class="token comment">; http://php.net/session.name</span>
+<span class="token key attr-name">session.name</span><span class="token punctuation">=</span><span class="token value attr-value">PHPSESSID</span>
+  
+<span class="token comment">; Handler used to serialize data.  php is the standard serializer of PHP.</span>
+<span class="token comment">; http://php.net/session.serialize-handler</span>
+<span class="token key attr-name">session.serialize_handler</span><span class="token punctuation">=</span><span class="token value attr-value">php</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在 Cookie 裡面你就能看見一個 <code>PHPSESSID</code>，值大概長得像這樣：<code>fc46356f83dcf5712205d78c51b47c4d</code>，這就是 PHP 所使用的 sessionID。</p>
+<p>接著你去 <code>session.save_path</code> 看，就會看到儲存你 session 資訊的檔案，檔名很好認，就是 <code>sess_</code> 加上 sessionID：</p>
+<pre class="line-numbers language-none"><code class="language-none">root@debian:&#x2F;opt&#x2F;lampp&#x2F;temp# ls
+  
+adminer.invalid
+adminer.version
+sess_04719a35fb67786d574ec6eca969f7cb
+sess_fc46356f83dcf5712205d78c51b47c4d<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>若是打開 session 檔案，內容會是被序列化（serialize）之後的結果：</p>
+<pre class="line-numbers language-none"><code class="language-none">views|i:5;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>這就是 PHP session 的真面目了。把 session information 全都存在檔案裡面。</p>
+<p>若是想要研究 PHP session 的相關原始碼，最重要的檔案就是這兩個：<a target="_blank" rel="noopener" href="https://github.com/php/php-src/blob/PHP-7.2/ext/session/session.c">ext&#x2F;session&#x2F;session.c</a> 跟 <a target="_blank" rel="noopener" href="https://github.com/php/php-src/blob/PHP-7.2/ext/session/mod_files.c">ext&#x2F;session&#x2F;mod_files.c</a>，前者管理 session 生命週期，後者負責把 session 實際存到檔案裡面或者是讀出來。後者其實就很像我們在 express-session 裡面看到的 Store，只要遵守一樣的 interface，就可以自己寫一個其他的 mod 出來，例如說 mod_redis.c 之類的。</p>
+<p>接著我們一樣先來找找看 sessionID 是如何產生的，可以直接在 mod_files.c 搜尋相關字眼，就會找到底下這段：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token comment">/*
+ * Create session ID.
+ * PARAMETERS: PS_CREATE_SID_ARGS in php_session.h
+ * RETURN VALUE: Valid session ID(zend_string *) or NULL for FAILURE.
+ *
+ * PS_CREATE_SID_FUNC() must check collision. i.e. Check session data if
+ * new sid exists already.
+ * *mod_data is guaranteed to have non-NULL value.
+ * NOTE: Default php_session_create_id() does not check collision. If
+ * NULL is returned, session module create new ID by using php_session_create_id().
+ * If php_session_create_id() fails due to invalid configuration, it raises E_ERROR.
+ * NULL return value checks from php_session_create_id() is not required generally.
+ */</span>
+<span class="token function">PS_CREATE_SID_FUNC</span><span class="token punctuation">(</span>files<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+  zend_string <span class="token operator">*</span>sid<span class="token punctuation">;</span>
+  <span class="token keyword">int</span> maxfail <span class="token operator">=</span> <span class="token number">3</span><span class="token punctuation">;</span>
+  PS_FILES_DATA<span class="token punctuation">;</span>
+  
+  <span class="token keyword">do</span> <span class="token punctuation">&#123;</span>
+    sid <span class="token operator">=</span> <span class="token function">php_session_create_id</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token operator">*</span><span class="token operator">*</span><span class="token punctuation">)</span><span class="token operator">&amp;</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>sid<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">--</span>maxfail <span class="token operator">&lt;</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> <span class="token constant">NULL</span><span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">continue</span><span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token comment">/* Check collision */</span>
+    <span class="token comment">/* FIXME: mod_data(data) should not be NULL (User handler could be NULL) */</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>data <span class="token operator">&amp;&amp;</span> <span class="token function">ps_files_key_exists</span><span class="token punctuation">(</span>data<span class="token punctuation">,</span> <span class="token function">ZSTR_VAL</span><span class="token punctuation">(</span>sid<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">==</span> SUCCESS<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>sid<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">zend_string_release</span><span class="token punctuation">(</span>sid<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        sid <span class="token operator">=</span> <span class="token constant">NULL</span><span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">--</span>maxfail <span class="token operator">&lt;</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> <span class="token constant">NULL</span><span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span> <span class="token keyword">while</span><span class="token punctuation">(</span><span class="token operator">!</span>sid<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+  <span class="token keyword">return</span> sid<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這邊呼叫了 <code>php_session_create_id</code> 來產生 sessionID，然後會檢查有沒有產生重複的 id，有的話就重試最多三次。而 <code>php_session_create_id</code> 則是存在於 session.c 那個檔案：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">PS_EXTRA_RAND_BYTES</span> <span class="token expression"><span class="token number">60</span></span></span>
+  
+PHPAPI zend_string <span class="token operator">*</span><span class="token function">php_session_create_id</span><span class="token punctuation">(</span>PS_CREATE_SID_ARGS<span class="token punctuation">)</span> <span class="token comment">/* &#123;&#123;&#123; */</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token keyword">unsigned</span> <span class="token keyword">char</span> rbuf<span class="token punctuation">[</span>PS_MAX_SID_LENGTH <span class="token operator">+</span> PS_EXTRA_RAND_BYTES<span class="token punctuation">]</span><span class="token punctuation">;</span>
+  zend_string <span class="token operator">*</span>outid<span class="token punctuation">;</span>
+  
+  <span class="token comment">/* Read additional PS_EXTRA_RAND_BYTES just in case CSPRNG is not safe enough */</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">php_random_bytes_throw</span><span class="token punctuation">(</span>rbuf<span class="token punctuation">,</span> <span class="token function">PS</span><span class="token punctuation">(</span>sid_length<span class="token punctuation">)</span> <span class="token operator">+</span> PS_EXTRA_RAND_BYTES<span class="token punctuation">)</span> <span class="token operator">==</span> FAILURE<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token constant">NULL</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  outid <span class="token operator">=</span> <span class="token function">zend_string_alloc</span><span class="token punctuation">(</span><span class="token function">PS</span><span class="token punctuation">(</span>sid_length<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">ZSTR_LEN</span><span class="token punctuation">(</span>outid<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token function">bin_to_readable</span><span class="token punctuation">(</span>rbuf<span class="token punctuation">,</span> <span class="token function">PS</span><span class="token punctuation">(</span>sid_length<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">ZSTR_VAL</span><span class="token punctuation">(</span>outid<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token keyword">char</span><span class="token punctuation">)</span><span class="token function">PS</span><span class="token punctuation">(</span>sid_bits_per_character<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+  <span class="token keyword">return</span> outid<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>重點其實只有這一個：<code>php_random_bytes_throw</code>，這個 function 如果繼續追下去會找到 <a target="_blank" rel="noopener" href="https://github.com/php/php-src/blob/623911f993f39ebbe75abe2771fc89faf6b15b9b/ext/standard/php_random.h#L32">ext&#x2F;standard&#x2F;php_random.h</a>，然後找到 <a target="_blank" rel="noopener" href="https://github.com/php/php-src/blob/8fc58a1a1d32dd288bf4b9e09f9302a99d7b35fe/ext/standard/random.c#L89">ext&#x2F;standard&#x2F;random.c</a>，才是真正產生隨機數的地方。</p>
+<p>但最後找到的那個 function 想要看懂必須花一大段時間，因此我就沒有細看了。總之在不同作業系統上會有不同的產生方式，其中一種還會使用到 <a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki//dev/random">&#x2F;dev&#x2F;urandom</a>。</p>
+<p>知道了 sessionID 的產生方式以後，我們來看看 PHP 的 session information 是怎麼做 serialize 的。可以在<a target="_blank" rel="noopener" href="https://www.php.net/manual/en/function.session-encode.php">官方文件</a>上看到一個 function 叫做：<code>session_encode</code>，輸出的結果跟我們在 session 檔案裡面看到的資料一模一樣，而這個 function 的敘述寫著：</p>
+<blockquote>
+<p>session_encode() returns a serialized string of the contents of the current session data stored in the $_SESSION superglobal.</p>
+</blockquote>
+<blockquote>
+<p>By default, the serialization method used is internal to PHP, and is not the same as serialize(). The serialization method can be set using session.serialize_handler.</p>
+</blockquote>
+<p>接著我們直接在 session.c 裡面搜尋<code>session_encode</code>，會找到這一段：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token comment">/* &#123;&#123;&#123; proto string session_encode(void)
+   Serializes the current setup and returns the serialized representation */</span>
+<span class="token keyword">static</span> <span class="token function">PHP_FUNCTION</span><span class="token punctuation">(</span>session_encode<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+  zend_string <span class="token operator">*</span>enc<span class="token punctuation">;</span>
+  
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">zend_parse_parameters_none</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">==</span> FAILURE<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  enc <span class="token operator">=</span> <span class="token function">php_session_encode</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>enc <span class="token operator">==</span> <span class="token constant">NULL</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    RETURN_FALSE<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">RETURN_STR</span><span class="token punctuation">(</span>enc<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>只是一個 <code>php_session_encode</code> 的 wrapper 而已，而且 <code>php_session_encode</code> 也只是再呼叫別的東西：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token keyword">static</span> zend_string <span class="token operator">*</span><span class="token function">php_session_encode</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span> <span class="token comment">/* &#123;&#123;&#123; */</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token function">IF_SESSION_VARS</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token function">PS</span><span class="token punctuation">(</span>serializer<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token function">php_error_docref</span><span class="token punctuation">(</span><span class="token constant">NULL</span><span class="token punctuation">,</span> E_WARNING<span class="token punctuation">,</span> <span class="token string">"Unknown session.serialize_handler. Failed to encode session object"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token keyword">return</span> <span class="token constant">NULL</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> <span class="token function">PS</span><span class="token punctuation">(</span>serializer<span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">encode</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">php_error_docref</span><span class="token punctuation">(</span><span class="token constant">NULL</span><span class="token punctuation">,</span> E_WARNING<span class="token punctuation">,</span> <span class="token string">"Cannot encode non-existent session"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> <span class="token constant">NULL</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token comment">/* &#125;&#125;&#125; */</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>return PS(serializer)-&gt;encode();</code> 這一句才是重點。其實追到這邊的時候就有點卡住，因為不清楚這邊的 <code>serializer</code> 是從哪邊來的。但往下稍微看一下程式碼，找到一段應該是相關的：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">PS_DELIMITER</span> <span class="token char">'|'</span></span>
+  
+<span class="token function">PS_SERIALIZER_ENCODE_FUNC</span><span class="token punctuation">(</span>php<span class="token punctuation">)</span> <span class="token comment">/* &#123;&#123;&#123; */</span>
+<span class="token punctuation">&#123;</span>
+  smart_str buf <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token number">0</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+  <span class="token class-name">php_serialize_data_t</span> var_hash<span class="token punctuation">;</span>
+  PS_ENCODE_VARS<span class="token punctuation">;</span>
+  
+  <span class="token function">PHP_VAR_SERIALIZE_INIT</span><span class="token punctuation">(</span>var_hash<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+  <span class="token function">PS_ENCODE_LOOP</span><span class="token punctuation">(</span>
+    <span class="token function">smart_str_appendl</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>buf<span class="token punctuation">,</span> <span class="token function">ZSTR_VAL</span><span class="token punctuation">(</span>key<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">ZSTR_LEN</span><span class="token punctuation">(</span>key<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">memchr</span><span class="token punctuation">(</span><span class="token function">ZSTR_VAL</span><span class="token punctuation">(</span>key<span class="token punctuation">)</span><span class="token punctuation">,</span> PS_DELIMITER<span class="token punctuation">,</span> <span class="token function">ZSTR_LEN</span><span class="token punctuation">(</span>key<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token function">PHP_VAR_SERIALIZE_DESTROY</span><span class="token punctuation">(</span>var_hash<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token function">smart_str_free</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>buf<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token keyword">return</span> <span class="token constant">NULL</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token function">smart_str_appendc</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>buf<span class="token punctuation">,</span> PS_DELIMITER<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">php_var_serialize</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>buf<span class="token punctuation">,</span> struc<span class="token punctuation">,</span> <span class="token operator">&amp;</span>var_hash<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+  <span class="token function">smart_str_0</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>buf<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+  <span class="token function">PHP_VAR_SERIALIZE_DESTROY</span><span class="token punctuation">(</span>var_hash<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">return</span> buf<span class="token punctuation">.</span>s<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token comment">/* &#125;&#125;&#125; */</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>會知道相關是因為 <code>#define PS_DELIMITER &#39;|&#39;</code> 這一行，這個符號在 session 檔案裡有出現，可以猜測應該是拿來分隔什麼東西的。而實際的值則是交給<code>php_var_serialize</code>處理。</p>
+<p><code>php_var_serialize</code>若是繼續往下追，可以找到 <a target="_blank" rel="noopener" href="https://github.com/php/php-src/blob/7686b0b88906e2522300b9e631ddde2051de839f/ext/standard/var.c#L1112">ext&#x2F;standard&#x2F;var.c</a>（直接用 GitHub 搜尋功能就可以找到這個檔案，搜尋功能超方便的），最後就會找到真正在處理的地方：<a target="_blank" rel="noopener" href="https://github.com/php/php-src/blob/7686b0b88906e2522300b9e631ddde2051de839f/ext/standard/var.c#L883">php_var_serialize_intern</a>，裡面會針對不同的形態去呼叫不同的 function。</p>
+<p>以我們之前存在 session 裡面的 views 來說，是一個數字，所以會跑到這個 function：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token keyword">static</span> <span class="token keyword">inline</span> <span class="token keyword">void</span> <span class="token function">php_var_serialize_long</span><span class="token punctuation">(</span>smart_str <span class="token operator">*</span>buf<span class="token punctuation">,</span> zend_long val<span class="token punctuation">)</span> <span class="token comment">/* &#123;&#123;&#123; */</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token function">smart_str_appendl</span><span class="token punctuation">(</span>buf<span class="token punctuation">,</span> <span class="token string">"i:"</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">smart_str_append_long</span><span class="token punctuation">(</span>buf<span class="token punctuation">,</span> val<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">smart_str_appendc</span><span class="token punctuation">(</span>buf<span class="token punctuation">,</span> <span class="token char">';'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token comment">/* &#125;&#125;&#125; */</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>追到這邊，就知道為什麼當初 session 序列化之後的結果是<code>views|i:5;</code>了。<code>|</code>拿來分隔 key 跟 value，i 代表著型態，5 代表實際的數字，; 則是結束符號。</p>
+<p>以上就是 PHP Session 機制的相關原始碼分析，我們稍微看了如何產生 sessionID 以及 session information 如何做序列化。也知道了以預設的狀態來說，cookie 名稱會叫做 PHPSESSID，而且會以檔案的方式來儲存 session 的內容。</p>
+<p>最後來分享兩個跟 PHP Session 有關的文章，都十分有趣：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://blog.orange.tw/2018/10/hitcon-ctf-2018-one-line-php-challenge.html">HITCON CTF 2018 - One Line PHP Challenge</a></li>
+<li><a target="_blank" rel="noopener" href="https://cyku.tw/lfi-leads-to-rce-via-session-file/">[Web Security] 透過 LFI 引入 PHP session 檔案觸發 RCE</a></li>
+</ol>
+<h2><span id="rails52-版本">Rails（5.2 版本）</span></h2><p>Rails 是一個 Ruby 的 Web 框架，俗稱 Ruby on Rails。會挑這一套是因為我本來就知道它儲存 session 的方法不太一樣。我當初只是好奇 Rails 怎麼生成 sessionID 的，於是就去 GitHub 的 repo 搜尋：session，然後找到這個檔案：<a target="_blank" rel="noopener" href="https://github.com/rails/rails/blob/5-2-stable/actionpack/test/dispatch/session/cookie_store_test.rb">rails&#x2F;actionpack&#x2F;test&#x2F;dispatch&#x2F;session&#x2F;cookie_store_test.rb</a>，是個測試，但有時候測試其實對找程式碼幫助也很大，因為裡面會出現一堆相關的 function 跟參數。</p>
+<p>我那時觀察了一陣子，發現裡面出現了很多次的 session_id，於是就改用這個關鍵字搜尋，找到了 <a target="_blank" rel="noopener" href="https://github.com/rails/rails/blob/5-2-stable/actionpack/lib/action_dispatch/middleware/session/cookie_store.rb">rails&#x2F;actionpack&#x2F;lib&#x2F;action_dispatch&#x2F;middleware&#x2F;session&#x2F;cookie_store.rb</a>，發現裡面的註解把 Rails 的 Session 實作方式寫得一清二楚：</p>
+<pre class="line-numbers language-ruby" data-language="ruby"><code class="language-ruby"><span class="token comment"># This cookie-based session store is the Rails default. It is</span>
+<span class="token comment"># dramatically faster than the alternatives.</span>
+<span class="token comment">#</span>
+<span class="token comment"># Sessions typically contain at most a user_id and flash message; both fit</span>
+<span class="token comment"># within the 4K cookie size limit. A CookieOverflow exception is raised if</span>
+<span class="token comment"># you attempt to store more than 4K of data.</span>
+<span class="token comment">#</span>
+<span class="token comment"># The cookie jar used for storage is automatically configured to be the</span>
+<span class="token comment"># best possible option given your application's configuration.</span>
+<span class="token comment">#</span>
+<span class="token comment"># If you only have secret_token set, your cookies will be signed, but</span>
+<span class="token comment"># not encrypted. This means a user cannot alter their +user_id+ without</span>
+<span class="token comment"># knowing your app's secret key, but can easily read their +user_id+. This</span>
+<span class="token comment"># was the default for Rails 3 apps.</span>
+<span class="token comment">#</span>
+<span class="token comment"># Your cookies will be encrypted using your apps secret_key_base. This</span>
+<span class="token comment"># goes a step further than signed cookies in that encrypted cookies cannot</span>
+<span class="token comment"># be altered or read by users. This is the default starting in Rails 4.</span>
+<span class="token comment">#</span>
+<span class="token comment"># Configure your session store in &lt;tt>config/initializers/session_store.rb&lt;/tt>:</span>
+<span class="token comment">#</span>
+<span class="token comment">#   Rails.application.config.session_store :cookie_store, key: '_your_app_session'</span>
+<span class="token comment">#</span>
+<span class="token comment"># In the development and test environments your application's secret key base is</span>
+<span class="token comment"># generated by Rails and stored in a temporary file in &lt;tt>tmp/development_secret.txt&lt;/tt>.</span>
+<span class="token comment"># In all other environments, it is stored encrypted in the</span>
+<span class="token comment"># &lt;tt>config/credentials.yml.enc&lt;/tt> file.</span>
+<span class="token comment">#</span>
+<span class="token comment"># If your application was not updated to Rails 5.2 defaults, the secret_key_base</span>
+<span class="token comment"># will be found in the old &lt;tt>config/secrets.yml&lt;/tt> file.</span>
+<span class="token comment">#</span>
+<span class="token comment"># Note that changing your secret_key_base will invalidate all existing session.</span>
+<span class="token comment"># Additionally, you should take care to make sure you are not relying on the</span>
+<span class="token comment"># ability to decode signed cookies generated by your app in external</span>
+<span class="token comment"># applications or JavaScript before changing it.</span>
+<span class="token comment">#</span>
+<span class="token comment"># Because CookieStore extends Rack::Session::Abstract::Persisted, many of the</span>
+<span class="token comment"># options described there can be used to customize the session cookie that</span>
+<span class="token comment"># is generated. For example:</span>
+<span class="token comment">#</span>
+<span class="token comment">#   Rails.application.config.session_store :cookie_store, expire_after: 14.days</span>
+<span class="token comment">#</span>
+<span class="token comment"># would set the session cookie to expire automatically 14 days after creation.</span>
+<span class="token comment"># Other useful options include &lt;tt>:key&lt;/tt>, &lt;tt>:secure&lt;/tt> and</span>
+<span class="token comment"># &lt;tt>:httponly&lt;/tt>.</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Rails 預設使用 cookie-based session，因為它比其他解決方案都來得快。雖然 cookie 有大小限制，但頂多只會存 flash message 跟 user_id，離 4k 的上限還有一大段距離。</p>
+<p>在 Rails 3 裡面 cookie 只會被 signed 不會被加密，意思就是使用者看得到 user_id 但沒辦法改它（就像我們在 express-session 看到的 sessionID 一樣，看得到但不能改）。</p>
+<p>而 Rails 4 以後預設就會把 cookie 的值整個加密，什麼都看不到。在測試環境時 Rails 會自動幫你產生一個 secret 來加密，也可以透過 Rails 的設定檔來設定。</p>
+<p>在這份檔案中也可以看到有一個 function 叫做<code>generate_sid</code>，是拿來產生 sessionID 的。這個 function 存在於 <a target="_blank" rel="noopener" href="https://github.com/rails/rails/blob/5-2-stable/actionpack/lib/action_dispatch/middleware/session/abstract_store.rb">rails&#x2F;actionpack&#x2F;lib&#x2F;action_dispatch&#x2F;middleware&#x2F;session&#x2F;abstract_store.rb</a>：</p>
+<pre class="line-numbers language-ruby" data-language="ruby"><code class="language-ruby"><span class="token keyword">def</span> <span class="token method-definition"><span class="token function">generate_sid</span></span>
+    sid <span class="token operator">=</span> SecureRandom<span class="token punctuation">.</span>hex<span class="token punctuation">(</span><span class="token number">16</span><span class="token punctuation">)</span>
+    sid<span class="token punctuation">.</span>encode<span class="token operator">!</span><span class="token punctuation">(</span>Encoding<span class="token double-colon punctuation">::</span><span class="token constant">UTF_8</span><span class="token punctuation">)</span>
+    sid
+<span class="token keyword">end</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>直接呼叫了 Ruby 的函式庫 <a target="_blank" rel="noopener" href="https://ruby-doc.org/stdlib-2.5.1/libdoc/securerandom/rdoc/SecureRandom.html">SecureRandom</a> 來產生亂數並當作 sessionID。</p>
+<p>至於在 Cookie 裡面的 key 是什麼，可以經由設定 <code>app.config.session_store</code> 來調整。根據<a target="_blank" rel="noopener" href="https://github.com/rails/rails/blob/5-2-stable/railties/lib/rails/application/finisher.rb#L39">這邊</a>的程式碼：</p>
+<pre class="line-numbers language-ruby" data-language="ruby"><code class="language-ruby"><span class="token comment"># Setup default session store if not already set in config/application.rb</span>
+initializer <span class="token symbol">:setup_default_session_store</span><span class="token punctuation">,</span> <span class="token symbol">before</span><span class="token operator">:</span> <span class="token symbol">:build_middleware_stack</span> <span class="token keyword">do</span> <span class="token operator">|</span>app<span class="token operator">|</span>
+    <span class="token keyword">unless</span> app<span class="token punctuation">.</span>config<span class="token punctuation">.</span>session_store<span class="token operator">?</span>
+        app_name <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">.</span>name <span class="token operator">?</span> app<span class="token punctuation">.</span>railtie_name<span class="token punctuation">.</span>chomp<span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"_application"</span></span><span class="token punctuation">)</span> <span class="token operator">:</span> <span class="token string-literal"><span class="token string">""</span></span>
+        app<span class="token punctuation">.</span>config<span class="token punctuation">.</span>session_store <span class="token symbol">:cookie_store</span><span class="token punctuation">,</span> <span class="token symbol">key</span><span class="token operator">:</span> <span class="token string-literal"><span class="token string">"_</span><span class="token interpolation"><span class="token delimiter punctuation">#&#123;</span><span class="token content">app_name</span><span class="token delimiter punctuation">&#125;</span></span><span class="token string">_session"</span></span>
+    <span class="token keyword">end</span>
+<span class="token keyword">end</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>預設值會是 <code>_#&#123;app_name&#125;_session</code>，例如說我的 app_name 叫做 huli，Cookie 名稱就會是 _huli_session。</p>
+<p>然後把 session information 實際寫進去 cookie 的地方在 <a target="_blank" rel="noopener" href="https://github.com/rails/rails/blob/5-2-stable/actionpack/lib/action_dispatch/middleware/session/cookie_store.rb">rails&#x2F;actionpack&#x2F;lib&#x2F;action_dispatch&#x2F;middleware&#x2F;session&#x2F;cookie_store.rb</a>：</p>
+<pre class="line-numbers language-ruby" data-language="ruby"><code class="language-ruby"><span class="token keyword">def</span> <span class="token method-definition"><span class="token function">set_cookie</span></span><span class="token punctuation">(</span>request<span class="token punctuation">,</span> session_id<span class="token punctuation">,</span> cookie<span class="token punctuation">)</span>
+  cookie_jar<span class="token punctuation">(</span>request<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token variable">@key</span><span class="token punctuation">]</span> <span class="token operator">=</span> cookie
+<span class="token keyword">end</span>
+
+<span class="token keyword">def</span> <span class="token method-definition"><span class="token function">get_cookie</span></span><span class="token punctuation">(</span>req<span class="token punctuation">)</span>
+  cookie_jar<span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token variable">@key</span><span class="token punctuation">]</span>
+<span class="token keyword">end</span>
+
+<span class="token keyword">def</span> <span class="token method-definition"><span class="token function">cookie_jar</span></span><span class="token punctuation">(</span>request<span class="token punctuation">)</span>
+  request<span class="token punctuation">.</span>cookie_jar<span class="token punctuation">.</span>signed_or_encrypted
+<span class="token keyword">end</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>會呼叫與 cookie 相關的 <code>signed_or_encrypted</code> 來做處理。</p>
+<p>接著我去搜了一下文件，發現其實<a target="_blank" rel="noopener" href="https://guides.rubyonrails.org/security.html#sessions">官方文件</a>都寫得十分清楚了：</p>
+<blockquote>
+<p>The session ID is generated using SecureRandom.hex which generates a random hex string using platform specific methods (such as OpenSSL, &#x2F;dev&#x2F;urandom or Win32 CryptoAPI) for generating cryptographically secure random numbers. Currently it is not feasible to brute-force Rails’ session IDs.</p>
+</blockquote>
+<p>上面這段寫了 sessionID 的產生方式。</p>
+<blockquote>
+<p>The CookieStore uses the encrypted cookie jar to provide a secure, encrypted location to store session data. Cookie-based sessions thus provide both integrity as well as confidentiality to their contents. The encryption key, as well as the verification key used for signed cookies, is derived from the secret_key_base configuration value.</p>
+<p>As of Rails 5.2 encrypted cookies and sessions are protected using AES GCM encryption. This form of encryption is a type of Authenticated Encryption and couples authentication and encryption in single step while also producing shorter ciphertexts as compared to other algorithms previously used. The key for cookies encrypted with AES GCM are derived using a salt value defined by the config.action_dispatch.authenticated_encrypted_cookie_salt configuration value.</p>
+</blockquote>
+<p>這段則是寫說從 Rails 5.2 開始採用 AES GCM 來加密，底下還有一個段落我沒複製，主要是提到之前程式碼註解裡面寫的，Rails 4 前只用 HMAC 來做驗證，而不是加密。</p>
+<p>而且我看一看之後發現這文件寫的好棒喔，除了把這些機制說明清楚以外，底下還介紹了我們上一篇提到的 Session Fixation Attack 以及 CSRF。</p>
+<p>若是還想深入研究，可以參考 Rails 裡面 Cookie 相關的實作：<a target="_blank" rel="noopener" href="https://github.com/rails/rails/blob/5-2-stable/actionpack/lib/action_dispatch/middleware/cookies.rb">rails&#x2F;actionpack&#x2F;lib&#x2F;action_dispatch&#x2F;middleware&#x2F;cookies.rb</a>，註解裡面有詳細的說明，例如說加密的部分：</p>
+<pre class="line-numbers language-ruby" data-language="ruby"><code class="language-ruby"><span class="token comment"># Returns a jar that'll automatically encrypt cookie values before sending them to the client and will decrypt them for read.</span>
+<span class="token comment"># If the cookie was tampered with by the user (or a 3rd party), +nil+ will be returned.</span>
+<span class="token comment">#  </span>
+<span class="token comment"># If +secret_key_base+ and +secrets.secret_token+ (deprecated) are both set,</span>
+<span class="token comment"># legacy cookies signed with the old key generator will be transparently upgraded.</span>
+<span class="token comment">#  </span>
+<span class="token comment"># If +config.action_dispatch.encrypted_cookie_salt+ and +config.action_dispatch.encrypted_signed_cookie_salt+</span>
+<span class="token comment"># are both set, legacy cookies encrypted with HMAC AES-256-CBC will be transparently upgraded.</span>
+<span class="token comment">#  </span>
+<span class="token comment"># This jar requires that you set a suitable secret for the verification on your app's +secret_key_base+.</span>
+<span class="token comment">#  </span>
+<span class="token comment"># Example:</span>
+<span class="token comment">#  </span>
+<span class="token comment">#   cookies.encrypted[:discount] = 45</span>
+<span class="token comment">#   # => Set-Cookie: discount=DIQ7fw==--K3n//8vvnSbGq9dA--7Xh91HfLpwzbj1czhBiwOg==; path=/</span>
+<span class="token comment">#  </span>
+<span class="token comment">#   cookies.encrypted[:discount] # => 45</span>
+<span class="token keyword">def</span> <span class="token method-definition"><span class="token function">encrypted</span></span>
+  <span class="token variable">@encrypted</span> <span class="token operator">||=</span> <span class="token class-name">EncryptedKeyRotatingCookieJar</span><span class="token punctuation">.</span><span class="token keyword">new</span><span class="token punctuation">(</span><span class="token keyword">self</span><span class="token punctuation">)</span>
+<span class="token keyword">end</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>往底下追的話就可以看到 <code>EncryptedKeyRotatingCookieJar</code> 的完整程式碼，或你也可以再往下，看看 <a target="_blank" rel="noopener" href="https://github.com/rails/rails/blob/5-2-stable/activesupport/lib/active_support/message_encryptor.rb">rails&#x2F;activesupport&#x2F;lib&#x2F;active_support&#x2F;message_encryptor.rb</a>，負責加密的程式碼長這樣：</p>
+<pre class="line-numbers language-ruby" data-language="ruby"><code class="language-ruby"><span class="token keyword">def</span> <span class="token method-definition"><span class="token function">_encrypt</span></span><span class="token punctuation">(</span>value<span class="token punctuation">,</span> <span class="token operator">**</span>metadata_options<span class="token punctuation">)</span>
+    cipher <span class="token operator">=</span> new_cipher
+    cipher<span class="token punctuation">.</span>encrypt
+    cipher<span class="token punctuation">.</span>key <span class="token operator">=</span> <span class="token variable">@secret</span>
+  
+    <span class="token comment"># Rely on OpenSSL for the initialization vector</span>
+    iv <span class="token operator">=</span> cipher<span class="token punctuation">.</span>random_iv
+    cipher<span class="token punctuation">.</span>auth_data <span class="token operator">=</span> <span class="token string-literal"><span class="token string">""</span></span> <span class="token keyword">if</span> aead_mode<span class="token operator">?</span>
+  
+    encrypted_data <span class="token operator">=</span> cipher<span class="token punctuation">.</span>update<span class="token punctuation">(</span>Messages<span class="token double-colon punctuation">::</span>Metadata<span class="token punctuation">.</span>wrap<span class="token punctuation">(</span><span class="token variable">@serializer</span><span class="token punctuation">.</span>dump<span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">,</span> metadata_options<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    encrypted_data <span class="token operator">&lt;&lt;</span> cipher<span class="token punctuation">.</span>final
+  
+    blob <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"</span><span class="token interpolation"><span class="token delimiter punctuation">#&#123;</span><span class="token content"><span class="token double-colon punctuation">::</span>Base64<span class="token punctuation">.</span>strict_encode64 encrypted_data</span><span class="token delimiter punctuation">&#125;</span></span><span class="token string">--</span><span class="token interpolation"><span class="token delimiter punctuation">#&#123;</span><span class="token content"><span class="token double-colon punctuation">::</span>Base64<span class="token punctuation">.</span>strict_encode64 iv</span><span class="token delimiter punctuation">&#125;</span></span><span class="token string">"</span></span>
+    blob <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"</span><span class="token interpolation"><span class="token delimiter punctuation">#&#123;</span><span class="token content">blob</span><span class="token delimiter punctuation">&#125;</span></span><span class="token string">--</span><span class="token interpolation"><span class="token delimiter punctuation">#&#123;</span><span class="token content"><span class="token double-colon punctuation">::</span>Base64<span class="token punctuation">.</span>strict_encode64 cipher<span class="token punctuation">.</span>auth_tag</span><span class="token delimiter punctuation">&#125;</span></span><span class="token string">"</span></span> <span class="token keyword">if</span> aead_mode<span class="token operator">?</span>
+    blob
+<span class="token keyword">end</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這裡的 cipher 是從 openssl 來的，所以最底層是使用了 openssl。</p>
+<p>整理到這邊應該就差不多了，就不再繼續深入了。</p>
+<h2><span id="總結">總結</span></h2><p>在這篇裡面我們看了三個不同的 Session 儲存方式。第一種是 express-session，把 session information 存在記憶體裡面；第二種是 PHP，存在檔案裡面；最後一種則是 Rails，採用了之前提過的 cookie-based session，將資訊直接加密並且存在 cookie 裡。</p>
+<p>在這系列當中，第一篇文章我們理解了概念，第二篇利用讀 RFC 加深印象並重新理解了一次 Session，最後一篇則是直接參考一些主流框架的實作，看看我們之前所提到的 sessionID 應該如何產生，session information 應該存在哪裡，cookie-bases session 又應該如何實作。</p>
+<p>寫這系列的初衷就是想讓大家把這些概念一次理解清楚，就不用以後每次碰到都重新查一遍。</p>
+<p>最後，希望這系列對大家有幫助，有任何錯誤都可以在底下留言反映。</p>
+<p>底下是系列文的完整清單：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://medium.com/@hulitw/session-and-cookie-15e47ed838bc">白話 Session 與 Cookie：從經營雜貨店開始</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/aszx87410/blog/issues/45">淺談 Session 與 Cookie：一起來讀 RFC</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/aszx87410/blog/issues/46">深入 Session 與 Cookie：Express、PHP 與 Rails 的實作</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Web/">#Web</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2019/08/21/real-front-end-learning-path/">紮實的網頁前端學習路線與資源推薦</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2019/08/09/session-and-cookie-part2/">淺談 Session 與 Cookie：一起來讀 RFC</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2019/08/09/en/session-and-cookie-part3/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

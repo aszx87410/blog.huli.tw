@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>A Brief Introduction to React Fiber and Its Impact on Lifecycles - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2018/03/31/react-fiber-and-lifecycles/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2018/03/31/en/react-fiber-and-lifecycles/">
+    
+
+
+
+
+
+    <meta name="description" content="IntroductionAlthough I’ve heard about React replacing its internal reconciler with something called Fiber for a long time, I’ve never studied it in detail and didn’t know what impact this change would">
+<meta property="og:type" content="article">
+<meta property="og:title" content="A Brief Introduction to React Fiber and Its Impact on Lifecycles">
+<meta property="og:url" content="https://blog.huli.tw/2018/03/31/en/react-fiber-and-lifecycles/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="IntroductionAlthough I’ve heard about React replacing its internal reconciler with something called Fiber for a long time, I’ve never studied it in detail and didn’t know what impact this change would">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49351561-fea9f280-f6ee-11e8-834a-89bd7937b17f.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49351564-02d61000-f6ef-11e8-8b36-6323ed4d7620.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49351571-06699700-f6ef-11e8-916a-a100a6c17974.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49351577-09fd1e00-f6ef-11e8-8cc5-9e0f849ad52a.png">
+<meta property="article:published_time" content="2018-03-31T14:10:00.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:10:49.071Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="React">
+<meta property="article:tag" content="Front-end">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://user-images.githubusercontent.com/2755720/49351561-fea9f280-f6ee-11e8-834a-89bd7937b17f.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="A Brief Introduction to React Fiber and Its Impact on Lifecycles" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#introduction">1&nbsp;&nbsp;<b>Introduction</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#a-journey-of-a-thousand-miles-begins-with-a-single-bug">2&nbsp;&nbsp;<b>A Journey of a Thousand Miles Begins with a Single Bug</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#what-is-fiber">3&nbsp;&nbsp;<b>What is Fiber?</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#changes-brought-by-fiber">3.1&nbsp;&nbsp;Changes brought by Fiber</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#first-stage">3.1.1&nbsp;&nbsp;First stage</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#second-stage">3.1.2&nbsp;&nbsp;Second stage</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#the-future-of-react">3.2&nbsp;&nbsp;The future of React</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">3.3&nbsp;&nbsp;Conclusion</a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2018/03/31/react-fiber-and-lifecycles/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            A Brief Introduction to React Fiber and Its Impact on Lifecycles
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2018-03-31T14:10:00.000Z" itemprop="datePublished">31 March 2018</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/React/">React</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h1><span id="introduction">Introduction</span></h1><p>Although I’ve heard about React replacing its internal reconciler with something called Fiber for a long time, I’ve never studied it in detail and didn’t know what impact this change would have on higher-level components.</p>
+<p>I only began to understand it more deeply when I encountered a related bug while using Redux Form. I learned that since React officially switched to Fiber, there have been some changes to higher-level components.</p>
+<p>The title of this article, “A Brief Introduction,” is not a lie. I won’t talk about the underlying operation of Fiber (because I haven’t studied it seriously yet). I will only use plain language to explain what Fiber is, what problems it was created to solve, and its impact on React lifecycles.</p>
+<span id="more"></span>
+
+<h1><span id="a-journey-of-a-thousand-miles-begins-with-a-single-bug">A Journey of a Thousand Miles Begins with a Single Bug</span></h1><p>Every time I encounter a bug, I take the opportunity to learn from it.</p>
+<p>Why? Because it’s a chance to force yourself to learn. If you can’t solve the bug, you can’t move forward. So to solve the bug, you must explore the cause, understand why the problem occurred, and figure out how to solve it.</p>
+<p>Of course, you can also find answers directly from Stack Overflow and copy and paste them to cover the problem. But after working for a while, you’ll find that not all problems can be solved that way.</p>
+<p>For example, the most difficult cookie problem I encountered a year ago was a great learning opportunity for me.</p>
+<p>So what bug did I encounter this time?</p>
+<p>Our company’s product uses redux-form, and the problem is this: I have two pages that both use the same component called <code>FormBlock</code>.</p>
+<p>I went to page A first, then to page B, and then back to page A. My redux-form validation failed, and no validation was executed when I submitted the form.</p>
+<p>At that time, I found several related issues, but I still wanted to find out for myself. So I went to the Redux Form source code and studied it for a few hours until I finally found the problem.</p>
+<p>When redux-form <a target="_blank" rel="noopener" href="https://github.com/erikras/redux-form/blob/5c13be079476cb0d0430ca88fd3e1abbd09e674a/src/selectors/isValid.js#L37">performs validation</a>, it first checks whether the fields have been registered. If they haven’t been registered, it returns <code>true</code> without performing any validation. After adding a few console.log statements, I found that the problem was here, and the field was not registered.</p>
+<p>Then I looked for where the registration was done and found that in <code>componentWillMount</code>, an action was dispatched to register all the form fields (<code>REGISTER_FIELD</code>).</p>
+<p>Then in <code>componentWillUnmount</code>, redux-form dispatches an action called <code>DESTROY</code> (<a target="_blank" rel="noopener" href="https://github.com/erikras/redux-form/blob/5c13be079476cb0d0430ca88fd3e1abbd09e674a/src/createReduxForm.js#L556">related code</a>) to clear all registered fields.</p>
+<p>So far, everything seems reasonable. When I leave page B, <code>componentWillUnmount</code> of <code>FormBlock</code> is triggered, unregistering all fields. When I enter page A, <code>componentWillMount</code> of <code>FormBlock</code> is triggered, re-registering all fields.</p>
+<p>But if you open redux-devtool, you’ll find that the order is not quite what you expected:</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/49351561-fea9f280-f6ee-11e8-834a-89bd7937b17f.png" alt="form"></p>
+<p>Huh? Why is it registering first and then deleting? And because it was deleted, the validation failed, and no validation logic was executed.</p>
+<p>After looking for related information, I found this <a target="_blank" rel="noopener" href="https://github.com/facebook/react/issues/9214#issuecomment-287763538">Browser back button not working with react-router@4.0.0-beta.7 and react@16-alpha.4</a> issue and the response from gaearon, a developer of Redux and React, below:</p>
+<blockquote>
+<p>In React 15, if A is replaced by B, we unmount A, and then create and mount B:</p>
+<ol>
+<li>A.componentWillUnmount</li>
+<li>B.constructor</li>
+<li>B.componentWillMount</li>
+<li>B.componentDidMount</li>
+</ol>
+<p>In Fiber, we create B first, and only later unmount A and mount B:</p>
+<ol>
+<li>B.constructor</li>
+<li>B.componentWillMount</li>
+<li>A.componentWillUnmount</li>
+<li>B.componentDidMount</li>
+</ol>
+<p>After React 16, due to this change in order, the execution order of the redux-form lifecycle mentioned above is different from what was expected, which indirectly caused the bug mentioned at the beginning.</p>
+<p>At this point, the reason for the problem has been traced from redux-form itself to React, and then to Fiber in more detail. It seems that we can no longer avoid Fiber.</p>
+<p>First, let me provide some other reference materials related to redux-form and the execution order, and then let’s take a closer look at Fiber.</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/erikras/redux-form/issues/3566">Re-mounting a Field component erases the field-level validation function</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/facebook/react/issues/12233">Ordering of componentWillMount&#x2F;Unmount in React 16</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/facebook/react/issues/11106">Asynchronous ComponentWillUnmount in React 16</a></li>
+</ol>
+<h1><span id="what-is-fiber">What is Fiber?</span></h1><p>The fastest way to understand a new thing is to answer the following questions:</p>
+<ol>
+<li>What problem is it designed to solve?</li>
+<li>What is the solution?</li>
+</ol>
+<p>By understanding these two questions, you can have a preliminary idea of the new thing. Although you still don’t know the implementation details, at least you know what impact and changes it brings.</p>
+<p>Let’s first take a look at a problem that has always existed in React.</p>
+<p>Suppose you have a super-functional app with a lot of components, and you change the state of the top-level component (let’s say it’s <code>&lt;App /&gt;</code>).</p>
+<p>Because the state has changed, the render function of <code>&lt;App /&gt;</code> will be executed, and then the render function of the components under <code>App</code> will be executed, and so on until the bottom is reached.</p>
+<p>If you look at the call stack, you will find that the call stack is huge:</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/49351564-02d61000-f6ef-11e8-8b36-6323ed4d7620.png" alt="call"></p>
+<p>(Image source: <a target="_blank" rel="noopener" href="http://blog.koba04.com/post/2017/04/25/a-state-of-react-fiber/">React Fiber現状確認</a>)</p>
+<p>What problems does this cause? Because there are too many things to do, and this process cannot be interrupted, it will cause the main thread to be blocked, and anything you do during this time will not be responsive in the browser.</p>
+<p>In short, the problem with React’s performance is that the main thread is blocked because there are too many things to do.</p>
+<p>At this point, we have answered the first question. Fiber is a solution designed to solve this problem. Next, let’s answer the second question: what is the solution?</p>
+<blockquote>
+<p>Since the cause of the problem is “too many things to do and cannot be interrupted”, we just need to invent an “interruptible” mechanism! Instead of updating all at once, we can update incrementally (incremental rendering), which can solve this problem!</p>
+</blockquote>
+<p>If we can cut the work to be updated into small pieces and execute only one small piece at a time, then the main thread will not be blocked because there can be gaps between each small piece of work to do other things (respond to user clicks, draw new screens, etc.).</p>
+<p>Just like the cartoon below, we complete a little bit of work each time, instead of completing everything at once:</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/49351571-06699700-f6ef-11e8-916a-a100a6c17974.png" alt="cartoon"></p>
+</blockquote>
+<p>(Picture source: <a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=ZCuYPiUIONs">Lin Clark - A Cartoon Intro to Fiber - React Conf 2017</a>)</p>
+<p>Now that you know what Fiber is, this is Fiber. Each small task is called a Fiber, and Fiber means “fiber” in English, so some people call this mechanism “Fiber”.</p>
+<p>Or to put it another way, the original problem was that the render function was executed layer by layer through the call stack in the program, and each time a function was called, a new task was thrown into the stack frame. However, this mechanism would cause tasks to be unable to be interrupted.</p>
+<p>So Fiber implemented a virtual stack frame, which is simply to simulate the feeling of a call stack using JavaScript, but the advantage is that you have complete control, rather than being bound by the JavaScript runtime mechanism.</p>
+<p>To summarize, before Fiber, updates were “one-time” updates that could not be interrupted, causing the main thread to be blocked during this period.</p>
+<p>With the Fiber mechanism, we divide a large update into many small updates, updating only a little bit each time, so that the main thread can do other things during the update gap without being bound.</p>
+<p>It sounds very good, and the problem is solved, but what are the side effects?</p>
+<h2><span id="changes-brought-by-fiber">Changes brought by Fiber</span></h2><p>After replacing the core with Fiber, there are some costs to be paid. The work in Fiber is actually divided into two stages:</p>
+<ol>
+<li>render&#x2F;reconciliation</li>
+<li>commit</li>
+</ol>
+<p>Simply put, the first stage is to find the parts that need to be changed, and the second stage is to actually apply these changes to the DOM. The first stage can be interrupted and can be re-executed, while the second stage is the same as before and must be done in one go.</p>
+<p>And these two stages correspond to different life cycles:</p>
+<h3><span id="first-stage">First stage</span></h3><ul>
+<li>componentWillMount</li>
+<li>componentWillReceiveProps</li>
+<li>shouldComponentUpdate</li>
+<li>componentWillUpdate</li>
+</ul>
+<h3><span id="second-stage">Second stage</span></h3><ul>
+<li>componentDidMount</li>
+<li>componentDidUpdate</li>
+<li>componentWillUnmount</li>
+</ul>
+<p>Because the first stage can be interrupted and re-executed, the functions in this stage may be called many times.</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/49351577-09fd1e00-f6ef-11e8-8cc5-9e0f849ad52a.png" alt="life"></p>
+<p>(Picture source: <a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=ZCuYPiUIONs">Lin Clark - A Cartoon Intro to Fiber - React Conf 2017</a>)</p>
+<p>So, if you used to call the API to get data in <code>componentWillMount</code>, for example, you would call the API more than once, wasting some bandwidth. If you want to change it, you need to move this code to <code>componentDidMount</code>, which will ensure that it is only called once.</p>
+<p>In short, since the internal mechanism was changed to Fiber (starting from React 16, so if you are using version 16 or above, it is already Fiber), the number and method of calling React’s lifecycle functions will be different from before.</p>
+<p>In addition, there is the difference in the order I mentioned at the beginning, which is also a noteworthy part. Although it doesn’t seem like a big problem, if you don’t know this, you may encounter some inexplicable bugs.</p>
+<h2><span id="the-future-of-react">The future of React</span></h2><p>React 16.3 was <a target="_blank" rel="noopener" href="https://reactjs.org/blog/2018/03/29/react-v-16-3.html">officially released</a> yesterday, accompanied by the official context API and lifecycle changes.</p>
+<p>With the official launch of Fiber, we can expect more exciting new features in the future. For example, <code>time slicing</code> mentioned in <a target="_blank" rel="noopener" href="https://reactjs.org/blog/2018/03/01/sneak-peek-beyond-react-16.html">Sneak Peek: Beyond React 16</a>, which makes the entire app experience smoother.</p>
+<p>And <a target="_blank" rel="noopener" href="https://reactjs.org/blog/2018/03/27/update-on-async-rendering.html">Update on Async Rendering</a> also mentions progress on asynchronous rendering.</p>
+<p>Since the internal mechanism was changed to Fiber, async rendering has been able to achieve maximum performance.</p>
+<p>However, there are some costs to pay for async rendering. The original lifecycle API may have some problems in this scenario. The official website has given many common examples, including the problem that <code>componentWillMount</code> will be called multiple times:</p>
+<p>(Ignoring the original sample code, but the idea is to call the API in <code>componentWillMount</code>)</p>
+<blockquote>
+<p>The above code is problematic for both server rendering (where the external data won’t be used) and the upcoming async rendering mode (where the request might be initiated multiple times).</p>
+</blockquote>
+<blockquote>
+<p>The recommended upgrade path for most use cases is to move data-fetching into componentDidMount.</p>
+</blockquote>
+<p>For async rendering, the following three lifecycles will cause problems:</p>
+<ol>
+<li>componentWillMount</li>
+<li>componentWillReceiveProps</li>
+<li>componentWillUpdate</li>
+</ol>
+<p>These three lifecycles will be removed in React 17 (if you still want to use them, you can add <code>UNSAFE_</code>, for example, change to <code>UNSAFE_componentWillMount</code> to use them), but since they are marked as UNSAFE, there is no reason to continue using them.</p>
+<p>In the latest release of 16.3, two new lifecycles were introduced to solve the above problems:</p>
+<ol>
+<li>getDerivedStateFromProps</li>
+<li>getSnapshotBeforeUpdate</li>
+</ol>
+<p>The first one is obviously to replace <code>componentWillReceiveProps</code>, and the second one is to replace <code>componentWillUpdate</code>. In fact, in some scenarios, <code>componentDidUpdate</code> can also replace the original two lifecycles.</p>
+<p>As for the <code>componentWillMount</code> mentioned earlier, it is recommended to move the code inside to <code>componentDidMount</code>.</p>
+<p>Next, let’s quickly see how the new lifecycles replace the old ones. Here, I will directly use the official example. This example detects props to determine whether to change the state, which is a common application scenario:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// Before</span>
+<span class="token keyword">class</span> <span class="token class-name">ExampleComponent</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  state <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">isScrollingDown</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+  
+  <span class="token function">componentWillReceiveProps</span><span class="token punctuation">(</span><span class="token parameter">nextProps</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>currentRow <span class="token operator">!==</span> nextProps<span class="token punctuation">.</span>currentRow<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">setState</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">isScrollingDown</span><span class="token operator">:</span>
+          nextProps<span class="token punctuation">.</span>currentRow <span class="token operator">></span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>currentRow<span class="token punctuation">,</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The new lifecycle <code>static getDerivedStateFromProps</code> will be called when the component is created and receives new props, but only new props and old state will be passed in. Therefore, we can make the following changes:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// After</span>
+<span class="token keyword">class</span> <span class="token class-name">ExampleComponent</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// 初始化 state</span>
+  state <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">isScrollingDown</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">lastRow</span><span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+  
+  <span class="token keyword">static</span> <span class="token function">getDerivedStateFromProps</span><span class="token punctuation">(</span><span class="token parameter">nextProps<span class="token punctuation">,</span> prevState</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// 把新的 props 跟舊的 state 做比較</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>nextProps<span class="token punctuation">.</span>currentRow <span class="token operator">!==</span> prevState<span class="token punctuation">.</span>lastRow<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// 回傳新的 state</span>
+      <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">isScrollingDown</span><span class="token operator">:</span> nextProps<span class="token punctuation">.</span>currentRow <span class="token operator">></span> prevState<span class="token punctuation">.</span>lastRow<span class="token punctuation">,</span>
+        <span class="token literal-property property">lastRow</span><span class="token operator">:</span> nextProps<span class="token punctuation">.</span>currentRow<span class="token punctuation">,</span> <span class="token comment">// 同步一下 state</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  
+    <span class="token comment">// return null 代表不用改變 state</span>
+    <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In fact, it just means that you save the <code>prevProps</code> passed by <code>componentWillReceiveProps</code> to the state and compare it with the state.</p>
+<p>You may be very puzzled when you see this: “Why doesn’t <code>getDerivedStateFromProps</code> just pass in <code>prevProps</code>?”</p>
+<p>The reason given by the React official website is twofold:</p>
+<ol>
+<li>Because <code>getDerivedStateFromProps</code> is also called during initialization, the first <code>prevProps</code> will be null, which means you have to do a null check every time, which is not good.</li>
+<li>Not passing <code>prevProps</code> means that React does not need to remember <code>prevProps</code> for you, which is helpful for future memory optimization.</li>
+</ol>
+<p>In short, there will be no <code>componentWillReceiveProps</code> to use in the future. You need to save the required <code>prevProps</code> in the state and compare them in <code>getDerivedStateFromProps</code>.</p>
+<p>Looking at another example, the purpose of this example is to maintain the position of the scroll bar when adding a new item, so the old height must be saved before the update, and the position of the scroll bar must be adjusted after the update:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">ScrollingList</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  listRef <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+  previousScrollHeight <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+  
+  <span class="token function">componentWillUpdate</span><span class="token punctuation">(</span><span class="token parameter">nextProps<span class="token punctuation">,</span> nextState</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// 有新增 item 的話，記住現在的高度</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>list<span class="token punctuation">.</span>length <span class="token operator">&lt;</span> nextProps<span class="token punctuation">.</span>list<span class="token punctuation">.</span>length<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>previousScrollHeight <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>listRef<span class="token punctuation">.</span>scrollHeight<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">componentDidUpdate</span><span class="token punctuation">(</span><span class="token parameter">prevProps<span class="token punctuation">,</span> prevState</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// 如果 previousScrollHeight 不是 null，代表有新增 item</span>
+    <span class="token comment">// 調整捲軸位置</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>previousScrollHeight <span class="token operator">!==</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>listRef<span class="token punctuation">.</span>scrollTop <span class="token operator">+=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>listRef<span class="token punctuation">.</span>scrollHeight <span class="token operator">-</span> <span class="token keyword">this</span><span class="token punctuation">.</span>previousScrollHeight<span class="token punctuation">;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>previousScrollHeight <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>div ref<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>setListRef<span class="token punctuation">&#125;</span><span class="token operator">></span>
+        <span class="token punctuation">&#123;</span><span class="token comment">/* ...contents... */</span><span class="token punctuation">&#125;</span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function-variable function">setListRef</span> <span class="token operator">=</span> <span class="token parameter">ref</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>listRef <span class="token operator">=</span> ref<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>What is the problem with this? Do you remember that we mentioned earlier that Fiber has two stages? Render and commit. There is a time difference between these two stages, and <code>componentWillUpdate</code> belongs to the first stage, and <code>componentDidUpdate</code> belongs to the second stage.</p>
+<p>If the user does something between these two stages, such as adjusting the size of the window, then the height you saved will not be correct, but the old value will be obtained.</p>
+<p>The solution is to use the new lifecycle <code>getSnapshotBeforeUpdate</code>, which will be called before the DOM is updated, which can ensure that you get the latest information.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">ScrollingList</span> <span class="token keyword">extends</span> <span class="token class-name">React<span class="token punctuation">.</span>Component</span> <span class="token punctuation">&#123;</span>
+  listRef <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+  
+  <span class="token function">getSnapshotBeforeUpdate</span><span class="token punctuation">(</span><span class="token parameter">prevProps<span class="token punctuation">,</span> prevState</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// 如果 list 有變動，就回傳現在的捲軸高度</span>
+    <span class="token comment">// 這個回傳值會被當作 componentDidUpdate 的第三個參數</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>prevProps<span class="token punctuation">.</span>list<span class="token punctuation">.</span>length <span class="token operator">&lt;</span> <span class="token keyword">this</span><span class="token punctuation">.</span>props<span class="token punctuation">.</span>list<span class="token punctuation">.</span>length<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span>listRef<span class="token punctuation">.</span>scrollHeight<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">componentDidUpdate</span><span class="token punctuation">(</span><span class="token parameter">prevProps<span class="token punctuation">,</span> prevState<span class="token punctuation">,</span> snapshot</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// snapshot 就是上面回傳的那個值</span>
+    <span class="token comment">// 如果不是 null，就利用 snapshot 來調整捲軸高度</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>snapshot <span class="token operator">!==</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>listRef<span class="token punctuation">.</span>scrollTop <span class="token operator">+=</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>listRef<span class="token punctuation">.</span>scrollHeight <span class="token operator">-</span> snapshot<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+      <span class="token operator">&lt;</span>div ref<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>setListRef<span class="token punctuation">&#125;</span><span class="token operator">></span>
+        <span class="token punctuation">&#123;</span><span class="token comment">/* ...contents... */</span><span class="token punctuation">&#125;</span>
+      <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function-variable function">setListRef</span> <span class="token operator">=</span> <span class="token parameter">ref</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>listRef <span class="token operator">=</span> ref<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In short, by combining the use of the commit phase lifecycle (<code>componentDidMount</code>, <code>componentDidUpdate</code>, <code>componentWillUnmount</code>) with the newly introduced <code>getDerivedStateFromProps</code> and <code>getSnapshotBeforeUpdate</code>, the old lifecycles that may cause problems can be replaced.</p>
+<p>If you want to see more examples, this article is worth referring to: <a target="_blank" rel="noopener" href="https://reactjs.org/blog/2018/03/27/update-on-async-rendering.html">Update on Async Rendering</a>.</p>
+<h2><span id="conclusion">Conclusion</span></h2><p>Performance has always been a focus of Web Apps, and the principle to grasp is simple: do not block the main thread. As long as the main thread can work, it can handle other things, such as responding to user clicks or drawing new screens.</p>
+<p>However, React’s original mechanism caused problems, so the internal core was rewritten using Fiber, which cuts a large, uninterrupted task into many small, interruptible tasks. This also makes parallelization possible in the future, and the rendering speed may be faster.</p>
+<p>But because of this change in mechanism, it affects the original lifecycle, and a small mistake can cause problems. The official also released two new lifecycles to solve this problem.</p>
+<p>As a long-term user of React, although I find it annoying to change the code due to such major changes, in the long run, it is actually beneficial because there are more things that can be done, and performance will continue to improve.</p>
+<p>This article summarizes some of my recent insights into Fiber and the latest changes in React. I don’t dare to talk about the implementation mechanism of Fiber because I don’t understand it very well. I just hope to use plain language to help everyone understand what this mechanism looks like.</p>
+<p>If there is anything wrong, please correct me. Thank you.</p>
+<p>References:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/acdlite/react-fiber-architecture">React Fiber Architecture</a></li>
+<li><a target="_blank" rel="noopener" href="https://giamir.com/what-is-react-fiber">What is React Fiber ?</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/xieyu/blog/blob/master/React/from-jsx-to-dom.md">React中state render到html dom的流程分析</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.ayqy.net/blog/dive-into-react-fiber/">完全理解React Fiber</a></li>
+<li><a target="_blank" rel="noopener" href="https://medium.com/@_cybai/%E7%BF%BB%E8%AD%AF-react-fiber-%E7%8F%BE%E7%8B%80%E7%A2%BA%E8%AA%8D-fd3808072279">[翻譯] React Fiber 現狀確認</a></li>
+<li><a target="_blank" rel="noopener" href="https://reactjs.org/blog/2018/03/29/react-v-16-3.html">React v16.3.0: New lifecycles and context API</a></li>
+<li><a target="_blank" rel="noopener" href="https://reactjs.org/docs/design-principles.html#scheduling">React Docs - Scheduling</a></li>
+<li><a target="_blank" rel="noopener" href="https://tech.youzan.com/react-fiber/">浅谈React 16中的Fiber机制</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=ZCuYPiUIONs">Lin Clark - A Cartoon Intro to Fiber - React Conf 2017</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/React/">#React</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Front-end/">#Front-end</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2018/06/23/en/javascript-call-by-value-or-reference/">A Deep Dive into Parameter Passing in JavaScript: Call by Value or Reference?</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2018/03/12/en/css-keylogger/">CSS keylogger: Attack and Defense</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2018/03/31/react-fiber-and-lifecycles/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

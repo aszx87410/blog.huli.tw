@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Writing a Simple and Usable ESLint Plugin - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2021/03/20/eslint-plugin/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2021/03/20/en/eslint-plugin/">
+    
+
+
+
+
+
+    <meta name="description" content="IntroductionWhenever I start a JavaScript-related project, my go-to setup is usually ESLint + Prettier. If you haven’t heard of them, let me briefly explain. Prettier is used to format your code, so y">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Writing a Simple and Usable ESLint Plugin">
+<meta property="og:url" content="https://blog.huli.tw/2021/03/20/en/eslint-plugin/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="IntroductionWhenever I start a JavaScript-related project, my go-to setup is usually ESLint + Prettier. If you haven’t heard of them, let me briefly explain. Prettier is used to format your code, so y">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/eslint-plugin/cover-en.png">
+<meta property="article:published_time" content="2021-03-20T14:27:27.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:46:56.908Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/eslint-plugin/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Writing a Simple and Usable ESLint Plugin" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#introduction">1&nbsp;&nbsp;<b>Introduction</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#background">2&nbsp;&nbsp;<b>Background</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#practical">3&nbsp;&nbsp;<b>Practical</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">4&nbsp;&nbsp;<b>Conclusion</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2021/03/20/eslint-plugin/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Writing a Simple and Usable ESLint Plugin
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2021-03-20T14:27:27.000Z" itemprop="datePublished">20 March 2021</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Front-end/">Front-end</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="introduction">Introduction</span></h2><p>Whenever I start a JavaScript-related project, my go-to setup is usually ESLint + Prettier. If you haven’t heard of them, let me briefly explain. Prettier is used to format your code, so you don’t have to argue with others about whether to add semicolons, whether to break <code>&#123;</code> for if blocks, or how many characters per line. With Prettier, you let it decide (although there are configuration files you can adjust).</p>
+<p>This is actually quite helpful for teams because it unifies the code format, and the basic coding style will be consistent. Although ESLint also has some formatting-related parts, it focuses more on best practices when writing code, such as declaring variables before using them and using <code>const</code> for variables that won’t change. This is beyond the scope of formatting.</p>
+<p>Therefore, using ESLint with Prettier can ensure the minimum quality of the entire codebase, at least avoiding terrible formatting. The most common rule people use with ESLint is probably the <a target="_blank" rel="noopener" href="https://github.com/airbnb/javascript">Airbnb JavaScript Style Guide</a>, which explains each rule in detail.</p>
+<p>When I was writing code before, I suddenly thought of a place where ESLint might be suitable, so I tried it out and found that making a “usable” plugin was easier than I thought. This article records the process and experience.</p>
+<span id="more"></span>
+
+<h2><span id="background">Background</span></h2><p>The situation I encountered at the time was like this. In the project, we used <a target="_blank" rel="noopener" href="https://react.i18next.com/latest/usetranslation-hook">react-i18next</a> to manage i18n-related things. A piece of code may look like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">import</span> <span class="token punctuation">&#123;</span> useTranslation <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'react-i18next'</span>
+<span class="token keyword">import</span> <span class="token punctuation">&#123;</span> <span class="token constant">NS_GENERAL</span> <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'@/i18n/namespaces'</span>
+
+<span class="token keyword">function</span> <span class="token function">Hello</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> <span class="token punctuation">&#123;</span> t <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">useTranslation</span><span class="token punctuation">(</span><span class="token constant">NS_GENERAL</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token operator">&lt;</span>div<span class="token operator">></span><span class="token punctuation">&#123;</span><span class="token function">t</span><span class="token punctuation">(</span><span class="token string">'welcome_message'</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Using <code>useTranslation</code> can get a function <code>t</code>, which can get the translated string by passing in the key. Behind the scenes, there will be multiple language files:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// en-us/general.json</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"welcome_message"</span><span class="token operator">:</span> <span class="token string">"Hello!"</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// zh-hant/general.json</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"welcome_message"</span><span class="token operator">:</span> <span class="token string">"你好！"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This is the basic principle of i18n. Adding keys to language files can display different texts in different languages. Although it looks simple, one of the more complicated things about i18n is when you have parameters, which I won’t go into here.</p>
+<p>We usually don’t put all translations in the same file. We use namespaces to split them. As for how to split them, it depends on the project. Some may be based on pages, and some may be based on usage. For example, the <code>general</code> mentioned above may be more common and shared translations:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// en-us/general.json</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"contact_us"</span><span class="token operator">:</span> <span class="token string">"contact us"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"close"</span><span class="token operator">:</span> <span class="token string">"close"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"try_again"</span><span class="token operator">:</span> <span class="token string">"Please try again"</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// zh-hant/general.json</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"contact_us"</span><span class="token operator">:</span> <span class="token string">"聯絡我們"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"close"</span><span class="token operator">:</span> <span class="token string">"關閉"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"try_again"</span><span class="token operator">:</span> <span class="token string">"請再試一次"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The translations specific to login or authentication-related pages may look like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// zh-hant/auth.json</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"username_error"</span><span class="token operator">:</span> <span class="token string">"使用者名稱格式錯誤"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"password_error"</span><span class="token operator">:</span> <span class="token string">"帳號或密碼輸入錯誤"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"login_success"</span><span class="token operator">:</span> <span class="token string">"登入成功！"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Splitting translations into different namespaces has the advantage that when I browse page A, I don’t need to download the translations of page B together. I only download what I need, saving resources.</p>
+<p>When a component needs to use multiple namespaces, there are several different ways to write it. One way is to use it like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">import</span> <span class="token punctuation">&#123;</span> useTranslation <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'react-i18next'</span>
+<span class="token keyword">import</span> <span class="token punctuation">&#123;</span> <span class="token constant">NS_GENERAL</span><span class="token punctuation">,</span> <span class="token constant">NS_AUTH</span> <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'@/i18n/namespaces'</span>
+
+<span class="token keyword">function</span> <span class="token function">Page</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">t</span><span class="token operator">:</span> tGeneral <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">useTranslation</span><span class="token punctuation">(</span><span class="token constant">NS_GENERAL</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">t</span><span class="token operator">:</span> tAuth <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">useTranslation</span><span class="token punctuation">(</span><span class="token constant">NS_AUTH</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token operator">&lt;</span>div<span class="token operator">></span>
+      <span class="token punctuation">&#123;</span><span class="token function">tGeneral</span><span class="token punctuation">(</span><span class="token string">'contact_us'</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span>
+      <span class="token operator">&lt;</span>p<span class="token operator">></span><span class="token punctuation">&#123;</span><span class="token function">tAuth</span><span class="token punctuation">(</span><span class="token string">'login_success'</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>p<span class="token operator">></span>
+    <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Okay, the first problem is here.</p>
+<p>When the team has few members, such as only one or two, everyone’s naming will be consistent. For example, for the <code>authorization</code> namespace, it is named <code>const &#123; t: tAuthorization&#125; = useTranslation()</code>. But when there are more people, someone may abbreviate it to <code>const &#123; t: tAuth &#125;</code>. Although this is not a big problem, I think it is better to avoid multiple naming situations in the same codebase if possible.</p>
+<p>So how to avoid it? One way is to grab it yourself during code review, but this is not very effective and takes time. The other way you should have thought of is to use ESLint! For things that can be done by the program, let the program do it.</p>
+<p>There is another problem with i18n, which is that sometimes our engineers get the key, but other departments have not added this i18n key to the language file yet, and the screen will show the naked key. In situations like this, ESLint can also be used to identify which keys exist in the code but not in the language file before deployment.</p>
+<p>Combining the above ideas, at that time, I wanted to write two rules:</p>
+<ol>
+<li>Check if the aliases used for the namespace are the same.</li>
+<li>Check which keys exist in the code but not in the language file.</li>
+</ol>
+<p>It is not difficult to write a usable ESLint plugin. The basic knowledge required is covered in this article: <a target="_blank" rel="noopener" href="https://blog.techbridge.cc/2018/09/22/visit-ast-with-babel-plugin/">Visit AST with Babel-plugin</a>. A basic understanding of AST is sufficient. I also learned by reading this article and experimenting with it. Assuming that you have read this article, I will explain how to proceed.</p>
+<h2><span id="practical">Practical</span></h2><p>The first thing to do is to open our powerful <a target="_blank" rel="noopener" href="http://astexplorer.net/">AST Explorer</a>, select ESLint in the transform section, and the template will be automatically loaded in the lower left corner:</p>
+<p><img src="https://static.coderbridge.com/img/aszx87410/bf677339575647dc9bdd29cc03b4a4a2.png"></p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">context</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">TemplateLiteral</span><span class="token punctuation">(</span><span class="token parameter">node</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      context<span class="token punctuation">.</span><span class="token function">report</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+        node<span class="token punctuation">,</span>
+        <span class="token literal-property property">message</span><span class="token operator">:</span> <span class="token string">'Do not use template literals'</span><span class="token punctuation">,</span>
+
+        <span class="token function">fix</span><span class="token punctuation">(</span><span class="token parameter">fixer</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">if</span> <span class="token punctuation">(</span>node<span class="token punctuation">.</span>expressions<span class="token punctuation">.</span>length<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token comment">// Can't auto-fix template literal with expressions</span>
+            <span class="token keyword">return</span><span class="token punctuation">;</span>
+          <span class="token punctuation">&#125;</span>
+          
+          <span class="token keyword">return</span> <span class="token punctuation">[</span>
+            fixer<span class="token punctuation">.</span><span class="token function">replaceTextRange</span><span class="token punctuation">(</span><span class="token punctuation">[</span>node<span class="token punctuation">.</span>start<span class="token punctuation">,</span> node<span class="token punctuation">.</span>start <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string">'"'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+            fixer<span class="token punctuation">.</span><span class="token function">replaceTextRange</span><span class="token punctuation">(</span><span class="token punctuation">[</span>node<span class="token punctuation">.</span>end <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">,</span> node<span class="token punctuation">.</span>end<span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string">'"'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+          <span class="token punctuation">]</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>You will find that ESLint and Babel are actually the same. You can operate on a specific node and use <code>context.report</code> in ESLint to report errors. The message is the error you will see in the console, and <code>fix</code> is used for the auto fix function, which is a bit more complicated, but we won’t worry about it for now.</p>
+<p>Next, write our sample code in the upper left corner:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">import</span> <span class="token punctuation">&#123;</span> useTranslation <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'react-i18next'</span>
+<span class="token keyword">import</span> <span class="token punctuation">&#123;</span> <span class="token constant">NS_GENERAL</span><span class="token punctuation">,</span> <span class="token constant">NS_AUTH</span> <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'@/i18n/namespaces'</span>
+
+<span class="token keyword">function</span> <span class="token function">Page</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">t</span><span class="token operator">:</span> tGeneral <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">useTranslation</span><span class="token punctuation">(</span><span class="token constant">NS_GENERAL</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">t</span><span class="token operator">:</span> tAuth <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">useTranslation</span><span class="token punctuation">(</span><span class="token constant">NS_AUTH</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token operator">&lt;</span>div<span class="token operator">></span>
+      <span class="token punctuation">&#123;</span><span class="token function">tGeneral</span><span class="token punctuation">(</span><span class="token string">'contact_us'</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span>
+      <span class="token operator">&lt;</span>p<span class="token operator">></span><span class="token punctuation">&#123;</span><span class="token function">tAuth</span><span class="token punctuation">(</span><span class="token string">'login_success'</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>p<span class="token operator">></span>
+    <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Then, directly view the AST on the right. We are concerned with the Variable Declarator.</p>
+<p><img src="https://static.coderbridge.com/img/aszx87410/ae85c9da19b94c9da0d7687607047a17.png"></p>
+<p>Continuing to look down the AST, you will find that <code>const &#123; t: tGeneral &#125; = useTranslation(NS_GENERAL)</code> can be divided into two parts: <code>&#123;t: tGeneral&#125;</code> on the left and <code>useTranslation(NS_GENERAL)</code> on the right.</p>
+<p>The left side is the id of this Variable Declarator node, and the right side is the init.</p>
+<p>Clicking on init will show callee and arguments:</p>
+<p><img src="https://static.coderbridge.com/img/aszx87410/9f304ff5534c49df8759a1d65f169d13.png"></p>
+<p>callee.name is <code>useTranslation</code>, and arguments[0].name is <code>NS_GENERAL</code>.</p>
+<p>Clicking on the id on the other side will show that properties[0].key.name is <code>t</code>, and properties[0].value.name is <code>tGeneral</code>.</p>
+<p>With these, we have found all the elements we need. We can write a basic code based on the node position of the AST:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 正確的命名</span>
+<span class="token keyword">const</span> <span class="token constant">NS_RULES</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token constant">NS_GENERAL</span><span class="token operator">:</span> <span class="token string">'tGeneral'</span><span class="token punctuation">,</span>
+  <span class="token constant">NS_AUTH</span><span class="token operator">:</span> <span class="token string">'tTest'</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">context</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">VariableDeclarator</span><span class="token punctuation">(</span><span class="token parameter">node</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// 判斷是不是 useTranslation</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>node<span class="token punctuation">.</span>init<span class="token punctuation">.</span>callee<span class="token punctuation">.</span>name <span class="token operator">===</span> <span class="token string">'useTranslation'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token comment">// 抓出 namespace 跟 alias</span>
+        <span class="token keyword">const</span> ns <span class="token operator">=</span> node<span class="token punctuation">.</span>init<span class="token punctuation">.</span>arguments<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>name
+        <span class="token keyword">const</span> alias <span class="token operator">=</span> node<span class="token punctuation">.</span>id<span class="token punctuation">.</span>properties<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>value<span class="token punctuation">.</span>name
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>alias <span class="token operator">!==</span> <span class="token constant">NS_RULES</span><span class="token punctuation">[</span>ns<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          context<span class="token punctuation">.</span><span class="token function">report</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+            node<span class="token punctuation">,</span>
+            <span class="token literal-property property">message</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Wrong alias, should use </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token constant">NS_RULES</span><span class="token punctuation">[</span>ns<span class="token punctuation">]</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The result will look like this:</p>
+<p><img src="https://static.coderbridge.com/img/aszx87410/b14435b7cdd44b6bb206dce3cba40c72.png"></p>
+<p>In fact, we only make simple judgments based on the content of the AST nodes. But once we get here, we have completed about 80% of the work, and the result above is what we want.</p>
+<p>However, our ESLint plugin is too specific to the sample code, so it will break with a slight change. For example, adding a line <code>var a</code> will result in an error: <code>Cannot read property &#39;callee&#39; of null</code>. This is because the type of <code>var a</code> is also <code>VariableDeclarator</code>, but <code>init</code> is null, so <code>init.callee</code> will report an error.</p>
+<p>In fact, these syntaxes can have various combinations, so the appearance of the final node has many possibilities. The reason why the title is “usable” is that I don’t want to work too hard. The code structure for using i18n will be the same, so I only need to focus on one. If so, you can avoid access errors using the latest optional chaining:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 正確的命名</span>
+<span class="token keyword">const</span> <span class="token constant">NS_RULES</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token constant">NS_GENERAL</span><span class="token operator">:</span> <span class="token string">'tGeneral'</span><span class="token punctuation">,</span>
+  <span class="token constant">NS_AUTH</span><span class="token operator">:</span> <span class="token string">'tTest'</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">context</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">VariableDeclarator</span><span class="token punctuation">(</span><span class="token parameter">node</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// 判斷是不是 useTranslation</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>node<span class="token punctuation">.</span>init<span class="token operator">?.</span>callee<span class="token operator">?.</span>name <span class="token operator">===</span> <span class="token string">'useTranslation'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token comment">// 抓出 namespace 跟 alias</span>
+        <span class="token keyword">const</span> ns <span class="token operator">=</span> node<span class="token punctuation">.</span>init<span class="token operator">?.</span>arguments<span class="token operator">?.</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token operator">?.</span>name
+        <span class="token keyword">const</span> alias <span class="token operator">=</span> node<span class="token punctuation">.</span>id<span class="token operator">?.</span>properties<span class="token operator">?.</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>value<span class="token operator">?.</span>name
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>alias <span class="token operator">!==</span> <span class="token constant">NS_RULES</span><span class="token punctuation">[</span>ns<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          context<span class="token punctuation">.</span><span class="token function">report</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+            node<span class="token punctuation">,</span>
+            <span class="token literal-property property">message</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Wrong alias, should use </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token constant">NS_RULES</span><span class="token punctuation">[</span>ns<span class="token punctuation">]</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>However, it seems that AST Explorer does not yet support optional chaining.</p>
+<p>At this point, our goal has actually been achieved, and we have written an ESLint rule that will help you catch errors in aliases. However, this writing method actually has several shortcomings, that is, we have written things too tightly, so we cannot catch them if the structure changes. For example:</p>
+<pre class="line-numbers language-none"><code class="language-none">var a &#x3D; NS_AUTH
+const &#123; t: tAuth &#125; &#x3D; useTranslation(a)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>If the namespace grabbed by the plugin is <code>a</code>, instead of <code>NS_AUTH</code>, it should be possible to find the value of <code>a</code> and discover that it is <code>NS_AUTH</code> if it has been processed correctly. However, as I mentioned earlier, since the structure of this i18n is always the same when used, we won’t encounter this problem for the time being.</p>
+<p>The same approach applies to finding missing keys. We can use the AST to find function calls, and then call the functions we defined earlier, such as <code>t</code>, <code>tGeneral</code>, and <code>tAuth</code>, to extract the parameters, which should be the i18n keys that should exist. Then we can check if they exist in the language file.</p>
+<p>Here’s a simple example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 正確的命名</span>
+<span class="token keyword">const</span> <span class="token constant">NS_RULES</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token constant">NS_GENERAL</span><span class="token operator">:</span> <span class="token string">'tGeneral'</span><span class="token punctuation">,</span>
+  <span class="token constant">NS_AUTH</span><span class="token operator">:</span> <span class="token string">'tAuth'</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// 應該從語言檔讀入</span>
+<span class="token keyword">const</span> <span class="token constant">KEYS</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">'contact'</span><span class="token punctuation">,</span> <span class="token string">'login_success'</span><span class="token punctuation">]</span>
+
+<span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">context</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">CallExpression</span><span class="token punctuation">(</span><span class="token parameter">node</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>Object<span class="token punctuation">.</span><span class="token function">values</span><span class="token punctuation">(</span><span class="token constant">NS_RULES</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>node<span class="token punctuation">.</span>callee<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token constant">KEYS</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>node<span class="token punctuation">.</span>arguments<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>value<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          context<span class="token punctuation">.</span><span class="token function">report</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+            node<span class="token punctuation">,</span>
+            <span class="token literal-property property">message</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">i18n key: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>node<span class="token punctuation">.</span>arguments<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>value<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string"> not found</span><span class="token template-punctuation string">`</span></span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The result will look like this:</p>
+<p><img src="https://static.coderbridge.com/img/aszx87410/33ee7bcd006c44e7995bc9884be70914.png"></p>
+<p>As long as we understand the structure of the AST, we can quickly write a simple and usable ESLint plugin.</p>
+<h2><span id="conclusion">Conclusion</span></h2><p>I would describe the ESLint plugin I wrote in this article as “rudimentary”, as it only meets the minimum requirements and has no options to adjust or handle more complex situations.</p>
+<p>If you want to write a less rudimentary ESLint plugin, it’s not a simple task. Let’s take <code>no-alert</code> as an example. It needs to consider different situations and options settings. The source code is here: <a target="_blank" rel="noopener" href="https://github.com/eslint/eslint/blob/master/lib/rules/no-alert.js">eslint&#x2F;lib&#x2F;rules&#x2F;no-alert.js</a>.</p>
+<p>This article is just a small attempt to write some targeted and simple rules to get started. If there are similar needs in the future, we can study how to write more complete rules.</p>
+<p>References:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://dev.to/spukas/how-to-write-your-first-eslint-plugin-145">How To Write Your First ESLint Plugin</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.webiny.com/blog/create-custom-eslint-rules-in-2-minutes-e3d41cb6a9a0">Create custom ESLint rules in 2 minutes</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Front-end/">#Front-end</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2021/04/17/en/css-attrs/">Some useful CSS properties that are not easy to remember</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2021/02/19/en/cors-guide-6/">CORS Complete Guide (6): Summary, Afterword, and Leftovers</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2021/03/20/eslint-plugin/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

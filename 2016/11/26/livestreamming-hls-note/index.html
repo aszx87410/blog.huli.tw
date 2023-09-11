@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>直播協議 hls 筆記 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2016/11/26/en/livestreamming-hls-note/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2016/11/26/livestreamming-hls-note/">
+    
+
+
+
+
+
+    <meta name="description" content="前言最近剛好在做直播相關的東西，雖然說是做前端，但還是必須懂一些直播的原理至少要知道有哪些格式，以及各種格式的優缺點是什麼，做起來也會比較踏實 這篇就簡單記錄一些心得跟資料，如果想比較深入了解 hls 的，可以參考下面這兩篇文章：  直播协议的选择：RTMP vs. HLS 在线视频之HLS协议—学习笔记：M3U8格式讲解及实际应用分析">
+<meta property="og:type" content="article">
+<meta property="og:title" content="直播協議 hls 筆記">
+<meta property="og:url" content="https://blog.huli.tw/2016/11/26/livestreamming-hls-note/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言最近剛好在做直播相關的東西，雖然說是做前端，但還是必須懂一些直播的原理至少要知道有哪些格式，以及各種格式的優缺點是什麼，做起來也會比較踏實 這篇就簡單記錄一些心得跟資料，如果想比較深入了解 hls 的，可以參考下面這兩篇文章：  直播协议的选择：RTMP vs. HLS 在线视频之HLS协议—学习笔记：M3U8格式讲解及实际应用分析">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2016-11-26T02:20:00.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.486Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Others">
+<meta property="article:tag" content="Hls">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+<link rel="alternative" href="/atom.xml" title="直播協議 hls 筆記" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#hls-是什麼">2&nbsp;&nbsp;<b>hls 是什麼？</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2016/11/26/en/livestreamming-hls-note/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            直播協議 hls 筆記
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2016-11-26T02:20:00.000Z" itemprop="datePublished">2016年11月26日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Others/">Others</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h1><span id="前言">前言</span></h1><p>最近剛好在做直播相關的東西，雖然說是做前端，但還是必須懂一些直播的原理<br>至少要知道有哪些格式，以及各種格式的優缺點是什麼，做起來也會比較踏實</p>
+<p>這篇就簡單記錄一些心得跟資料，如果想比較深入了解 hls 的，可以參考下面這兩篇文章：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="http://www.samirchen.com/ios-rtmp-vs-hls/">直播协议的选择：RTMP vs. HLS</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.eduve.org/knowledge/732">在线视频之HLS协议—学习笔记：M3U8格式讲解及实际应用分析</a></li>
+</ol>
+<span id="more"></span>
+
+<h1><span id="hls-是什麼">hls 是什麼？</span></h1><p>我覺得以直播來說，hls 是一個相當好懂的協定，其實就是透過一個 <code>.m3u8</code> 的播放列表，然後裡面有多個 <code>.ts</code> 的檔案<br>你只要照著播放列表裡面給你的檔案順序播放就好了，聽起來很容易吧！</p>
+<p>為了讓大家更明白，直接附上擷取自某處的播放列表：</p>
+<pre class="line-numbers language-none"><code class="language-none">#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-MEDIA-SEQUENCE:4454
+#EXT-X-TARGETDURATION:4
+#EXTINF:3.998, no desc
+25133_src&#x2F;4460.ts
+#EXTINF:3.992, no desc
+25133_src&#x2F;4461.ts
+#EXTINF:3.985, no desc
+25133_src&#x2F;4462.ts
+#EXTINF:3.979, no desc
+25133_src&#x2F;4463.ts
+#EXTINF:3.996, no desc
+25133_src&#x2F;4464.ts<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>就算你沒看過這個格式，你大概看一下也可以猜出來它在做什麼<br>每一個 ts 就是一個片段，然後 <code>#EXTINF:3.996</code> 代表這個片段的時間長度<br><code>#EXT-X-TARGETDURATION:4</code>，這邊的數字必須比播放清單中的任何一個影片的時間都大<br>代表播放器應該每隔幾秒去抓一次新的播放清單</p>
+<p>例如說，下一次抓到的可能會長這樣：</p>
+<pre class="line-numbers language-none"><code class="language-none">#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-MEDIA-SEQUENCE:4455
+#EXT-X-TARGETDURATION:4
+#EXTINF:3.992, no desc
+25133_src&#x2F;4461.ts
+#EXTINF:3.985, no desc
+25133_src&#x2F;4462.ts
+#EXTINF:3.979, no desc
+25133_src&#x2F;4463.ts
+#EXTINF:3.996, no desc
+25133_src&#x2F;4464.ts
+#EXTINF:3.998, no desc
+25133_src&#x2F;4465.ts<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>就是最後面多了一個片段。所以只要一直維持這個規則，就能夠不斷取到新的片段<br>那如果很不巧的，server 沒有及時產生出播放列表怎麼辦呢？</p>
+<p>例如說在第 4 秒的時候去拿，發現沒更新，server 在第 4.5 秒才把新的播放片段產生出來<br>如果發生這種「拿了播放清單，但長的一樣」的情形，就會把抓取的時間減一半，直到抓到為止<br>像以上情形，第 4 秒沒拿到新的，就會隔 2 秒之後再去抓</p>
+<p>這個規則可以參考：<a target="_blank" rel="noopener" href="https://tools.ietf.org/html/draft-pantos-http-live-streaming-20#section-6.3.4">HTTP Live Streaming draft-pantos-http-live-streaming-20</a></p>
+<blockquote>
+<p>When a client loads a Playlist file for the first time or reloads a<br>   Playlist file and finds that it has changed since the last time it<br>   was loaded, the client MUST wait for at least the target duration<br>   before attempting to reload the Playlist file again, measured from<br>   the last time the client began loading the Playlist file.</p>
+</blockquote>
+<blockquote>
+<p>If the client reloads a Playlist file and finds that it has not<br>   changed then it MUST wait for a period of one-half the target<br>   duration before retrying.</p>
+</blockquote>
+<p>至於做直播最關心的延遲問題，也可以直接從這個播放列表直接推測出來<br>以上面的例子來說，一共有 5 個片段，每一個片段 4 秒，延遲就是 20 秒<br>Apple 官方建議的是 3 個片段，每個片段 10 秒</p>
+<blockquote>
+<p>What duration should media files be?<br>A duration of 10 seconds of media per file seems to strike a reasonable balance for most broadcast content.</p>
+</blockquote>
+<blockquote>
+<p>How many files should be listed in the index file during a continuous, ongoing session?<br>The normal recommendation is 3, but the optimum number may be larger.</p>
+</blockquote>
+<p>可參考：<a target="_blank" rel="noopener" href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/StreamingMediaGuide/Introduction/Introduction.html#//apple_ref/doc/uid/TP40008332-CH1-SW1">Apple: HTTP Live Streaming Overview</a></p>
+<p>不過依照官方的建議，就會有 30 秒的延遲，當然延遲越久直播的狀況會越好，可是體驗也會比較差一點<br>因此，我們可以來看看幾個直播網站都是怎麼設定的</p>
+<p>先來看看直播大頭：<a href="twitch.tv">Twitch</a></p>
+<pre class="line-numbers language-none"><code class="language-none">#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:5
+#ID3-EQUIV-TDTG:2016-11-26T02:40:23
+#EXT-X-MEDIA-SEQUENCE:376
+#EXT-X-TWITCH-ELAPSED-SYSTEM-SECS:1511.137
+#EXT-X-TWITCH-ELAPSED-SECS:1508.980
+#EXT-X-TWITCH-TOTAL-SECS:1535.137
+#EXTINF:4.000,
+index-0000000377-6zCW.ts
+#EXTINF:4.000,
+index-0000000378-vHZS.ts
+#EXTINF:4.000,
+index-0000000379-Gkgv.ts
+#EXTINF:4.000,
+index-0000000380-PNoG.ts
+#EXTINF:4.000,
+index-0000000381-h58g.ts
+#EXTINF:4.000,
+index-0000000382-W88t.ts<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>6 個片段 * 4 秒 &#x3D; 24 秒<br>可是如果你仔細觀察（開 chrome devtool 就可以了），實際上 twtich 的播放器在拿到列表以後<br>會直接嘗試從「倒數第三個」片段開始載入，所以延遲就縮短為 3*4 &#x3D; 12 秒了</p>
+<p>再來看看台灣的 <a target="_blank" rel="noopener" href="https://livehouse.in/">livehouse.in</a></p>
+<pre class="line-numbers language-none"><code class="language-none">#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-ALLOW-CACHE:NO
+#EXT-X-MEDIA-SEQUENCE:2291
+#EXT-X-TARGETDURATION:6
+
+#EXTINF:5.2090001106262207,
+1480116261segment_v02291.ts
+#EXTINF:5.2080001831054688,
+1480116261segment_v02292.ts
+#EXTINF:5.2080001831054688,
+1480116261segment_v02293.ts<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>5*3 &#x3D; 15 秒</p>
+<p>所以一般用 hls 的直播網站，延遲大概都會在 10~20 秒這個區間以內<br>我猜比這個短的話對 server 壓力可能很大，而且網速慢的話，看起來會很卡<br>比這個長的話雖然很順，但是使用者體驗不太好，延遲太高<br>所以能找到最好的延遲就是在這個區間內了</p>
+<p>最後，我們來看看如果要在網頁上播放的話，有哪些選擇<br>因為現在已經是個 flash 快死掉的年代了，所以如果可以的話，首選當然是 html5<br>瀏覽器支援度不夠高的話再 fallback 回去 flash</p>
+<p>先來介紹一下現成的商業授權播放器，例如說 <a target="_blank" rel="noopener" href="https://www.jwplayer.com/">jwplayer</a> 或是 <a target="_blank" rel="noopener" href="https://flowplayer.org/">flowplayer</a>，都是很不錯的選項。<br>尤其是當 open source 的方案出現問題你又修不好的時候，就會很希望公司花錢買一個商業播放器，一切問題都搞定。</p>
+<p>open source 的方案大概就是 <a target="_blank" rel="noopener" href="http://videojs.com/">videojs</a> 一支獨秀了，有沒有其他的後起之秀我是不知道啦，有的話麻煩推薦一下。</p>
+<p>然後因為 hls 這個格式瀏覽器本身是沒辦法播放的，所以要搭配一些 plugin<br>videojs 官方有一個 <a target="_blank" rel="noopener" href="https://github.com/videojs/videojs-contrib-hls">videojs-contrib-hls</a>，加上去之後就可以播放了，但我自己用過以後感覺不是很好。</p>
+<p>最後選擇了知名的影音網站 <a target="_blank" rel="noopener" href="http://www.dailymotion.com/sg">dailymotion</a> 提供的開源解決方案 <a target="_blank" rel="noopener" href="https://github.com/dailymotion/hls.js/tree/master">hls.js</a>。</p>
+<p><a target="_blank" rel="noopener" href="http://engineering.dailymotion.com/introducing-hls-js/">這一篇</a>是他們官方的部落格，有介紹說為什麼要自己寫一套，以及解決了哪些問題，滿值得一看的，可以順便了解一下。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Others/">#Others</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Hls/">#Hls</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2017/03/12/csrf-introduction/">讓我們來談談 CSRF</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2016/09/29/redis-introduction/">資料庫的好夥伴：Redis</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2016/11/26/en/livestreamming-hls-note/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

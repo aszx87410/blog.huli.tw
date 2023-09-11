@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>WordPress Plugin VikBooking &lt;= 1.5.3 Unauthorized RCE 漏洞細節 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2022/05/20/en/wordpress-plugin-vikbooking-unauth-rce/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2022/05/20/wordpress-plugin-vikbooking-unauth-rce/">
+    
+
+
+
+
+
+    <meta name="description" content="前陣子在看一些 WordPress Plugin 的東西，發現是個滿好練習的地方，因為那邊 plugin 數量很多，而且每一個都有原始碼可以看，想要黑箱白箱都可以，然後安裝也很方便。 這篇來講一下前陣子找到的一個洞，用的是最基本而且經典的攻擊手法，檔案上傳導致的 RCE。 漏洞編號：CVE-2022-27862 WordPress VikBooking Hotel Booking Engine &amp;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="WordPress Plugin VikBooking &lt;&#x3D; 1.5.3 Unauthorized RCE 漏洞細節">
+<meta property="og:url" content="https://blog.huli.tw/2022/05/20/wordpress-plugin-vikbooking-unauth-rce/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前陣子在看一些 WordPress Plugin 的東西，發現是個滿好練習的地方，因為那邊 plugin 數量很多，而且每一個都有原始碼可以看，想要黑箱白箱都可以，然後安裝也很方便。 這篇來講一下前陣子找到的一個洞，用的是最基本而且經典的攻擊手法，檔案上傳導致的 RCE。 漏洞編號：CVE-2022-27862 WordPress VikBooking Hotel Booking Engine &amp;">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/wordpress-plugin-vikbooking-unauth-rce/cover.png">
+<meta property="article:published_time" content="2022-05-20T04:00:00.000Z">
+<meta property="article:modified_time" content="2023-06-18T10:19:20.558Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/wordpress-plugin-vikbooking-unauth-rce/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="WordPress Plugin VikBooking &lt;= 1.5.3 Unauthorized RCE 漏洞細節" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#vikbooking-簡介與漏洞細節">1&nbsp;&nbsp;<b>VikBooking 簡介與漏洞細節</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#修復方式">2&nbsp;&nbsp;<b>修復方式</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#結語">3&nbsp;&nbsp;<b>結語</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2022/05/20/en/wordpress-plugin-vikbooking-unauth-rce/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            WordPress Plugin VikBooking &lt;= 1.5.3 Unauthorized RCE 漏洞細節
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2022-05-20T04:00:00.000Z" itemprop="datePublished">2022年5月20日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>前陣子在看一些 WordPress Plugin 的東西，發現是個滿好練習的地方，因為那邊 plugin 數量很多，而且每一個都有原始碼可以看，想要黑箱白箱都可以，然後安裝也很方便。</p>
+<p>這篇來講一下前陣子找到的一個洞，用的是最基本而且經典的攻擊手法，檔案上傳導致的 RCE。</p>
+<p>漏洞編號：<a target="_blank" rel="noopener" href="https://patchstack.com/database/vulnerability/vikbooking/wordpress-vikbooking-hotel-booking-engine-pms-plugin-1-5-3-arbitrary-file-upload-leading-to-rce">CVE-2022-27862<br> WordPress VikBooking Hotel Booking Engine &amp; PMS plugin &lt;&#x3D; 1.5.3 - Arbitrary File Upload leading to RCE</a></p>
+<span id="more"></span>
+
+<h2><span id="vikbooking-簡介與漏洞細節">VikBooking 簡介與漏洞細節</span></h2><p><a target="_blank" rel="noopener" href="https://wordpress.org/plugins/vikbooking/">VikBooking</a> 是個 WordPress 的訂房外掛，官網的 demo 長這樣：</p>
+<p><img src="/img/wordpress-plugin-vikbooking-unauth-rce/p1-booking-page.png" alt="booking page"></p>
+<p>就跟其他的訂房外掛其實沒有什麼區別，完成訂房以後管理員在 WordPress 後台可以管理訂單，而消費者也會收到一封信，可以透過信件中提供的網址來管理自己的訂房：</p>
+<p><img src="/img/wordpress-plugin-vikbooking-unauth-rce/p2-email.png" alt="booking page customer"></p>
+<p>雖然說 UI 上看起來沒什麼東西，但既然我們有了原始碼，就可以透過白箱測試的方式去看一下裡面的實作為何。</p>
+<p>主要的操作跟邏輯都放在 <code>site/controller.php</code> 當中，裡面每一個 function 基本上都對應到一個 action，其中我發現了一個方法叫做 <code>storesignature</code>，程式碼如下：</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token keyword">public</span> <span class="token keyword">function</span> <span class="token function-definition function">storesignature</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token variable">$sid</span> <span class="token operator">=</span> <span class="token class-name static-context">VikRequest</span><span class="token operator">::</span><span class="token function">getString</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'sid'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'request'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$ts</span> <span class="token operator">=</span> <span class="token class-name static-context">VikRequest</span><span class="token operator">::</span><span class="token function">getString</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'ts'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'request'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$psignature</span> <span class="token operator">=</span> <span class="token class-name static-context">VikRequest</span><span class="token operator">::</span><span class="token function">getString</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'signature'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'request'</span><span class="token punctuation">,</span> <span class="token constant">VIKREQUEST_ALLOWRAW</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$ppad_width</span> <span class="token operator">=</span> <span class="token class-name static-context">VikRequest</span><span class="token operator">::</span><span class="token function">getInt</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'pad_width'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'request'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$ppad_ratio</span> <span class="token operator">=</span> <span class="token class-name static-context">VikRequest</span><span class="token operator">::</span><span class="token function">getInt</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'pad_ratio'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'request'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$pitemid</span> <span class="token operator">=</span> <span class="token class-name static-context">VikRequest</span><span class="token operator">::</span><span class="token function">getInt</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'Itemid'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'request'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$ptmpl</span> <span class="token operator">=</span> <span class="token class-name static-context">VikRequest</span><span class="token operator">::</span><span class="token function">getString</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'tmpl'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'request'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$dbo</span> <span class="token operator">=</span> <span class="token class-name static-context">JFactory</span><span class="token operator">::</span><span class="token function">getDBO</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$mainframe</span> <span class="token operator">=</span> <span class="token class-name static-context">JFactory</span><span class="token operator">::</span><span class="token function">getApplication</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$q</span> <span class="token operator">=</span> <span class="token string double-quoted-string">"SELECT * FROM `#__vikbooking_orders` WHERE `ts`="</span> <span class="token operator">.</span> <span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">quote</span><span class="token punctuation">(</span><span class="token variable">$ts</span><span class="token punctuation">)</span> <span class="token operator">.</span> <span class="token string double-quoted-string">" AND `sid`="</span> <span class="token operator">.</span> <span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">quote</span><span class="token punctuation">(</span><span class="token variable">$sid</span><span class="token punctuation">)</span> <span class="token operator">.</span> <span class="token string double-quoted-string">" AND `status`='confirmed';"</span><span class="token punctuation">;</span>
+  <span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">setQuery</span><span class="token punctuation">(</span><span class="token variable">$q</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">execute</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">getNumRows</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&lt;</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token class-name static-context">VikError</span><span class="token operator">::</span><span class="token function">raiseWarning</span><span class="token punctuation">(</span><span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'Booking not found'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token variable">$mainframe</span><span class="token operator">-></span><span class="token function">redirect</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'index.php'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">exit</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token variable">$row</span> <span class="token operator">=</span> <span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">loadAssoc</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$tonight</span> <span class="token operator">=</span> <span class="token function">mktime</span><span class="token punctuation">(</span><span class="token number">23</span><span class="token punctuation">,</span> <span class="token number">59</span><span class="token punctuation">,</span> <span class="token number">59</span><span class="token punctuation">,</span> <span class="token function">date</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'n'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">date</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'j'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">date</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'Y'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token variable">$tonight</span> <span class="token operator">></span> <span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'checkout'</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token class-name static-context">VikError</span><span class="token operator">::</span><span class="token function">raiseWarning</span><span class="token punctuation">(</span><span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'Check-out date is in the past'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token variable">$mainframe</span><span class="token operator">-></span><span class="token function">redirect</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'index.php'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">exit</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token variable">$customer</span> <span class="token operator">=</span> <span class="token keyword">array</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$q</span> <span class="token operator">=</span> <span class="token string double-quoted-string">"SELECT `c`.*,`co`.`idorder`,`co`.`signature`,`co`.`pax_data`,`co`.`comments` FROM `#__vikbooking_customers` AS `c` LEFT JOIN `#__vikbooking_customers_orders` `co` ON `c`.`id`=`co`.`idcustomer` WHERE `co`.`idorder`="</span><span class="token operator">.</span><span class="token punctuation">(</span><span class="token keyword type-casting">int</span><span class="token punctuation">)</span><span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'id'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string double-quoted-string">";"</span><span class="token punctuation">;</span>
+  <span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">setQuery</span><span class="token punctuation">(</span><span class="token variable">$q</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">execute</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">getNumRows</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token variable">$customer</span> <span class="token operator">=</span> <span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">loadAssoc</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token punctuation">(</span><span class="token function">count</span><span class="token punctuation">(</span><span class="token variable">$customer</span><span class="token punctuation">)</span> <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token class-name static-context">VikError</span><span class="token operator">::</span><span class="token function">raiseWarning</span><span class="token punctuation">(</span><span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'Customer not found'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token variable">$mainframe</span><span class="token operator">-></span><span class="token function">redirect</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'index.php'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">exit</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token comment">//check if the signature has been submitted</span>
+  <span class="token variable">$signature_data</span> <span class="token operator">=</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">;</span>
+  <span class="token variable">$cont_type</span> <span class="token operator">=</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token keyword">empty</span><span class="token punctuation">(</span><span class="token variable">$psignature</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">//check whether the format is accepted</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">strpos</span><span class="token punctuation">(</span><span class="token variable">$psignature</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'image/png'</span><span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token keyword type-declaration">false</span> <span class="token operator">||</span> <span class="token class-name">strpos</span><span class="token punctuation">(</span><span class="token variable">$psignature</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'image/jpeg'</span><span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token keyword type-declaration">false</span> <span class="token operator">||</span> <span class="token class-name">strpos</span><span class="token punctuation">(</span><span class="token variable">$psignature</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'image/svg'</span><span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token constant boolean">false</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token variable">$parts</span> <span class="token operator">=</span> <span class="token function">explode</span><span class="token punctuation">(</span><span class="token string single-quoted-string">';base64,'</span><span class="token punctuation">,</span> <span class="token variable">$psignature</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token variable">$cont_type_parts</span> <span class="token operator">=</span> <span class="token function">explode</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'image/'</span><span class="token punctuation">,</span> <span class="token variable">$parts</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token variable">$cont_type</span> <span class="token operator">=</span> <span class="token variable">$cont_type_parts</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token keyword">empty</span><span class="token punctuation">(</span><span class="token variable">$parts</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token variable">$signature_data</span> <span class="token operator">=</span> <span class="token function">base64_decode</span><span class="token punctuation">(</span><span class="token variable">$parts</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token variable">$ret_link</span> <span class="token operator">=</span> <span class="token class-name static-context">JRoute</span><span class="token operator">::</span><span class="token function">rewrite</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'index.php?option=com_vikbooking&amp;task=signature&amp;sid='</span><span class="token operator">.</span><span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'sid'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string single-quoted-string">'&amp;ts='</span><span class="token operator">.</span><span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'ts'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token punctuation">(</span><span class="token operator">!</span><span class="token keyword">empty</span><span class="token punctuation">(</span><span class="token variable">$pitemid</span><span class="token punctuation">)</span> <span class="token operator">?</span> <span class="token string single-quoted-string">'&amp;Itemid='</span><span class="token operator">.</span><span class="token variable">$pitemid</span> <span class="token punctuation">:</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">)</span><span class="token operator">.</span><span class="token punctuation">(</span><span class="token variable">$ptmpl</span> <span class="token operator">==</span> <span class="token string single-quoted-string">'component'</span> <span class="token operator">?</span> <span class="token string single-quoted-string">'&amp;tmpl=component'</span> <span class="token punctuation">:</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token constant boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">empty</span><span class="token punctuation">(</span><span class="token variable">$signature_data</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token class-name static-context">VikError</span><span class="token operator">::</span><span class="token function">raiseWarning</span><span class="token punctuation">(</span><span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token class-name static-context">JText</span><span class="token operator">::</span><span class="token function">translate</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'VBOSIGNATUREISEMPTY'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token variable">$mainframe</span><span class="token operator">-></span><span class="token function">redirect</span><span class="token punctuation">(</span><span class="token variable">$ret_link</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">exit</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token comment">//write file</span>
+  <span class="token variable">$sign_fname</span> <span class="token operator">=</span> <span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'id'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string single-quoted-string">'_'</span><span class="token operator">.</span><span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'sid'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string single-quoted-string">'_'</span><span class="token operator">.</span><span class="token variable">$customer</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'id'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string single-quoted-string">'.'</span><span class="token operator">.</span><span class="token variable">$cont_type</span><span class="token punctuation">;</span>
+  <span class="token variable">$filepath</span> <span class="token operator">=</span> <span class="token constant">VBO_ADMIN_PATH</span> <span class="token operator">.</span> <span class="token constant">DIRECTORY_SEPARATOR</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'resources'</span> <span class="token operator">.</span> <span class="token constant">DIRECTORY_SEPARATOR</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'idscans'</span> <span class="token operator">.</span> <span class="token constant">DIRECTORY_SEPARATOR</span> <span class="token operator">.</span> <span class="token variable">$sign_fname</span><span class="token punctuation">;</span>
+  <span class="token variable">$fp</span> <span class="token operator">=</span> <span class="token function">fopen</span><span class="token punctuation">(</span><span class="token variable">$filepath</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'w+'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$bytes</span> <span class="token operator">=</span> <span class="token function">fwrite</span><span class="token punctuation">(</span><span class="token variable">$fp</span><span class="token punctuation">,</span> <span class="token variable">$signature_data</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">fclose</span><span class="token punctuation">(</span><span class="token variable">$fp</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token variable">$bytes</span> <span class="token operator">!==</span> <span class="token constant boolean">false</span> <span class="token operator">&amp;&amp;</span> <span class="token variable">$bytes</span> <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">//update the signature in the DB</span>
+    <span class="token variable">$q</span> <span class="token operator">=</span> <span class="token string double-quoted-string">"UPDATE `#__vikbooking_customers_orders` SET `signature`="</span><span class="token operator">.</span><span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">quote</span><span class="token punctuation">(</span><span class="token variable">$sign_fname</span><span class="token punctuation">)</span><span class="token operator">.</span><span class="token string double-quoted-string">" WHERE `idorder`="</span><span class="token operator">.</span><span class="token punctuation">(</span><span class="token keyword type-casting">int</span><span class="token punctuation">)</span><span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'id'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string double-quoted-string">";"</span><span class="token punctuation">;</span>
+    <span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">setQuery</span><span class="token punctuation">(</span><span class="token variable">$q</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token variable">$dbo</span><span class="token operator">-></span><span class="token function">execute</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token variable">$mainframe</span><span class="token operator">-></span><span class="token function">enqueueMessage</span><span class="token punctuation">(</span><span class="token class-name static-context">JText</span><span class="token operator">::</span><span class="token function">translate</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'VBOSIGNATURETHANKS'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment">//resize image for screens with high resolution</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token variable">$ppad_ratio</span> <span class="token operator">></span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token variable">$new_width</span> <span class="token operator">=</span> <span class="token function">floor</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token variable">$ppad_width</span> <span class="token operator">/</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token variable">$creativik</span> <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">vikResizer</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token variable">$creativik</span><span class="token operator">-></span><span class="token function">proportionalImage</span><span class="token punctuation">(</span><span class="token variable">$filepath</span><span class="token punctuation">,</span> <span class="token variable">$filepath</span><span class="token punctuation">,</span> <span class="token variable">$new_width</span><span class="token punctuation">,</span> <span class="token variable">$new_width</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token comment">//</span>
+  <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+    <span class="token class-name static-context">VikError</span><span class="token operator">::</span><span class="token function">raiseWarning</span><span class="token punctuation">(</span><span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token class-name static-context">JText</span><span class="token operator">::</span><span class="token function">translate</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'VBOERRSTORESIGNFILE'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token variable">$mainframe</span><span class="token operator">-></span><span class="token function">redirect</span><span class="token punctuation">(</span><span class="token variable">$ret_link</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">exit</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>從 function name 跟程式碼可以推測出應該是一個上傳簽名檔案的功能，而檔案的內容會先 base64 過，所以程式碼中 decode 回 binary 然後寫進檔案，核心的程式碼如下：</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token variable">$psignature</span> <span class="token operator">=</span> <span class="token class-name static-context">VikRequest</span><span class="token operator">::</span><span class="token function">getString</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'signature'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'request'</span><span class="token punctuation">,</span> <span class="token constant">VIKREQUEST_ALLOWRAW</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">//check if the signature has been submitted</span>
+<span class="token variable">$signature_data</span> <span class="token operator">=</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">;</span>
+<span class="token variable">$cont_type</span> <span class="token operator">=</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token keyword">empty</span><span class="token punctuation">(</span><span class="token variable">$psignature</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">//check whether the format is accepted</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">strpos</span><span class="token punctuation">(</span><span class="token variable">$psignature</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'image/png'</span><span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token keyword type-declaration">false</span> <span class="token operator">||</span> <span class="token class-name">strpos</span><span class="token punctuation">(</span><span class="token variable">$psignature</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'image/jpeg'</span><span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token keyword type-declaration">false</span> <span class="token operator">||</span> <span class="token class-name">strpos</span><span class="token punctuation">(</span><span class="token variable">$psignature</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'image/svg'</span><span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token constant boolean">false</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token variable">$parts</span> <span class="token operator">=</span> <span class="token function">explode</span><span class="token punctuation">(</span><span class="token string single-quoted-string">';base64,'</span><span class="token punctuation">,</span> <span class="token variable">$psignature</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token variable">$cont_type_parts</span> <span class="token operator">=</span> <span class="token function">explode</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'image/'</span><span class="token punctuation">,</span> <span class="token variable">$parts</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token variable">$cont_type</span> <span class="token operator">=</span> <span class="token variable">$cont_type_parts</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token keyword">empty</span><span class="token punctuation">(</span><span class="token variable">$parts</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token variable">$signature_data</span> <span class="token operator">=</span> <span class="token function">base64_decode</span><span class="token punctuation">(</span><span class="token variable">$parts</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token variable">$ret_link</span> <span class="token operator">=</span> <span class="token class-name static-context">JRoute</span><span class="token operator">::</span><span class="token function">rewrite</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'index.php?option=com_vikbooking&amp;task=signature&amp;sid='</span><span class="token operator">.</span><span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'sid'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string single-quoted-string">'&amp;ts='</span><span class="token operator">.</span><span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'ts'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token punctuation">(</span><span class="token operator">!</span><span class="token keyword">empty</span><span class="token punctuation">(</span><span class="token variable">$pitemid</span><span class="token punctuation">)</span> <span class="token operator">?</span> <span class="token string single-quoted-string">'&amp;Itemid='</span><span class="token operator">.</span><span class="token variable">$pitemid</span> <span class="token punctuation">:</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">)</span><span class="token operator">.</span><span class="token punctuation">(</span><span class="token variable">$ptmpl</span> <span class="token operator">==</span> <span class="token string single-quoted-string">'component'</span> <span class="token operator">?</span> <span class="token string single-quoted-string">'&amp;tmpl=component'</span> <span class="token punctuation">:</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token constant boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">empty</span><span class="token punctuation">(</span><span class="token variable">$signature_data</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token class-name static-context">VikError</span><span class="token operator">::</span><span class="token function">raiseWarning</span><span class="token punctuation">(</span><span class="token string single-quoted-string">''</span><span class="token punctuation">,</span> <span class="token class-name static-context">JText</span><span class="token operator">::</span><span class="token function">translate</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'VBOSIGNATUREISEMPTY'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$mainframe</span><span class="token operator">-></span><span class="token function">redirect</span><span class="token punctuation">(</span><span class="token variable">$ret_link</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">exit</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token variable">$sign_fname</span> <span class="token operator">=</span> <span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'id'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string single-quoted-string">'_'</span><span class="token operator">.</span><span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'sid'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string single-quoted-string">'_'</span><span class="token operator">.</span><span class="token variable">$customer</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'id'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string single-quoted-string">'.'</span><span class="token operator">.</span><span class="token variable">$cont_type</span><span class="token punctuation">;</span>
+<span class="token variable">$filepath</span> <span class="token operator">=</span> <span class="token constant">VBO_ADMIN_PATH</span> <span class="token operator">.</span> <span class="token constant">DIRECTORY_SEPARATOR</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'resources'</span> <span class="token operator">.</span> <span class="token constant">DIRECTORY_SEPARATOR</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'idscans'</span> <span class="token operator">.</span> <span class="token constant">DIRECTORY_SEPARATOR</span> <span class="token operator">.</span> <span class="token variable">$sign_fname</span><span class="token punctuation">;</span>
+<span class="token variable">$fp</span> <span class="token operator">=</span> <span class="token function">fopen</span><span class="token punctuation">(</span><span class="token variable">$filepath</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'w+'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token variable">$bytes</span> <span class="token operator">=</span> <span class="token function">fwrite</span><span class="token punctuation">(</span><span class="token variable">$fp</span><span class="token punctuation">,</span> <span class="token variable">$signature_data</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">fclose</span><span class="token punctuation">(</span><span class="token variable">$fp</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>從最後一段可以看出寫入檔案的內容為 <code>$signature_data</code>，路徑為 <code>VBO_ADMIN_PATH . DIRECTORY_SEPARATOR . &#39;resources&#39; . DIRECTORY_SEPARATOR . &#39;idscans&#39; . DIRECTORY_SEPARATOR . $sign_fname</code>，如果我們可以控制 <code>$signature_data</code> 跟 <code>$sign_fname</code>，就有了一個任意寫檔的漏洞，這些變數的值如下：</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">strpos</span><span class="token punctuation">(</span><span class="token variable">$psignature</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'image/png'</span><span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token keyword type-declaration">false</span> <span class="token operator">||</span> <span class="token class-name">strpos</span><span class="token punctuation">(</span><span class="token variable">$psignature</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'image/jpeg'</span><span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token keyword type-declaration">false</span> <span class="token operator">||</span> <span class="token class-name">strpos</span><span class="token punctuation">(</span><span class="token variable">$psignature</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'image/svg'</span><span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token constant boolean">false</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token variable">$parts</span> <span class="token operator">=</span> <span class="token function">explode</span><span class="token punctuation">(</span><span class="token string single-quoted-string">';base64,'</span><span class="token punctuation">,</span> <span class="token variable">$psignature</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$cont_type_parts</span> <span class="token operator">=</span> <span class="token function">explode</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'image/'</span><span class="token punctuation">,</span> <span class="token variable">$parts</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$cont_type</span> <span class="token operator">=</span> <span class="token variable">$cont_type_parts</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token keyword">empty</span><span class="token punctuation">(</span><span class="token variable">$parts</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token variable">$signature_data</span> <span class="token operator">=</span> <span class="token function">base64_decode</span><span class="token punctuation">(</span><span class="token variable">$parts</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token variable">$sign_fname</span> <span class="token operator">=</span> <span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'id'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string single-quoted-string">'_'</span><span class="token operator">.</span><span class="token variable">$row</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'sid'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string single-quoted-string">'_'</span><span class="token operator">.</span><span class="token variable">$customer</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'id'</span><span class="token punctuation">]</span><span class="token operator">.</span><span class="token string single-quoted-string">'.'</span><span class="token operator">.</span><span class="token variable">$cont_type</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>一個正常的 <code>$psignature</code> 大概是長這樣：<code>data:image/png;base64,image_content</code>。</p>
+<p>這邊先檢查 $psignature 有沒有指定的 content type，有的話用 <code>;base64,</code> 去做字串切割，切完的 parts 會變成：</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php">parts<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string single-quoted-string">'data:image/png'</span><span class="token punctuation">;</span>
+parts<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token operator">=</span> image_content<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>然後再把 <code>parts[0]</code> 用 <code>image/</code> 來切，拿到的第二段資料（以上面的例子來說，會拿到 <code>png</code>）就是 content type，而 <code>parts[1]</code> 則是直接做 base64 decode 後做為檔案內容寫入。</p>
+<p>檔名 <code>$sign_fname</code> 的部分則是一些 id 最後加上剛剛得出的 content type。</p>
+<p>從上面的邏輯可看出檔案內容基本上可以隨意控制，而檔名的部分也可以輕鬆繞過檢查，像這樣：</p>
+<pre class="line-numbers language-none"><code class="language-none">image&#x2F;png&#x2F;..&#x2F;..&#x2F;..&#x2F;..&#x2F;shell.php;base64,web_shell<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>有包含 <code>image/png</code> 所以檢查會過，切完之後 parts[0] 變成 <code>image/png/../../../../shell.php</code>，最後拿到的 content type 為 <code>png/../../../../shell.php</code>，拼接完的檔名會像這樣：<code>id_sid_cid.png/../../../../shell.php</code>，雖然說這檔名看起來很不合理，是檔案之後再接 <code>../</code>，不過這在 PHP 中是沒問題的，可以看以下範例：</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token php language-php"><span class="token delimiter important">&lt;?php</span>
+  <span class="token variable">$filepath</span> <span class="token operator">=</span> <span class="token string single-quoted-string">'not_exist.php/../poc.php'</span><span class="token punctuation">;</span>
+  <span class="token variable">$fp</span> <span class="token operator">=</span> <span class="token function">fopen</span><span class="token punctuation">(</span><span class="token variable">$filepath</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'w+'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token variable">$bytes</span> <span class="token operator">=</span> <span class="token function">fwrite</span><span class="token punctuation">(</span><span class="token variable">$fp</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'abc'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">fclose</span><span class="token punctuation">(</span><span class="token variable">$fp</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token delimiter important">?></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>像上面這樣的程式碼，最後還是會把內容寫入同個目錄底下的 <code>poc.php</code>。</p>
+<p>有了任意寫檔的漏洞以後，寫入一個 web shell 就 RCE 了，結果像是這樣：</p>
+<p><img src="/img/wordpress-plugin-vikbooking-unauth-rce/p3-rce.png" alt="rce"></p>
+<h2><span id="修復方式">修復方式</span></h2><p>Vikbooking 在 1.5.4 版修復了這個漏洞，把拿出資料以及 content type 的程式碼改為下面這一段：</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token keyword">empty</span><span class="token punctuation">(</span><span class="token variable">$psignature</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">/**
+     * Implemented safe filtering of base64-encoded signature image
+     * to obtain content and file extension.
+     *
+     * @since       1.15.1 (J) - 1.5.4 (WP)
+     */</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">preg_match</span><span class="token punctuation">(</span><span class="token string double-quoted-string">"/^data:image\/(png|jpe?g|svg);base64,([A-Za-z0-9\/=+]+)$/"</span><span class="token punctuation">,</span> <span class="token variable">$psignature</span><span class="token punctuation">,</span> <span class="token variable">$safe_match</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token variable">$signature_data</span> <span class="token operator">=</span> <span class="token function">base64_decode</span><span class="token punctuation">(</span><span class="token variable">$safe_match</span><span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token variable">$cont_type</span> <span class="token operator">=</span> <span class="token variable">$safe_match</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這邊改用正則來處理以後，確保了 match 到的 content type 只會是圖片的副檔名，在沒辦法控制檔名中其他參數的狀況下，就無法寫檔案到任意位置了。</p>
+<h2><span id="結語">結語</span></h2><p>只能說在做這種讓使用者上傳檔案的功能時都必須特別小心，這種功能特別容易出事，例如說：</p>
+<ol>
+<li>檔名沒過濾好，上傳 php 可以 web shell，上傳 HTML 就是 XSS</li>
+<li>路徑沒過濾好，可以上傳到任意位置</li>
+<li>不知道解壓縮時有可能會碰到 <a target="_blank" rel="noopener" href="https://github.com/snyk/zip-slip-vulnerability">zip slip</a></li>
+</ol>
+<p>總之呢，未來在實作類似功能時記得特別注意這些問題，避免寫出有漏洞的程式碼。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2022/05/21/m0lecon-ctf-2022-writeup/">m0leCon CTF 2022 筆記</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2022/05/05/angstrom-ctf-2022-writeup/">ångstromCTF 2022 筆記</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2022/05/20/en/wordpress-plugin-vikbooking-unauth-rce/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

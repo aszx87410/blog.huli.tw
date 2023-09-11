@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>一個有趣的 styled components bug - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2020/07/11/en/an-interesting-styled-components-bug/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2020/07/11/an-interesting-styled-components-bug/">
+    
+
+
+
+
+
+    <meta name="description" content="前言之前在公司裡面做一些效能上的調整時，無意間發現了一個奇怪的現象，繼續往下追查之後才發現是個好像沒有被什麼人發現過的 bug，而且成因我覺得挺有趣的，就想說可以寫一篇跟大家分享一下。 這篇技術含量不高，可以抱持著看故事的心態來看這篇，會比較有趣一點。 故事的開端故事的起源呢，是之前在公司裡面要做一些網站上的調整，試著增進一下載入的速度。當我們談到性能最佳化這一塊，其實有很多可以做的，例如說跟 S">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一個有趣的 styled components bug">
+<meta property="og:url" content="https://blog.huli.tw/2020/07/11/an-interesting-styled-components-bug/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言之前在公司裡面做一些效能上的調整時，無意間發現了一個奇怪的現象，繼續往下追查之後才發現是個好像沒有被什麼人發現過的 bug，而且成因我覺得挺有趣的，就想說可以寫一篇跟大家分享一下。 這篇技術含量不高，可以抱持著看故事的心態來看這篇，會比較有趣一點。 故事的開端故事的起源呢，是之前在公司裡面要做一些網站上的調整，試著增進一下載入的速度。當我們談到性能最佳化這一塊，其實有很多可以做的，例如說跟 S">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/sc/css1.png">
+<meta property="og:image" content="https://blog.huli.tw/img/sc/css2.png">
+<meta property="og:image" content="https://blog.huli.tw/img/sc/autoprefixer.png">
+<meta property="og:image" content="https://blog.huli.tw/img/sc/code.png">
+<meta property="og:image" content="https://blog.huli.tw/img/sc/hash.png">
+<meta property="article:published_time" content="2020-07-11T08:06:54.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.473Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/sc/css1.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="一個有趣的 styled components bug" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#故事的開端">2&nbsp;&nbsp;<b>故事的開端</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#去除額外的-prefix">3&nbsp;&nbsp;<b>去除額外的 prefix</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#成果報告">4&nbsp;&nbsp;<b>成果報告</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#說好的-bug-呢">5&nbsp;&nbsp;<b>說好的 bug 呢？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#後續處理">6&nbsp;&nbsp;<b>後續處理</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">7&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2020/07/11/en/an-interesting-styled-components-bug/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            一個有趣的 styled components bug
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2020-07-11T08:06:54.000Z" itemprop="datePublished">2020年7月11日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Front-end/">Front-end</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="前言">前言</span></h2><p>之前在公司裡面做一些效能上的調整時，無意間發現了一個奇怪的現象，繼續往下追查之後才發現是個好像沒有被什麼人發現過的 bug，而且成因我覺得挺有趣的，就想說可以寫一篇跟大家分享一下。</p>
+<p>這篇技術含量不高，可以抱持著看故事的心態來看這篇，會比較有趣一點。</p>
+<h2><span id="故事的開端">故事的開端</span></h2><p>故事的起源呢，是之前在公司裡面要做一些網站上的調整，試著增進一下載入的速度。當我們談到性能最佳化這一塊，其實有很多可以做的，例如說跟 Server 那邊比較有關的是：</p>
+<ol>
+<li>使用 HTTP&#x2F;2</li>
+<li>使用 gzip 或是 brotli 進行壓縮</li>
+<li>使用 Cache（可以加快 revisit 的速度）</li>
+<li>使用 CDN</li>
+<li>降低 TTFB 時間</li>
+</ol>
+<p>不過以上都需要後端或是 SRE 的協助，跟前端其實關係不大。跟前端關係比較大的，也可以分成很多面向來看，例如說以「減少資源」的角度來看，可以做的事情有：</p>
+<ol>
+<li>Image 格式調整（壓縮 + webp 或其他格式）</li>
+<li>JS 大小（ugligy、code spliting、dynamic import）</li>
+<li>CSS 大小（minify、移除不需要的 CSS）</li>
+</ol>
+<p>如果以「加速載入重要資源」的角度，可以加上 preload 或是 preconnect 這些 hint，來提示瀏覽器哪些東西應該先被載入。</p>
+<p>還可以從「減少 JS 執行時間」的角度來看，例如說如果是寫 React，可以用 shouldComponentUpdate、PureComponent 或是 memo 來減少不必要的 re-render。</p>
+<p>這一篇既然標題都寫 styled components 了，主題當然就是圍繞在 CSS 這一塊。</p>
+<span id="more"></span>
+
+<p>在 CSS 這一塊，為了減少第一次載入的時間，有一個招數是把 critical CSS inline 在 HTML 裡面，這樣就不用再去發一個 request 拿 CSS 回來，少了一個 round-trip。不過連帶會影響到的就是 HTML 的 size 會變大就是了，但其實也不會大到多少。</p>
+<p>總之呢，我們的網站有用了這個招數，把 CSS inline 在 HTML 裡面，看起來就會像是這樣：</p>
+<p><img src="/img/sc/css1.png" alt="css1"></p>
+<p>一大堆密密麻麻的 CSS。</p>
+<p>而這之中最吸引我注意的，就是那些 vendor prefix：</p>
+<p><img src="/img/sc/css2.png" alt="css1"></p>
+<p>因為各種歷史因素，有些 CSS 屬性要加上 vendor prefix 才能夠運作，例如說你想在比較舊版本的 IE 上面用 flexbox 時，你需要寫：<code>display: -ms-flexbox;</code>。而我稍微看了一下我們網站上有的 prefix，大概是：</p>
+<ol>
+<li>display: -ms-flexbox</li>
+<li>display: -webkit-flex</li>
+<li>-ms-flex-wrap: wrap</li>
+<li>-webkit-flex-wrap: wrap</li>
+<li>-ms-transform: rotate(45deg)</li>
+<li>-webkit-transform: rotate(45deg)</li>
+<li>-ms-letter-spacing: 0.03em</li>
+<li>-webkit-letter-spacing: 0.03em</li>
+<li>….more</li>
+</ol>
+<p>這些 prefix 都是 styled components 幫我們加上的，這邊簡單介紹一下 styled components 好了，簡單來說就是可以用這種寫法幫 component 加上 CSS：</p>
+<pre class="line-numbers language-jsx" data-language="jsx"><code class="language-jsx"><span class="token keyword">import</span> styled <span class="token keyword">from</span> <span class="token string">'styled-components'</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> Box <span class="token operator">=</span> styled<span class="token punctuation">.</span>div<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+  background: red;
+</span><span class="token template-punctuation string">`</span></span>
+
+<span class="token comment">// 使用時，這樣用你就可以有一個背景紅色的 div</span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Box</span></span> <span class="token punctuation">/></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>背後原理則是 styled components 會把你寫的 style 轉成一個 className，然後幫你放到這個元件上面去。而 vendor prefix 也是它會幫你處理的一環。</p>
+<p>這一切看似都沒有問題，可是其實有著改進的空間。</p>
+<p>以我們的專案為例，其實已經定好瀏覽器的支援程度了，而且不需要支援 IE。既然不需要支援 IE 的話，那很多 <code>-ms</code> 開頭的 prefix 其實不用加也可以，而且拿掉會比較省空間，所以拿掉比較好。</p>
+<p>可是，要怎麼拿呢？</p>
+<h2><span id="去除額外的-prefix">去除額外的 prefix</span></h2><p>以這種要幫 CSS 加上正確的 prefix 的需求來說，有一個工具非常知名，叫做：<a target="_blank" rel="noopener" href="https://github.com/postcss/autoprefixer">Autoprefixer</a>：</p>
+<p><img src="/img/sc/autoprefixer.png" alt="autoprefixer"></p>
+<p>這套工具很簡單，你只要把你的 CSS 整個丟給它，它就會幫你轉成正確的形式，所謂正確，指的是：</p>
+<ol>
+<li>加上必要的 prefix</li>
+<li>去除不必要的 prefix</li>
+</ol>
+<p>那它怎麼知道什麼是必要的呢？</p>
+<p>這就是最棒的點了，它支援一個東西叫做 <a target="_blank" rel="noopener" href="https://github.com/browserslist/browserslist">Browserslist</a>，簡單來說你可以寫一個檔案，裡面寫明你的專案要支援哪些瀏覽器，像是：</p>
+<pre class="line-numbers language-none"><code class="language-none"># Browsers that we support
+
+defaults
+not IE 11
+not IE_Mob 11
+&gt; 1%<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>你還可以用 <code>&gt; 1%</code> 這種語法，讓他幫你去抓出哪些瀏覽器的使用率 &gt; 1%，並且加進去清單裡面。所以有了這個清單再搭配 Autoprefixer，就可以產生出精簡的 CSS，去除不必要的 vendor prefix。</p>
+<p>那這套要怎麼跟 styled components 合在一起用呢？</p>
+<p>styled components 裡面有一個東西叫做 <a href="StyleSheetManager">StyleSheetManager</a>，在 v5 裡面新增了兩個參數：</p>
+<ol>
+<li>disableVendorPrefixes</li>
+<li>stylisPlugins</li>
+</ol>
+<p>第一個參數可以把所有 vendor prefix 移除，它就不會幫你自動加：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 範例來自官方網站</span>
+<span class="token keyword">import</span> styled<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span> StyleSheetManager <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'styled-components'</span>
+
+<span class="token keyword">const</span> Box <span class="token operator">=</span> styled<span class="token punctuation">.</span>div<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+  color: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token parameter">props</span> <span class="token operator">=></span> props<span class="token punctuation">.</span>theme<span class="token punctuation">.</span>color<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">;
+  display: flex;
+</span><span class="token template-punctuation string">`</span></span>
+
+<span class="token function">render</span><span class="token punctuation">(</span>
+  <span class="token operator">&lt;</span>StyleSheetManager disableVendorPrefixes<span class="token operator">></span>
+    <span class="token operator">&lt;</span>Box<span class="token operator">></span>If you inspect me<span class="token punctuation">,</span> there are no vendor prefixes <span class="token keyword">for</span> the flexbox style<span class="token punctuation">.</span><span class="token operator">&lt;</span><span class="token operator">/</span>Box<span class="token operator">></span>
+  <span class="token operator">&lt;</span><span class="token operator">/</span>StyleSheetManager<span class="token operator">></span>
+<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>而第二個參數 <code>stylisPlugins</code> 其實才是我們的重點，官方範例是這樣的：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">import</span> styled<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span> StyleSheetManager <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'styled-components'</span>
+<span class="token keyword">import</span> stylisRTLPlugin <span class="token keyword">from</span> <span class="token string">'stylis-plugin-rtl'</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> Box <span class="token operator">=</span> styled<span class="token punctuation">.</span>div<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+  background: mediumseagreen;
+  border-left: 10px solid red;
+</span><span class="token template-punctuation string">`</span></span>
+
+<span class="token function">render</span><span class="token punctuation">(</span>
+  <span class="token operator">&lt;</span>StyleSheetManager stylisPlugins<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token punctuation">[</span>stylisRTLPlugin<span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token operator">></span>
+    <span class="token operator">&lt;</span>Box<span class="token operator">></span>My border is now on the right<span class="token operator">!</span><span class="token operator">&lt;</span><span class="token operator">/</span>Box<span class="token operator">></span>
+  <span class="token operator">&lt;</span><span class="token operator">/</span>StyleSheetManager<span class="token operator">></span>
+<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>簡單來說呢，其實 styled components 底層是用了一個叫做 stylis 的套件，而這個套件可以傳自定的 plugin 進去，就可以做一些轉換。聽起來是條很有希望的路，但是官方文件其實著墨的不多，於是我就去翻了 styled components 的程式碼，查一下該怎麼寫這個 plugin，查到了<a target="_blank" rel="noopener" href="https://github.com/styled-components/styled-components/blob/master/packages/styled-components/src/utils/stylis.js#L69">這段</a>：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">/**
+ * When writing a style like
+ *
+ * &amp; + &amp; &#123;
+ *   color: red;
+ * &#125;
+ *
+ * The second ampersand should be a reference to the static component class. stylis
+ * has no knowledge of static class so we have to intelligently replace the base selector.
+ *
+ * https://github.com/thysultan/stylis.js#plugins &lt;- more info about the context phase values
+ * "2" means this plugin is taking effect at the very end after all other processing is complete
+ */</span>
+<span class="token keyword">const</span> <span class="token function-variable function">selfReferenceReplacementPlugin</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">context<span class="token punctuation">,</span> _<span class="token punctuation">,</span> selectors</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>context <span class="token operator">===</span> <span class="token number">2</span> <span class="token operator">&amp;&amp;</span> selectors<span class="token punctuation">.</span>length <span class="token operator">&amp;&amp;</span> selectors<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">lastIndexOf</span><span class="token punctuation">(</span>_selector<span class="token punctuation">)</span> <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// eslint-disable-next-line no-param-reassign</span>
+    selectors<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token operator">=</span> selectors<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span>_selectorRegexp<span class="token punctuation">,</span> selfReferenceReplacer<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>可是裡面附的連結點下去以後，卻發現完全找不到跟 plugin 有關的資訊…於是我只好轉個方向，去研究剛剛範例中出現的套件：<a target="_blank" rel="noopener" href="https://github.com/styled-components/stylis-plugin-rtl/blob/master/src/stylis-rtl.js">stylis-plugin-rtl</a>，這次的原始碼詳細多了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// @flow</span>
+
+<span class="token keyword">import</span> cssjanus <span class="token keyword">from</span> <span class="token string">"cssjanus"</span><span class="token punctuation">;</span>
+
+<span class="token comment">// https://github.com/thysultan/stylis.js#plugins</span>
+<span class="token keyword">const</span> <span class="token constant">STYLIS_CONTEXTS</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token constant">POST_PROCESS</span><span class="token operator">:</span> <span class="token operator">-</span><span class="token number">2</span><span class="token punctuation">,</span>
+  <span class="token constant">PREPARATION</span><span class="token operator">:</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token constant">NEWLINE</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+  <span class="token constant">PROPERTY</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token constant">SELECTOR_BLOCK</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
+  <span class="token constant">AT_RULE</span><span class="token operator">:</span> <span class="token number">3</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+<span class="token keyword">export</span> type StylisContextType <span class="token operator">=</span> $Values<span class="token operator">&lt;</span><span class="token keyword">typeof</span> <span class="token constant">STYLIS_CONTEXTS</span><span class="token operator">></span><span class="token punctuation">;</span>
+
+<span class="token comment">// We need to apply cssjanus as early as possible to capture the noflip directives if used</span>
+<span class="token comment">// (they are not present at the PROPERTY, SELECTOR_BLOCK, or POST_PROCESS steps)</span>
+<span class="token keyword">export</span> <span class="token keyword">const</span> <span class="token constant">STYLIS_PROPERTY_CONTEXT</span> <span class="token operator">=</span> <span class="token constant">STYLIS_CONTEXTS</span><span class="token punctuation">.</span><span class="token constant">PREPARATION</span><span class="token punctuation">;</span>
+
+<span class="token keyword">function</span> <span class="token function">stylisRTLPlugin</span><span class="token punctuation">(</span><span class="token parameter"><span class="token literal-property property">context</span><span class="token operator">:</span> StylisContextType<span class="token punctuation">,</span> <span class="token literal-property property">content</span><span class="token operator">:</span> string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token operator">?</span>string <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>context <span class="token operator">===</span> <span class="token constant">STYLIS_PROPERTY_CONTEXT</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> cssjanus<span class="token punctuation">.</span><span class="token function">transform</span><span class="token punctuation">(</span>content<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// stable identifier that will not be dropped by minification unless the whole module</span>
+<span class="token comment">// is unused</span>
+<span class="token comment">/*#__PURE__*/</span>
+Object<span class="token punctuation">.</span><span class="token function">defineProperty</span><span class="token punctuation">(</span>stylisRTLPlugin<span class="token punctuation">,</span> <span class="token string">"name"</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">value</span><span class="token operator">:</span> <span class="token string">"stylisRTLPlugin"</span> <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">export</span> <span class="token keyword">default</span> stylisRTLPlugin<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>之前看過類似的 plugin 寫法，所以滿快就能進入狀況的。stylis 會提供給你幾個不同的 context 跟 content，你可以根據 context 去決定要做什麼處理，並且把處理完成的 style 傳回去。</p>
+<p>因此，我們的 plugin 可以這樣寫：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">import</span> autoprefixer <span class="token keyword">from</span> <span class="token string">'autoprefixer'</span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> postcss <span class="token keyword">from</span> <span class="token string">'postcss'</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token constant">POST_PROCESS_CONTEXT</span> <span class="token operator">=</span> <span class="token operator">-</span><span class="token number">2</span><span class="token punctuation">;</span>
+<span class="token keyword">function</span> <span class="token function">plugin</span> <span class="token punctuation">(</span><span class="token parameter">context<span class="token punctuation">,</span> content</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>context <span class="token operator">!==</span> <span class="token constant">POST_PROCESS_CONTEXT</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> content<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">return</span> <span class="token function">postcss</span><span class="token punctuation">(</span><span class="token punctuation">[</span>autoprefixer<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">process</span><span class="token punctuation">(</span>content<span class="token punctuation">)</span><span class="token punctuation">.</span>css<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在 post process 這個階段去呼叫 postcss，並把內容用 autoprefixer 去轉換，最後就可以得到乾淨的 CSS。</p>
+<h2><span id="成果報告">成果報告</span></h2><p>這邊講一下成效如何，在沒有用之前，我統計了 CSS 裡面出現的 prefix 的數量（直接 global search 統計）：</p>
+<ul>
+<li>-webkit: ~300</li>
+<li>-ms: ~200</li>
+<li>-moz: ~60</li>
+<li>-o: 1</li>
+</ul>
+<p>一共 560 個左右</p>
+<p>用了 autoprefixer 之後，變成：</p>
+<ul>
+<li>-webkit: ~300 &#x3D;&gt; 26</li>
+<li>-ms: ~200 &#x3D;&gt; 6</li>
+<li>-moz: ~60 &#x3D;&gt; 13</li>
+<li>-o: 1 &#x3D;&gt; 0</li>
+</ul>
+<p>從 560 個變到 45 個，減少了大約 90% 的不必要的 vendor prefix！</p>
+<p>而原本整份 HTML + inline CSS 的大小經過 gzip 壓縮後為 43KB，大家可以猜一下做了這個改動之後變成多少。</p>
+<p>.<br>.<br>.<br>.<br>.<br>.<br>.<br>.<br>.<br>.<br>.<br>.<br>.  </p>
+<p>答案是：42KB！</p>
+<p>對，你沒看錯，就是只減少了 1KB。</p>
+<p>在我看到這個結果時，我學到了兩件事：</p>
+<ol>
+<li>gzip 很強悍</li>
+<li>果然優化是需要衡量的，有時候你以為改進了很多，但其實沒有</li>
+</ol>
+<p>我猜測之所以只減少 1KB，是因為經過 gzip 之後其實根本沒什麼差。雖然說 prefix 數量大幅減少，但不會真的省到這麼多空間。gzip 記的資訊可能從：「300 個 webkit」變成「26 個 webkit」，只是前面的數量減少而已，因此在檔案大小上根本沒什麼改進。</p>
+<p>雖然檔案大小的確減少不多，不過往好處想，還是有一些改進，任務順利達成了。</p>
+<h2><span id="說好的-bug-呢">說好的 bug 呢？</span></h2><p>好，看到這邊你可能會想說：學到一招了…等等，不對啊，這篇不是要講 bug 嗎？那 bug 在哪裡？怎麼沒看到像是 bug 的東西？</p>
+<p>bug 其實就藏在前面我整理出來的一個清單：</p>
+<ol>
+<li>display: -ms-flexbox</li>
+<li>display: -webkit-flex</li>
+<li>-ms-flex-wrap: wrap</li>
+<li>-webkit-flex-wrap: wrap</li>
+<li>-ms-transform: rotate(45deg)</li>
+<li>-webkit-transform: rotate(45deg)</li>
+<li>-ms-letter-spacing: 0.03em</li>
+<li>-webkit-letter-spacing: 0.03em</li>
+<li>….more</li>
+</ol>
+<p>仔細看其實你會發現有個屬性很奇妙，叫做 <code>letter-spacing</code>，我當初看到以為是我學藝不精，怎麼寫 CSS 這麼多年，還不知道 <code>letter-spacing</code> 要加上 prefix 才能運作，於是就去 caniuse 查了一波，發現跟我記憶中一樣，是不需要加的。</p>
+<p>那為什麼這邊有呢？</p>
+<p>在好奇心的驅使之下，我去找了 stylis 的原始碼來看。這邊順帶一提，前面有講到 styled components 原始碼裡面附的連結點過去沒有 plugin 相關介紹，是因為版本問題。stylis 在今年（2020 年）4 月份更新成了 v4，而 styled components 用的是 v3.5.4。</p>
+<p>或是如果要講的更詳細一點，其實 styled components 依賴的是 <code>@emotion/stylis v0.8.4</code>（對，就是另一個 library emotion），而這個 emotion 的 stylis 依賴的是真正的 stylis 3.5.4 版本。</p>
+<p>所以這個 letter-spacing 的問題不止 styled components，其實連 emotion 也有。這邊是一個 codesandbox 的 demo：<a target="_blank" rel="noopener" href="https://codesandbox.io/s/stylis-bug-6yu6g?file=/src/App.js">https://codesandbox.io/s/stylis-bug-6yu6g?file=/src/App.js</a></p>
+<p>開啟之後對上面元素按右鍵檢查，就看得到了：</p>
+<p><img src="/img/sc/code.png" alt="code"></p>
+<p>既然知道之前是版本找錯以後，就可以找正確版本的原始碼來看，是一份很大的檔案：<a target="_blank" rel="noopener" href="https://github.com/thysultan/stylis.js/blob/v3.5.4/stylis.js">https://github.com/thysultan/stylis.js/blob/v3.5.4/stylis.js</a></p>
+<p>我擷取一段最精華的，加上 vendor prefix 的部分（有省略部分程式碼）：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">property</span> <span class="token punctuation">(</span><span class="token parameter">input<span class="token punctuation">,</span> first<span class="token punctuation">,</span> second<span class="token punctuation">,</span> third</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> index <span class="token operator">=</span> <span class="token number">0</span>
+  <span class="token keyword">var</span> out <span class="token operator">=</span> input <span class="token operator">+</span> <span class="token string">';'</span>
+  <span class="token keyword">var</span> hash <span class="token operator">=</span> <span class="token punctuation">(</span>first<span class="token operator">*</span><span class="token number">2</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token punctuation">(</span>second<span class="token operator">*</span><span class="token number">3</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token punctuation">(</span>third<span class="token operator">*</span><span class="token number">4</span><span class="token punctuation">)</span>
+  <span class="token keyword">var</span> cache
+
+  <span class="token comment">// animation: a, n, i characters</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>hash <span class="token operator">===</span> <span class="token number">944</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token function">animation</span><span class="token punctuation">(</span>out<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>prefix <span class="token operator">===</span> <span class="token number">0</span> <span class="token operator">||</span> <span class="token punctuation">(</span>prefix <span class="token operator">===</span> <span class="token number">2</span> <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span><span class="token function">vendor</span><span class="token punctuation">(</span>out<span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> out
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token comment">// vendor prefix</span>
+  <span class="token keyword">switch</span> <span class="token punctuation">(</span>hash<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// text-decoration/text-size-adjust/text-shadow/text-align/text-transform: t, e, x</span>
+    <span class="token keyword">case</span> <span class="token number">1015</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// text-shadow/text-align/text-transform, a</span>
+      <span class="token keyword">return</span> out<span class="token punctuation">.</span><span class="token function">charCodeAt</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token number">97</span> <span class="token operator">?</span> webkit <span class="token operator">+</span> out <span class="token operator">+</span> out <span class="token operator">:</span> out
+    <span class="token punctuation">&#125;</span>
+    <span class="token comment">// filter/fill f, i, l</span>
+    <span class="token keyword">case</span> <span class="token number">951</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// filter, t</span>
+      <span class="token keyword">return</span> out<span class="token punctuation">.</span><span class="token function">charCodeAt</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token number">116</span> <span class="token operator">?</span> webkit <span class="token operator">+</span> out <span class="token operator">+</span> out <span class="token operator">:</span> out
+    <span class="token punctuation">&#125;</span>
+    <span class="token comment">// color/column, c, o, l</span>
+    <span class="token keyword">case</span> <span class="token number">963</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// column, n</span>
+      <span class="token keyword">return</span> out<span class="token punctuation">.</span><span class="token function">charCodeAt</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token number">110</span> <span class="token operator">?</span> webkit <span class="token operator">+</span> out <span class="token operator">+</span> out <span class="token operator">:</span> out
+    <span class="token punctuation">&#125;</span>
+    <span class="token comment">// box-decoration-break, b, o, x</span>
+    <span class="token keyword">case</span> <span class="token number">1009</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>out<span class="token punctuation">.</span><span class="token function">charCodeAt</span><span class="token punctuation">(</span><span class="token number">4</span><span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token number">100</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">break</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token comment">// mask, m, a, s</span>
+    <span class="token comment">// clip-path, c, l, i</span>
+    <span class="token keyword">case</span> <span class="token number">969</span><span class="token operator">:</span>
+    <span class="token keyword">case</span> <span class="token number">942</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> webkit <span class="token operator">+</span> out <span class="token operator">+</span> out
+    <span class="token punctuation">&#125;</span>
+    <span class="token comment">// appearance: a, p, p</span>
+    <span class="token keyword">case</span> <span class="token number">978</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> webkit <span class="token operator">+</span> out <span class="token operator">+</span> moz <span class="token operator">+</span> out <span class="token operator">+</span> out
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>看起來對於每個 prefix 都會加上註解，於是我就搜尋了一下 <code>letter-spacing</code>，發現一無所獲，事情就變得有趣了起來，看來 <code>letter-spacing</code> 有 vendor prefix 這個行為好像不是預期的。</p>
+<p>再來我們看一下它加上 prefix 的方式，是先把屬性經過一個自定義的 hash：<code>var hash = (first*2) + (second*3) + (third*4)</code> 之後，判斷 hash 出來的結果，再根據結果來加上 prefix。</p>
+<p>那我們試著把 <code>letter-spacing</code> 來做 hash 好了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">hash</span><span class="token punctuation">(</span><span class="token parameter">str</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> str<span class="token punctuation">.</span><span class="token function">charCodeAt</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">2</span> <span class="token operator">+</span>
+    str<span class="token punctuation">.</span><span class="token function">charCodeAt</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">3</span> <span class="token operator">+</span>
+    str<span class="token punctuation">.</span><span class="token function">charCodeAt</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">4</span>
+<span class="token punctuation">&#125;</span> 
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token function">hash</span><span class="token punctuation">(</span><span class="token string">'letter-spacing'</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment">// 983</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>接著在 source code 裡面搜尋 983：</p>
+<p><img src="/img/sc/hash.png" alt="hash"></p>
+<p>謎底揭曉！</p>
+<p>原來是一個因為 hash collision 所引起的 bug！之前聽過很多建議說 hash function 最好不要自己定義，沒想到真的讓我看到一個現實世界中，用自定義 hash function 結果碰撞的案例。</p>
+<p><code>user-select</code> 這個字串經過 hash 以後也是 983，跟 <code>letter-spacing</code> 一樣。因此在轉換 <code>letter-spacing</code>  的時候就會跑到這個 case 裡面，幫 <code>letter-spacing</code> 也加上 vendor prefix。</p>
+<p>所以在這邊也修正一下標題，其實不是 styled components 的 bug，而是 stylis 的 bug，但是 styled components 跟 emotion 都用到了 stylis，所以也都有這個 bug。</p>
+<h2><span id="後續處理">後續處理</span></h2><p>我在 styled, emotion 跟 styled components 的 repo 都搜過一輪，發現好像沒有人注意到這個 issue，不過有發現到的是 emotion 有一個把 stylis 更新到 v4 的 PR：<a target="_blank" rel="noopener" href="https://github.com/emotion-js/emotion/pull/1817">Stylis v4 #1817</a>，而且在近期已經 merge 進去了，所以下一版的 emotion（應該是大版本號的更新，因為是 breaking change）就沒有這問題了。</p>
+<p>而 stylis 那邊我也發了一個 issue 告知他們這件事：<a target="_blank" rel="noopener" href="https://github.com/thysultan/stylis.js/issues/223">Redundant css vendor prefix for letter-spacing in v3 #223</a>，不過看起來他們那邊也沒什麼能做的，而且這是存在於舊版的 bug，在新版已經沒有了，所以也不會在舊版修掉。</p>
+<p>最後是 styled components 那邊，我一樣發了一個 issue 講這件事：<a target="_blank" rel="noopener" href="https://github.com/styled-components/styled-components/issues/3157">Redundant css vendor prefix for letter-spacing #3157</a>，但目前還沒人理我就是了。</p>
+<p>同時也發了一個改文件網址的 PR：<a target="_blank" rel="noopener" href="https://github.com/styled-components/styled-components/pull/3156">Update stylis plugin docs url #3156</a>，避免有其他人跟我一樣找不到 plugin 的文件。</p>
+<h2><span id="總結">總結</span></h2><p>其實從這件事情上面學到滿多的。</p>
+<p>第一點是發現了一個有趣的 bug，一個因為 hash collision 所引起的 bug。</p>
+<p>第二點是我原本以為移除掉那 500 多個 prefix 以後，可以降低一點檔案大小，沒想到實際衡量過後，才減少 1KB 而已。很多時候我都忘記把 gzip 這個因素考慮進去，在這次之後就不會忘掉它了。</p>
+<p>第三點是我發現我好像對於 bug 有一種「一定要修好」的心態，但在現實世界中並不會這麼理想，畢竟做事情有優先順序。</p>
+<p>雖然說 letter-spacing 加上 prefix 的確是一件冗余的事，但是影響範圍是什麼？就是增加了一點微不足道的檔案大小，還有看起來比較奇怪而已。說實在的，並不是什麼嚴重的 bug，就算不修好像也沒有太大的影響，網頁也不會因此而跑版，所以其實是一個很無害的 bug。</p>
+<p>所以也藉由這個事件，重新整理了一次自己面對 bug 時應該要有的心態。</p>
+<p>這篇到這邊就差不多啦，如果你家的網站也有在用 emotion 或是 styled components，不如去看一下是不是也有這個 letter-spacing 的問題吧！</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Front-end/">#Front-end</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2020/08/07/vite-and-esmodules/">Vite 怎麼能那麼快？從 ES modules 開始談起</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2020/06/15/react-function-class-hook-useeffect/">從實際案例看 class 與 function component 的差異</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2020/07/11/en/an-interesting-styled-components-bug/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

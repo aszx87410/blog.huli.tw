@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>網站前端打 API 時把密碼加密，有意義嗎？ - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2023/01/10/en/security-of-encrypt-or-hash-password-in-client-side/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2023/01/10/security-of-encrypt-or-hash-password-in-client-side/">
+    
+
+
+
+
+
+    <meta name="description" content="最近有人在臉書前端交流社群發了一則貼文，內容是他看到了一個問題：請問登入api傳賬號、密碼json明碼會有問題嗎?，想知道大家對這個問題的看法。 而底下的回答大部份都是覺得「有用 HTTPS 就好了，沒必要額外再實作一層加密，沒有什麼太大的意義」 老實說我以前也是這樣認為的，而且過去在社群中就有出現過類似的討論。我那時候想說都已經有 HTTPS 了，而 HTTPS 本身的目的就是為了保障傳輸的安全">
+<meta property="og:type" content="article">
+<meta property="og:title" content="網站前端打 API 時把密碼加密，有意義嗎？">
+<meta property="og:url" content="https://blog.huli.tw/2023/01/10/security-of-encrypt-or-hash-password-in-client-side/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="最近有人在臉書前端交流社群發了一則貼文，內容是他看到了一個問題：請問登入api傳賬號、密碼json明碼會有問題嗎?，想知道大家對這個問題的看法。 而底下的回答大部份都是覺得「有用 HTTPS 就好了，沒必要額外再實作一層加密，沒有什麼太大的意義」 老實說我以前也是這樣認為的，而且過去在社群中就有出現過類似的討論。我那時候想說都已經有 HTTPS 了，而 HTTPS 本身的目的就是為了保障傳輸的安全">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/security-of-encrypt-or-hash-password-in-client-side/cover.png">
+<meta property="article:published_time" content="2023-01-10T01:10:44.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.489Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/security-of-encrypt-or-hash-password-in-client-side/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="網站前端打 API 時把密碼加密，有意義嗎？" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#定義問題">1&nbsp;&nbsp;<b>定義問題</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#假設-https-不安全差在哪">2&nbsp;&nbsp;<b>假設 HTTPS 不安全，差在哪？</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#攻擊者掌控整台電腦信任惡意憑證">2.1&nbsp;&nbsp;攻擊者掌控整台電腦，信任惡意憑證</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#攻擊者成功執行了中間人攻擊">2.2&nbsp;&nbsp;攻擊者成功執行了中間人攻擊</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#攻擊者可以在網路層監聽-request-並使用漏洞取得明文">2.3&nbsp;&nbsp;攻擊者可以在網路層監聽 request 並使用漏洞取得明文</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#攻擊者直接針對-https-server-進行攻擊">2.4&nbsp;&nbsp;攻擊者直接針對 HTTPS server 進行攻擊</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#中場總結">3&nbsp;&nbsp;<b>中場總結</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#假設-https-是安全的">4&nbsp;&nbsp;<b>假設 HTTPS 是安全的</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#加密還是-hash">5&nbsp;&nbsp;<b>加密還是 hash？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#現實生活中到底有誰在前端做-hash-或是加密">6&nbsp;&nbsp;<b>現實生活中，到底有誰在前端做 hash 或是加密？</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#faang">6.1&nbsp;&nbsp;FAANG</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#facebook">6.1.1&nbsp;&nbsp;Facebook</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#amazon">6.1.2&nbsp;&nbsp;Amazon</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#apple">6.1.3&nbsp;&nbsp;Apple</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#netflix">6.1.4&nbsp;&nbsp;Netflix</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#google">6.1.5&nbsp;&nbsp;Google</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#github">6.1.6&nbsp;&nbsp;GitHub</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#microsoft">6.1.7&nbsp;&nbsp;Microsoft</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#ibm-cloud">6.1.8&nbsp;&nbsp;IBM cloud</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#資安廠商">6.2&nbsp;&nbsp;資安廠商</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#kaspersky">6.2.1&nbsp;&nbsp;Kaspersky</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#趨勢">6.2.2&nbsp;&nbsp;趨勢</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#tenable">6.2.3&nbsp;&nbsp;Tenable</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#proton">6.2.4&nbsp;&nbsp;Proton</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#交易所與銀行">6.3&nbsp;&nbsp;交易所與銀行</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#binance">6.3.1&nbsp;&nbsp;Binance</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#coinbase">6.3.2&nbsp;&nbsp;Coinbase</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#kraken">6.3.3&nbsp;&nbsp;kraken</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#玉山銀行">6.3.4&nbsp;&nbsp;玉山銀行</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#國泰世華">6.3.5&nbsp;&nbsp;國泰世華</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#中國信託">6.3.6&nbsp;&nbsp;中國信託</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#美國銀行">6.3.7&nbsp;&nbsp;美國銀行</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#新加坡星展銀行">6.3.8&nbsp;&nbsp;新加坡星展銀行</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#結論">7&nbsp;&nbsp;<b>結論</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2023/01/10/en/security-of-encrypt-or-hash-password-in-client-side/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            網站前端打 API 時把密碼加密，有意義嗎？
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2023-01-10T01:10:44.000Z" itemprop="datePublished">2023年1月10日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>最近有人在臉書前端交流社群發了一則<a target="_blank" rel="noopener" href="https://www.facebook.com/groups/f2e.tw/posts/5689037364466915">貼文</a>，內容是他看到了一個問題：<a target="_blank" rel="noopener" href="https://ithelp.ithome.com.tw/questions/10211642">請問登入api傳賬號、密碼json明碼會有問題嗎?</a>，想知道大家對這個問題的看法。</p>
+<p>而底下的回答大部份都是覺得「有用 HTTPS 就好了，沒必要額外再實作一層加密，沒有什麼太大的意義」</p>
+<p>老實說我以前也是這樣認為的，而且過去在社群中就有出現過類似的討論。我那時候想說都已經有 HTTPS 了，而 HTTPS 本身的目的就是為了保障傳輸的安全，為什麼要自己再做加密？</p>
+<p>但這一兩年接觸資安以後，我的想法有了改變，我認為前端在傳輸前把密碼加密，是有其意義的，而接下來我會詳細說明我的理由。</p>
+<span id="more"></span>
+
+<h2><span id="定義問題">定義問題</span></h2><p>在進入正題之前，我想把問題定義得更明確一點，免得出現一堆張飛打岳飛，拿兩個完全不同的情境來比較的狀況。在原文底下，就有不少留言在討論的是不同的問題，把問題先定義清楚滿重要的。</p>
+<p>首先，我們要比較的對象是：</p>
+<ol>
+<li>在使用 HTTPS 的前提下，打登入 API 時不做任何事直接傳送密碼的明文</li>
+<li>在使用 HTTPS 的前提下，打登入 API 時先把密碼加密，再傳送到 server</li>
+</ol>
+<p>這邊需要注意的是「兩個狀況都是 HTTPS」，所以如果你想講的是「沒必要自己發明新技術」或是「自己發明新的加密方式不會比較安全」等等，在這個前提下全都不適用。</p>
+<p>因為傳輸層還是靠 HTTPS 在傳輸，所以在這個階段並沒有自己發明新的方式，我只是在應用層自己把傳輸的資料額外加密一層而已。</p>
+<p>再來，先不考慮成本這件事，純粹只從技術的角度去看可能有哪些優缺點（成本相關的最後再來討論）。</p>
+<p>最後呢，我這邊的情境是「加密密碼」而非 hash，這是因為我覺得 hash 的狀況比較複雜，我自己想先用加密來舉例，而且這個加密是「非對稱式加密」。</p>
+<p>也就是我們可以想像已經有一把 public key 存在於 client 端（當然，每個人都可以拿得到），在送出 request 以前，會先使用 JavaScript 把密碼用 public key 加密以後再送出，而 server 使用 private key 解密，拿到密碼以後 hash 過再存入資料庫中。</p>
+<p>綜合以上，這篇想處理的問題是：「已經使用了 HTTPS，在打登入 API 以前先把密碼加密過或是不做任何處理，這兩者的差別在哪？」</p>
+<p>而我們可以把回答分成兩個部分：</p>
+<ol>
+<li>假設 HTTPS 被破解了，是不安全的，差在哪？</li>
+<li>假設 HTTPS 是安全的，差在哪？</li>
+</ol>
+<h2><span id="假設-https-不安全差在哪">假設 HTTPS 不安全，差在哪？</span></h2><p>首先，可以先想一下怎樣的狀況會造成 HTTPS 不安全，攻擊者掌握了系統的哪些部分？</p>
+<p>底下簡單分為四種狀況討論：</p>
+<ol>
+<li>攻擊者掌控整台電腦，信任惡意憑證</li>
+<li>攻擊者成功執行了中間人攻擊</li>
+<li>攻擊者可以在網路層監聽 request 並使用漏洞取得明文</li>
+<li>攻擊者直接針對 HTTPS server 進行攻擊</li>
+</ol>
+<h3><span id="攻擊者掌控整台電腦信任惡意憑證">攻擊者掌控整台電腦，信任惡意憑證</span></h3><p>若是這種類型的狀況，那當然是有沒有加密都沒差，因為攻擊者都有其他更好的手段去取得你的密碼。</p>
+<h3><span id="攻擊者成功執行了中間人攻擊">攻擊者成功執行了中間人攻擊</span></h3><p>那如果是「攻擊者成功執行了中間人攻擊（Man-In-The-Middle）」呢？你的電腦沒事，只是封包在傳輸的過程中被中間人攻擊。</p>
+<p>在這樣的前提底下，沒加密的情形就能直接被獲取密碼，而有加密的情形攻擊者只能獲取到加密過的密文而非明文。但需要注意的是既然是叫中間人攻擊，那攻擊者除了監聽你的 request 以外，也能傳送偽造的 response 給你，把前端用來加密密碼的部分換掉。</p>
+<p>因此無論密碼是否加密，攻擊者都可以拿到明文，只是如果有加密的話，攻擊者取得密碼的成本較高（需要先找到在哪邊加密的，然後把那段改掉）。</p>
+<h3><span id="攻擊者可以在網路層監聽-request-並使用漏洞取得明文">攻擊者可以在網路層監聽 request 並使用漏洞取得明文</span></h3><p>這個狀況跟上一個的不同之處在於這個只能讀，不能寫。若是有辦法解密 request 的封包，就能夠看到明文。</p>
+<p>所以如果有把密碼先加密，攻擊者就無法取得密碼的明文。</p>
+<p>這邊需要注意的是儘管無法取得明文，攻擊者依然可以透過重送請求來登入你的帳號（先假設沒有其他機制），所以你帳號還是被盜了，只是攻擊者不知道你的密碼明文。</p>
+<p>這有差嗎？有！</p>
+<p>假設他知道了你的密碼明文，就可以拿你的這組帳號密碼去各個服務都試試看，若是你其他網站也用同一組帳號密碼，就會跟著淪陷（俗稱的撞庫攻擊）。</p>
+<p>因此在這個狀況底下，加密密碼的安全性顯然是更高的。</p>
+<p>此時你可能會想問的問題是：「那在什麼狀況下攻擊者能夠取得 HTTPS 的明文？真的有可能嗎？」</p>
+<p>這邊有一份美國衛生及公共服務部 HHS 所做的簡報：<a target="_blank" rel="noopener" href="https://www.hhs.gov/sites/default/files/securing-ssl-tls-in-healthcare-tlpwhite.pdf">SSL&#x2F;TLS Vulnerabilities</a>，裡面有記錄一些 SSL&#x2F;TLS 曾經有過的漏洞，所以取得 HTTPS 的明文確實是有可能的。</p>
+<p>不過光是知道「有可能」是不夠的，應該問的是「機率高嗎？」，在討論風險的時候，通常也會根據風險的高低以及嚴重程度來決定該怎麼處理這個風險。</p>
+<p>答案是「機率很低」，簡報裡的漏洞最近的已經是 2017 年的事情了，而且是使用一些舊的、有問題的加密演算法，除此之外還需要符合不少其他條件，才能執行攻擊，所以我認為機率確實是很低的。</p>
+<p>以 2016 年發表的 <a target="_blank" rel="noopener" href="https://drownattack.com/">DROWN(Decrypting RSA with Obsolete and Weakened eNcryption)</a> 來說，Server 要支援 SSLv2，而攻擊者要能抓到加密過的 TLS connection，符合這些條件以後，進行一大堆運算後就可以解開 900 個 connection 中的 1 個，而運算成本在當時是 440 美金，約 13k 台幣。</p>
+<p>總之呢，針對這個狀況，我們可以說：</p>
+<blockquote>
+<p>假設攻擊者可以取得 HTTPS 的明文，那確實自己在應用層加密會更安全，但要符合這個假設的成本很高，發生機率很低</p>
+</blockquote>
+<h3><span id="攻擊者直接針對-https-server-進行攻擊">攻擊者直接針對 HTTPS server 進行攻擊</span></h3><p>這個分類我指的是在 2014 年發生過的 <a target="_blank" rel="noopener" href="https://devco.re/blog/2014/04/11/openssl-heartbleed-how-to-hack-how-to-protect/">Heartbleed</a> 漏洞，攻擊者可以藉由 OpenSSL 的漏洞讀取到 server 的記憶體。</p>
+<p>這個狀況跟上一個滿像的，如果有在 client 端先加密過密碼，那攻擊者在 server 上讀到的就是加密過後的，不知道密碼明文是什麼。</p>
+<p>所以結論跟上個一樣，就是加密密碼會更安全。</p>
+<h2><span id="中場總結">中場總結</span></h2><p>剛剛我們討論了幾種「HTTPS 變得不安全」的狀況，從以往發生過的案例可以得知「HTTPS 變得不安全」是有可能的。若是攻擊者能夠讀到 HTTPS 傳輸的明文，那在應用層將密碼加密，就能防止攻擊者取得密碼的明文，因此會比沒有加密來得更安全。</p>
+<p>如果要講得更詳細，可以從兩個維度去切入，一個是嚴重性（severity），另一個是可能性（possibility）。</p>
+<p>以嚴重性來說，不管有沒有加密密碼，只要攻擊者有辦法拿到 request 的內容，你的帳號就已經淪陷了，而有沒有加密唯一的差別只有攻擊者是否能取得明文密碼，有的話就可以執行撞庫攻擊，拿密碼去試更多其他的網站。</p>
+<p>而可能性就是「HTTPS 的明文被拿到」這件事的可能性，從過往的經歷以及研究來看，雖然是有可能的，但在 2023 年的今天，機率是很低的。</p>
+<p>因此我們現階段的結論應該是：</p>
+<p>攻擊者若是可以繞過 HTTPS 拿到明文的 request，那在應用層將密碼加密，確實會比較安全，但要注意的是要達成這個前提非常困難，發生的機率極低。</p>
+<h2><span id="假設-https-是安全的">假設 HTTPS 是安全的</span></h2><p>接下來我們討論第二種狀況，那就是假設 HTTPS 是安全的，沒有任何人可以從中間看到明文的內容，這應該也是留言區中大多數人假設的前提。</p>
+<p>在這種狀況下，會有哪些風險呢？</p>
+<p>有一個現實生活中會發生，而且也確實發生過的風險，那就是 logging。</p>
+<p>身為前端工程師，在前端加裝一些 error tracking 的服務是很合理的事情，若是我們直接實作一個「只要伺服器回傳 5xx，就把 request 記錄起來」的機制，如果好巧不巧哪天登入的 API 出現這個狀況，你就可以在 log 裡面看到使用者的明文密碼。</p>
+<p>而且不只前端，後端也可能有類似的機制，碰到一些問題就把 request 整個寫到 log 檔去，方便以後查看以及 debug，一不小心密碼就可能被寫進去。</p>
+<p>在這種狀況下，在 client 端先把密碼加密顯然是有好處的，那就是在這些錯誤處理的 log 中，被記錄下來的密碼會是密文，除非你有密鑰，否則你是不會知道使用者的密碼的。</p>
+<p>我在網路上找到一篇跟我論點一樣的文章：<a target="_blank" rel="noopener" href="https://www.sjoerdlangkemper.nl/2020/02/12/the-case-for-client-side-hashing-logging-passwords-by-mistake/">The case for client-side hashing: logging passwords by mistake</a>，裡面有附上很多參考連結，都是以前各大公司不小心把密碼的明文記錄下來的案例。</p>
+<p>然後有個小地方稍微講一下，上面這篇做的是「在 client 端 hash」，跟我這篇一開始設定的「在 client 端做非對稱式加密」有點不同，hash 會更安全一點，確保在 server 真的沒人知道你的密碼明文是什麼。</p>
+<p>總之呢，在 client 端先把密碼加密或是 hash，可以避免在日誌中不小心出現使用者的密碼明文，這個顯然是個額外的優點。</p>
+<h2><span id="加密還是-hash">加密還是 hash？</span></h2><p>文章開頭我有提到 hash 的狀況有些複雜，所以我先把情境設定在「對密碼做非對稱式加密」再傳輸，因為對上面我舉的那些例子而言，這兩種情境的差異不大。</p>
+<p>舉例來說，HTTPS 被拿到明文內容，無論你對密碼做了非對稱式加密還是雜湊，在攻擊者無法取得伺服器端密鑰的前提之下，都是拿不到明文密碼的。</p>
+<p>那為什麼 hash 的狀況有些複雜呢？</p>
+<p>假設我們在前端先把密碼 hash 過後再傳到後端，那後端是要直接存進去資料庫嗎？如果直接存進去資料庫，哪天資料庫的內容曝光，攻擊者就拿到這些 hash 過的密碼了。</p>
+<p>通常在有加鹽以及雜湊演算法夠強的前提之下，被拿到 hash 的密碼還是能保證一定的安全性，可是在這種情況下，反而變得很不安全。</p>
+<p>因為前端傳給後端的內容已經是 hash 過的了，所以攻擊者可以直接拿 hash 過的密碼進行登入，根本不用知道明文是什麼。雖然保護了明文，但失去了原本雜湊的安全性。</p>
+<p>因此如果要做 client side hashing，server side 收到後也要再做一次。如此一來，就算資料庫被偷走，攻擊者也沒辦法利用資料庫中的 hash 直接登入。</p>
+<p>有些人可能跟我一樣好奇：「做兩次 hash 不會更不安全嗎？」，我們可以看一下 Google 在 <a target="_blank" rel="noopener" href="https://cloud.google.com/static/solutions/modern-password-security-for-system-designers.pdf">Modern password security for system designers</a> 裡面怎麼說：</p>
+<blockquote>
+<p>Have the client computer hash the password using a cryptographically secure algorithm and a unique salt provided by the server. When the password is received by the server, hash it again with a different salt that is unknown to the client. Be sure to store both salts securely. If you are using a modern and secure hashing algorithm, repeated hashing does not reduce entropy.</p>
+</blockquote>
+<p>看起來是還好，問題不大。</p>
+<p>總之呢，看起來最安全的但也更複雜的解法就是 client side 先 hash 一次，然後丟到 server 的時候再 hash 一次存進資料庫，如此一來就可以保證：</p>
+<ol>
+<li>HTTPS 因為各種原因失效時，攻擊者無法取得明文密碼</li>
+<li>在 Server 端，沒有任何人知道使用者的明文密碼</li>
+<li>明文密碼不會因為人為失誤被記錄到 log 中</li>
+</ol>
+<p>那如果真的比較好用，為什麼沒人在用？</p>
+<h2><span id="現實生活中到底有誰在前端做-hash-或是加密">現實生活中，到底有誰在前端做 hash 或是加密？</span></h2><p>當我一開始碰到這個問題，講出「怎麼沒人在用」的時候，其實只是「我自己沒碰過有人這樣用」，但實際上我並不知道那些知名網站的登入是怎麼做的。</p>
+<p>因此呢，我就直接去看了幾個知名網站的登入機制，我們一起來看一下結果，為了方便觀看，我把跟帳號密碼無關的內容都拿掉了。</p>
+<p>我在測試的時候，基本上都是用 test 或是 <a href="mailto:&#116;&#x65;&#x73;&#116;&#64;&#116;&#x65;&#x73;&#116;&#x2e;&#x63;&#111;&#x6d;">&#116;&#x65;&#x73;&#116;&#64;&#116;&#x65;&#x73;&#116;&#x2e;&#x63;&#111;&#x6d;</a> 搭配簡單的密碼如 1234 在測試，然後觀察 request 的內容。</p>
+<p>先來看一下 FAANG 吧！</p>
+<h3><span id="faang">FAANG</span></h3><h4><span id="facebook">Facebook</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://zh-tw.facebook.com/login">https://zh-tw.facebook.com/login</a></p>
+<p>請求內容：</p>
+<pre class="line-numbers language-none"><code class="language-none">email&#x3D;test@test.com
+encpass&#x3D;#PWD_BROWSER:5:1673256089:AbJQAJUvZZNvh2dZbeDqdu9dp7HWwyHOl3+0sCGjiHMMjvYdxJokpdHE&#x2F;O+E5LIbnakRmDWQfV40ZaB31MaNXFYo1b+RI+LHh6MAdDPa4PJ+BesDp4u8B4F4diVQ+q7idbEhT5wTNaU&#x3D;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>沒想到 Facebook 就是有實作前端加密的網站！後面那段 Base64 並不是直接把密碼 Base64，而是把加密過的密碼做 Base64，解出來是這樣：<code>\x01²P\x00\x95/e\x93o\x87gYmàêvï]§±ÖÃ!Î\x97\x7F´°!£\x88s\f\x8Eö\x1DÄ\x9A$¥ÑÄüï\x84ä²\x1B\x9D©\x11\x985\x90&#125;^4e wÔÆ\x8D\\V(Õ¿\x91#âÇ\x87£\x00t3Úàò~\x05ë\x03§\x8B¼\x07\x81xv%Pú®âu±!O\x9C\x135¥</code></p>
+<h4><span id="amazon">Amazon</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://www.amazon.com/ap/signin">https://www.amazon.com/ap/signin</a><br>請求內容：<code>email=test@test.com&amp;password=1234</code></p>
+<h4><span id="apple">Apple</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://idmsa.apple.com/appleauth/auth/signin">https://idmsa.apple.com/appleauth/auth/signin</a><br>請求內容：<code>&#123;&quot;accountName&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;1234&quot;&#125;</code></p>
+<h4><span id="netflix">Netflix</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://www.netflix.com/tw/login">https://www.netflix.com/tw/login</a><br>請求內容：<code>userLoginId=test@test.com&amp;password=1234</code></p>
+<h4><span id="google">Google</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://accounts.google.com/v3/signin/_/AccountsSignInUi/data/batchexecute">https://accounts.google.com/v3/signin/_/AccountsSignInUi/data/batchexecute</a></p>
+<p>請求內容：</p>
+<pre class="line-numbers language-none"><code class="language-none">f.req&#x3D;[[[&quot;14hajb&quot;,&quot;[1,1,null,[1,null,null,null,[\&quot;1234\&quot;,null,true]]]]<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>看來 FAANG 裡面，只有 Facebook 是有實作的。</p>
+<p>接著我突然好奇起其他常用服務的登入有沒有做，底下貼結果。</p>
+<h4><span id="github">GitHub</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://github.com/session">https://github.com/session</a><br>請求內容：<code>login=test@test.com&amp;password=1234</code></p>
+<h4><span id="microsoft">Microsoft</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://login.live.com/ppsecure/post.srf">https://login.live.com/ppsecure/post.srf</a><br>請求內容：<code>login=test@test.com&amp;passwd=1234</code></p>
+<h4><span id="ibm-cloud">IBM cloud</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://cloud.ibm.com/login/doLogin">https://cloud.ibm.com/login/doLogin</a><br>請求內容：<code>&#123;&quot;username&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;1234&quot;&#125;</code></p>
+<p>看來有實作的是少數，那資安廠商呢？資安廠商自己有做嗎？</p>
+<h3><span id="資安廠商">資安廠商</span></h3><h4><span id="kaspersky">Kaspersky</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://eu.uis.kaspersky.com/v3/logon/proceed">https://eu.uis.kaspersky.com/v3/logon/proceed</a><br>請求內容：<code>&#123;&quot;login&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;12345678&quot;&#125;</code></p>
+<h4><span id="趨勢">趨勢</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://sso1.trendmicro.com/api/usersigninauth">https://sso1.trendmicro.com/api/usersigninauth</a><br>請求內容：<code>&#123;&quot;email&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;12345678&quot;&#125;</code></p>
+<h4><span id="tenable">Tenable</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://cloud.tenable.com/session">https://cloud.tenable.com/session</a><br>請求內容：<code>&#123;&quot;username&quot;:&quot;test&quot;,&quot;password&quot;:&quot;1234&quot;&#125;</code></p>
+<h4><span id="proton">Proton</span></h4><p>這個應該不算資安廠商，但突然很好奇強調隱私的 Proton 是怎麼做的，一看發現好像很複雜。</p>
+<p>在登入的時候會先把 username 送過去，拿到一些看起來是 key 的東西。</p>
+<p>API 網址：<a target="_blank" rel="noopener" href="https://account.proton.me/api/auth/info">https://account.proton.me/api/auth/info</a></p>
+<pre class="line-numbers language-none"><code class="language-none">&#123;&quot;Username&quot;:&quot;test@test.com&quot;&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<pre class="line-numbers language-none"><code class="language-none">&#123;
+  &quot;Code&quot;:1000,
+  &quot;Modulus&quot;:&quot;-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA256\n\nu9K5yr97L9VV2ijOSI62tJcewUiRhQa8qJa24baNpGyw0lf3JLiF4fxUHqTErwF9UdoxE0z4Kb147naphylBFddyKsjhzHNcxk2rBw9haiPxD69BrVYm0n+LVlPqmjXFF7btr1H7oqHGX4b4Dy9omL&#x2F;KaZz&#x2F;Dco2NEhw0UBhEZbTAs6Ch01ur9XLbSOI7yb6MRsqCehfy82gDTdbPtXvqQsQjg5XoC2Ib2qTYFaU&#x2F;24mq&#x2F;gOaMbVuAGX0hBYzr5NpN9ol2XCdHOLg28Xe90+kisg39VV04axy7Ndvh489dC1CxjcWSSpXd6cPJyOn&#x2F;HH9aPeTZeucBllRGbPgwR6&#x2F;w&#x3D;&#x3D;\n-----BEGIN PGP SIGNATURE-----\nVersion: ProtonMail\nComment: https:&#x2F;&#x2F;protonmail.com\n\nwl4EARYIABAFAlwB1j0JEDUFhcTpUY8mAAD1GwEAoC91QCSfXPEuWM13NZvy\nvL9NQIABuSrVOvgJwMhUTnUBAPb4zbIdTYFOQNrPLvonJt2mmRNy4lGcW7uN\n5yHzJ18J\n&#x3D;Oykn\n-----END PGP SIGNATURE-----\n&quot;,
+  &quot;ServerEphemeral&quot;:&quot;DY6eRYM1bqYZZ5jzZFdWv88tKYP2PnS0y4A+f7&#x2F;eqMXj8wB2VefV2kfIDrZ5AorWfDzBq4wMtNG2k5dzbT2qWppzpvltrSl2Nm4i8eWIRVxXWHl&#x2F;46dGuPXFHUcXBNMP3XEQvft0YEbHOPO9Es0RZRaObV5XPFyx6kzOJxXc1tIt4PfbhODMfsAoy&#x2F;yxt6eLN3HUiORCBOvzsH2sfG99Gx1YSAe3GL6g&#x2F;K+bdg59eglueXRESoB0&#x2F;VFRsvQevi9nVXx&#x2F;JZNTG0U4BBUOlMjpYYMgEP6eQgZZ&#x2F;09ZPYD3a2tW65mSnNt6lSDfwiKj02UuDqymTvj7mYm44T0SuAocwg&#x3D;&#x3D;&quot;,
+  &quot;Version&quot;:4,
+  &quot;Salt&quot;:&quot;dI7OcD+K4rGPBA&#x3D;&#x3D;&quot;,
+  &quot;SRPSession&quot;:&quot;3fa6224285409b6af07c811971e05341&quot;
+&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>接著輸入密碼登入時，會送出如下的 request，看起來也很複雜：</p>
+<pre class="line-numbers language-none"><code class="language-none">&#123;
+  &quot;ClientProof&quot;:&quot;I9Nfd0Nd3OzODf2nt9zLxFHWogEwfRje8zjoeZnblyLfyzz23uXTjJ4qgRFomjIEEtZrlM1jTQa4wRIMGIIV7E6pMqq8c6wcc2tegP4Xt76S0EbnVtE1F9i0Wj46aCPUM0Mha3Zmgi9LKerrGlaftr2FBedjPFT9rPrbLqRQcFNMD33tn69gD&#x2F;p28q4RAr3&#x2F;7d&#x2F;tz7TYhytD5oxCAUwrkqiZOi0kg&#x2F;&#x2F;2mUJ9YNT2nWcgqUERoaU51NbNMcaPnMteEe1PlIJdiQbvNa5K07u8rk7itpBrGW2FP26bREp0UMTzNYM5HcDDkmp4dp9GoBjFJL9n0THUdt&#x2F;oRRJ&#x2F;Enj5WQ&#x3D;&#x3D;&quot;,
+  &quot;ClientEphemeral&quot;:&quot;D013N7FXYHylqMeWa6ctJIv3J4uF1hqodyYfw6O+Sj7MZOIB+wksfgk&#x2F;nkXCmRxQhuSYwqwMJIpyFD3MEolOZAHMU2n6HQlxe9A4KbrE4gk3UiGwfgcZDmFejTmMMxfWhf4zO2Z1fBbohreqwwN0mz3AqqsfE5dsDh3LEfkiJB449YGZfHeUHyIzS1jTmnx&#x2F;8l6uVSKwJDCJelVFYKMXrxVt0ltcGRoYD92MUj82kR0am+BN4+djHyYYXuwuIYArnTW4kDP3T2yCIAMVgZnFaUCc2gfynt40mQP4q87jmMELOl8TDIDo5iKyH4gJc&#x2F;470qIuIyj4ffVLiZ7t8S+kcw&#x3D;&#x3D;&quot;,
+  &quot;SRPSession&quot;:&quot;3fa6224285409b6af07c811971e05341&quot;,
+  &quot;Username&quot;:&quot;test@test.com&quot;,
+  &quot;Payload&quot;:&#123;
+    &quot;qcA_CRYU6gSyHWdn&quot;:&quot;c6UZSKPo4Sfm&#x2F;3+DvQN72TTxyj+&#x2F;TplKT9edDiUI5wMfGUsoJs9FGerOtkoW8T49r7KOvqHkzS2+M2v8ra7J9l5kSf5jgC9ZvgZ8Ja5Xgg02nxgAABydOirGLoL4htFsYVtwLrNg8NeSEanLwYLCVaSqkjANRJks0eaKpUOd8xRhCFtUH&#x2F;GCbyg27oZfzDsqKXemKprOUsOh42NTqzEmruAkxs2x8mUsLy&#x2F;vXptVAdaiJLrsSRqD0YBGjvOp4W2&#x2F;0g6V2zfedJpJEzVwtSi1vXTC5bwxmEJlYdV9AiQECogAAJFxLQi7JjtmgFe4tNcv97JD0B8giZ6XS35swjz0vz0mOjVBUwmiDa8n54Y5kBaAoZe5pijdp2S4SOcRAknDIcD1nf0v7oSMOE9WtH&#x2F;sa+XI1D2s5lFKo&#x2F;iInf7r5R9src2hHFoy0b2XT0oCfLPwFX87yjaKbf7bbkjByx&#x2F;3dOgzEliAkS6nHK+fmeDDVM4EoZqVSKZHLg3QTcg4DKaICyDsotALr2UqI&#x2F;ARzkX4yhAXz5xHFaxl6hWAKLJPJcgk6il6oX0s0PCBNSY0Fi3vbQvXD4WalUx+LBNto6CUqeAIzVuAh8sCubzufoSORypE5WqfnuJzAlZ9sMEjaQycuRi497aV3jmjgx53UwO0OiZGxDTEMFBcov4P0g1blZ4vxmULhZU0RfdP31udLr6GTCAB90CM6Vk9w9CsYM+hmo3+JpEAtIVgLVVqcPikTbV+yaOJ1RknxBf3g06kTl0LQ+zBV6pG2rFVi8G4XT9L4FsIgxTNsl&#x2F;ryzs8vJU7K+HvyE1Lp2pAXrfcju7TAIqK&#x2F;FOXvp1c8Ay9O6d4fmd&#x2F;PZalnRDv5mQ6Gmd6JSNzNh6i6AibBuF13w3OBaulY3FGNU&#x2F;cH&#x2F;AXLBIqjSzf&#x2F;OySwkKkC9HBurSs3D0zqcH9BwUpmPEL8jbc8yPE+hPAim+tDo1BXCQNClxgGLaI6FXkuCiQ4AHiKsq0xs5b3WAFzcvBv1rc003RWxRegH&#x2F;2teIooKU9w1kDPQRaK8&#x2F;rIYe8u+BlBeZq4OwCXxx56JHfmTxtJwBi95KqsWzLGtY3ILcb+&#x2F;XkzSRmE2TWbkW1IXzRsl8F6NSJj7JnHA3UrQf4hxuwbaYxpKJrcHuHc8e1wxqXrUSKooCOUxwSBgxvLLT37eaByNTxpfWomxIsH671wuydnmMedWyNIqyaMtxBORuiWUiG4jbMC2BjrVptXJ7VWigf3Vy5OQlMOyTx8tLWi1qZODYyywMBAvHYQlFfSqmIrm4y4dmK&#x2F;srJE&#x2F;+daEnNS+kWF48Jm&#x2F;rQORO5AUwqWL+Lefg9pchcL1BnHOANcviO8pAkxLo8TiK7VLKI5&#x2F;xUsZQoQSlhRt27zMF+sIv+exY375HApiY+a1VQ6OqE4Nvba7O8ETLoLFg4a8Aj+W8erXFHW5F0vVIRphAve9orM4QYnAmOigFAiLb0Pxx124wUjFR9s5oP98hAtNL&#x2F;t+uGAXrb0oxiCfyHb9wa2Qb0x6o9FpuBIc5ZXId+cEXEvOdqhnUQ7ZuOi&#x2F;fX81hlqgUaiD&#x2F;A6P+zjAcREXdktd+hrhSXwCIKSBkp&#x2F;mNymnalQKJkLaNVT+W2sOWqXxTSTIytCQx36xABcj1BXRApntob6Qvche8QJLTjzr9bDpn+Mo59N9PSU51DPIj5Avre6ChTHEQvjz9s1IM2XroBX&#x2F;KFBnPj33aYQZyov4uxrVXxic+fiY+fLMF8x1ut&#x2F;eNWeQU6fn+rU5PEGQ9bbAsjVBZYA5H93ROhO5lnSxoEk5PHkgQ9WpxueckPjJIUGAs+O8QMRFicccfKjhNIc32rXTqbVqLyoz62riDn8Y18MUBoeI8ORyqZOKEEBFsi5dwqoq8t82NFdx5LFjsLdk4RmMXZ2uygNLk8gH2Yyfu3iOQS2bKtNCW42Xmo66Xu5kt8NwAneYQK0mTn6HUv94K10J4hY+Q&#x3D;&quot;
+  &#125;
+&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>補充：經討論串有人提醒後發現這是一個叫做 SRP（Secure Remote Password）的協議，Proton 有提供一個 <a target="_blank" rel="noopener" href="https://proton.me/static/9f5e7256429a2f674c943c5825257b82/protonmail_authentication_excerpt.pdf">ProtonMail Security Features and Infrastructure</a>，裡面有記錄他們的安全措施，就有講到這個機制。</p>
+<p>看起來滿複雜要花不少時間研究，先放著，有興趣的可以參考：<a target="_blank" rel="noopener" href="https://blog.amis.com/srp-1f28676aa525">SRP — 更健全的登入及資料傳輸保護協議</a></p>
+<p>雖然更安全，但成本應該又更高了。</p>
+<h3><span id="交易所與銀行">交易所與銀行</span></h3><p>看完上面案例發現有做的是少數，因此我好奇更注重安全的加密貨幣交易所與傳統銀行有沒有做。</p>
+<h4><span id="binance">Binance</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://accounts.binance.com/bapi/accounts/v2/public/authcenter/login">https://accounts.binance.com/bapi/accounts/v2/public/authcenter/login</a></p>
+<p>請求內容：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">
+<span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"email"</span><span class="token operator">:</span><span class="token string">"test@test.com"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"password"</span><span class="token operator">:</span><span class="token string">"fe2e6b4138fcd7f27a32bc9af557d69a"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"safePassword"</span><span class="token operator">:</span><span class="token string">"d404559f602eab6fd602ac7680dacbfaadd13630335e951f097af3900e9de176b6db28512f2e000b9d04fba5133e8b1c6e8df59db3a8ab9d60be4b97cc9e81db"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h4><span id="coinbase">Coinbase</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://login.coinbase.com/api/v1/authenticate-credentials">https://login.coinbase.com/api/v1/authenticate-credentials</a></p>
+<p>請求內容：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span><span class="token string-property property">"email"</span><span class="token operator">:</span><span class="token string">"test@test.com"</span><span class="token punctuation">,</span> <span class="token string-property property">"password"</span><span class="token operator">:</span><span class="token string">"1234"</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h4><span id="kraken">kraken</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://www.kraken.com/api/internal/account/settings/tfa">https://www.kraken.com/api/internal/account/settings/tfa</a></p>
+<p>請求內容：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span><span class="token string-property property">"username"</span><span class="token operator">:</span><span class="token string">"test"</span><span class="token punctuation">,</span> <span class="token string-property property">"password"</span><span class="token operator">:</span><span class="token string">"1234"</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h4><span id="玉山銀行">玉山銀行</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://ebank.esunbank.com.tw/fco/fco08001/FCO08001_Home.faces">https://ebank.esunbank.com.tw/fco/fco08001/FCO08001_Home.faces</a></p>
+<p>請求內容：</p>
+<pre class="line-numbers language-none"><code class="language-none">loginform:custid&#x3D;A0000...
+loginform:name&#x3D;mxagZmaqygDx0XX6784Svw&#x3D;&#x3D;__NgZQcFfAx+lQmPza2eNpOA&#x3D;&#x3D;
+loginform:pxsswd&#x3D;8,lIRnuUxw&#x2F;yStOt9QIYG2U3Gn2XkG03x4Ey&#x2F;UU6JGtsbUxfRXoAv9CjE3EWerDN3tfx3dD&#x2F;B3ChLAPMSG2BA3jMXUCZC06y8UbQ5isKc9fCWZSSZAWWcOmJ7LdXw1ZhjV55hpw1upvAr9WEmZ0XF6x7if+dBxJ4KZ00d83qA9eA+3VaSk+JLhN8&#x2F;CFBfTKTfJEs3PDNsm12XzRUBb4YE1aPQosVX10mdvh3zY5lmkrKuq8gnuImEf3oLOk4EF3eVpr6jJiFzMKlHybvGdtKYS25+pgTS68wn3v023barbSmgivcv5atm0XsyXWDY2dKEtdQz+7A6R+AB0bExbQlRjqQ&#x3D;&#x3D;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+
+<h4><span id="國泰世華">國泰世華</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://www.cathaybk.com.tw/MyBank/Quicklinks/Home/NormalSignin">https://www.cathaybk.com.tw/MyBank/Quicklinks/Home/NormalSignin</a></p>
+<p>請求內容：</p>
+<pre class="line-numbers language-none"><code class="language-none">CustID&#x3D;A000...
+UserId&#x3D;DC0C6E52BE2A2354C53401207F220F1B
+Password&#x3D;8cf5e1977f149ed0362629007a7f91d0efc7b12cb1895ba701c528a12b38d12f8148ca03ee671fe25d2a3a807be980f7728566e359a675734ce046899b147658388bb60f9b900e2ccc9adac280b54b5f2e28cb7eee1b634d0e1ed1c0c0c598c350f61eb003405559331a7f047add7289466bf42cfd5b9e774a1fa116af4fd7050adb8f174d42a8e2098a014a788bd2ffae3bf4ff7a8d8d7e2e8068402fda395da41be6e5d32f2d32cbee2afc26e82c58b60357b5cb186a3b9cf69df2deb9da8c9fde45337935180cb4e177109413d7a758d38bfc8334a4509d8d8fb6a37080f0e0086b4a5ef68f7809ca2ef97183b7f66d996873bb7dbfcee61d2da424b8b968<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<h4><span id="中國信託">中國信託</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://www.ctbcbank.com/IB/api/adapters/IB_Adapter/resource/preLogin">https://www.ctbcbank.com/IB/api/adapters/IB_Adapter/resource/preLogin</a></p>
+<p>請求內容：</p>
+<pre class="line-numbers language-none"><code class="language-none">&#123;
+  &quot;rqData&quot;: &#123;
+    &quot;custId&quot;: &quot;A00....&quot;,
+    &quot;pin&quot;: &quot;878dbee38bbb4d77a30ee128f55f7bfe2169e45380d62a75453d3ca175e8ce8b|43d0499147b62adeec4eef3c77d33171b4569d0bdf7bbbe2b8b9bde3d30a26aba69aadfb28dfbaa9a997a0ccf668aaab0b6da582275175272172569a58a60bbfc5ac3a8c6862ce31f86247d7c1adf307e363c0f251fb88c4d39afa6ed0ca0a49e053f4f90000fa77b4e78beaead72ebdf52a13ecb4f20ae9a532947fad8156d5ec69d6763243364e71659079e469d1e01d0c384b0c71f4e9e524890227d82a51a340ef0b48638e05e347d75cb93d4a825a2bce6a90ef47f512351ee2d0d1ea17fb8afd521e427578603ea775191711f81d8dcb18e46b72daf3a49a60e50d12d3887e3bafab3758730f7fb0276373ebe1da01a03162ec8e73a202091a51b7f88d&quot;,
+    &quot;userId&quot;: &quot;bfcdb9b2d6896a3bfb4a6542e8fb2689486d000b11bdc0c7bc336a6534aec74c|1b1a758bb26702bc0ac7cd660da2a72866f2cfdcf3668f2d39a5f8b006854f52a08f418b0a460b36374f95b7a310d73ea9994788698041f524ecd1f153448ab5d51f901a9a08ac2a9ee04c5c273ecb9d4ec1b6a62e9696c6126271e2f8c334fe17ce8b8538139363b90be75c1130cb251ec240bd26c920b52f5be9fc59094ce7d935d826242d69dc1ff7047a5abbf11d3c7de639a14bb10230912903cd948c05b3b3cb0cdb100f979640e291774e623a7109bde7b55bb8a6a373c0ca12820b072132ea61c845e60e26d09c7ee0fe23f7de286cbccb067a86fd1985c5b455f9ae46ce24dc8f52bcb05c205d6a462345162ae82c35e045bf3fd43a297c3edcfe17&quot;
+  &#125;
+&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h4><span id="美國銀行">美國銀行</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://m.globalcard.bankofamerica.com/pkmslogin.form">https://m.globalcard.bankofamerica.com/pkmslogin.form</a></p>
+<p>請求內容：</p>
+<pre class="line-numbers language-none"><code class="language-none">username&#x3D;fcc63767-1a43-4cc6-8c3e-1346350b5274
+password&#x3D;12345678<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<h4><span id="新加坡星展銀行">新加坡星展銀行</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://internet-banking.dbs.com.sg/IB/Welcome">https://internet-banking.dbs.com.sg/IB/Welcome</a></p>
+<p>請求內容：</p>
+<pre class="line-numbers language-none"><code class="language-none">USER_LOGON_NAME&#x3D;test123
+ENCRYPTED_PIN_BLOCK&#x3D;A8C48B7572A1A53C5A66E9B43365027C7FBF14BF461F480A46781E49648A8F70271A29C374F86FCD55A76ED17B2284B47C799B74475F29749D68631FF7E322177A21EEE8C41D8950638A2828C34A2653D7C9F69F5DA568E42D64CE89FCE8F024217B235835E6F8BC3C536F56361EDF459AFCE9A512BDBACAB2D25423209996C2E84A18EA8446685DAF9FAD4B1D6D8DF0F378EC27D9A81AD4D1A2B91BA3CFD838140A9BD48AD8D38D33B0093110BD1CA2C76F3DE4CBD969A9B0260DB890E9B1A99DC1193BFE9A1EDB3E56F71CB1CD8630558B242B040F733A4A40B2E17DE6DA03A58DEC8BB12DA87BB25971E2DBE5AF7AE6112266A3F9027B449BDF46D8DC0A1A<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<h2><span id="結論">結論</span></h2><p>在隨機想到的 20 個網站中，有 7 個有在前端做加密或是 hash（我懶得看是哪個了，總之有做事就對了），名單是：</p>
+<ol>
+<li>Facebook</li>
+<li>Proton</li>
+<li>Binance</li>
+<li>玉山銀行</li>
+<li>國泰世華</li>
+<li>中國信託</li>
+<li>新加坡星展銀行</li>
+</ol>
+<p>雖然說 35% 看起來很高，但那是因為銀行佔了大多數，一般網站則是很少實作這個機制。</p>
+<p>寫到這邊，可以來下結論了。</p>
+<p>第一個結論是：「在 client 端傳送密碼前先把密碼加密或是 hash，確實能夠增加安全性」</p>
+<p>理由是做了以後，能夠達成以下事項：</p>
+<ol>
+<li>HTTPS 因為各種原因失效時，攻擊者無法取得明文密碼</li>
+<li>在 Server 端，沒有任何人知道使用者的明文密碼</li>
+<li>明文密碼不會因為人為失誤被記錄到 log 中</li>
+</ol>
+<p>以上都是沒有在 client 加密或是 hash 時做不到的。</p>
+<p>而第二個結論是：「確實有些大公司有做這個機制，但是非大多數，不過在銀行業似乎是主流」</p>
+<p>這個結論上面有貼完整的資料了，一般的網站很少做這個機制，但還是有人做。</p>
+<p>第三個結論是：「雖然從技術上來看能夠增加安全性，但實際上是否實作，仍然要考慮其他因素」</p>
+<p>這因素就是我前面提過的「可能性」還有開頭我講先不談的「成本」。</p>
+<p>若是真的比較安全，為什麼一般網站不會實作這個機制？</p>
+<p>或許是因為覺得 HTTPS 被攻破的可能性太低，低到可以忽略不計（我相信這是大多數留言的人覺得不需要做的理由，我也同意這點），也或許是成本太高，會增加程式碼複雜度；若是採用加密的方案，也會消耗更多運算的資源在加解密上面，這也是成本。</p>
+<p>這就是我覺得應該講清楚的地方。</p>
+<p>在前端先做 hash 或是加密，它確實是有優點的，不是多此一舉，也不是沒有意義，更不是讓系統變得更危險。</p>
+<p>但這不代表每個系統都該實作這個機制，因為它帶來的效益或許沒有成本高，這個端看各個公司的考量。對大部分的公司來說，與其為了 HTTPS 失效這個極低的可能性去投入成本，不如把時間花在加強其他登入環節的安全性（例如說 2FA 啦，或是不同裝置登錄警告等等），帶來的效益會更高。</p>
+<p>有些服務還會選擇把整包 request 都加密，而非只有密碼，這個又更安全但是成本又更高，而且 debug 很不方便。雖然說既然加密做在 client 端，攻擊者一定有辦法逆向這個機制，看出是怎麼做的，但這不代表這些機制沒幫助。</p>
+<p>舉例來說，假設我有個搶票 App 不想讓別人知道 API 怎麼呼叫，於是就實作了一個超複雜的加解密機制，儘管高手還是可以做逆向工程，寫出一個搶票機器人，但這個機制增加了他的時間成本以及對技術的要求。</p>
+<p>以技術上來說，就算理論上一定會被破解，這些機制還是有意義的，它的意義在於增加破解難度，加殼、混淆都是一樣的，不會因為「在 client 端的東西一定會被看穿」而不去做這些機制。</p>
+<p>重點在於你想保護的商業邏輯的價值，有沒有高到你需要付出這些成本去做額外的安全機制。</p>
+<p>最後，如果你需要一個條列式的簡單結論，會是：</p>
+<ol>
+<li>無論如何，一定要先用 HTTPS</li>
+<li>在前端先把密碼做加密或是 hash 後再傳送，能夠增加安全性，但同時也帶來不少成本</li>
+<li>如果你是銀行或需要同等安全性，再來考慮要不要做這個，否則極大多數的狀況下，你不需要這個機制就夠安全了，資源投入在其他地方的效益會更大</li>
+</ol>
+<p>若是對這個結論有不同意見，或是有在文章中發現哪些邏輯錯誤或技術錯誤，歡迎留言指正與討論，感恩。</p>
+<p>補充一下，這篇大多數從技術面來看，除此之外還可以從法遵面或是資安的實務經驗來看，但這些面向我就零經驗了。許願一下有相關經驗的人出來指點迷津，或許會有不同觀點。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2023/03/26/dicectf-2023-writeup/">DiceCTF 2023 筆記</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2022/12/26/ctf-2022-web-js-summary/">2022 年 CTF Web 前端與 JS 題總結</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2023/01/10/en/security-of-encrypt-or-hash-password-in-client-side/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

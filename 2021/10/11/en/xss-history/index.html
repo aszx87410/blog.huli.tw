@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>XSS from scratch: history and origin - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2021/10/11/xss-history/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2021/10/11/en/xss-history/">
+    
+
+
+
+
+
+    <meta name="description" content="I have written some articles about XSS before, mainly discussing the implementation of prevention and defense details:  Preventing XSS may be harder than you think A brief discussion on the various as">
+<meta property="og:type" content="article">
+<meta property="og:title" content="XSS from scratch: history and origin">
+<meta property="og:url" content="https://blog.huli.tw/2021/10/11/en/xss-history/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="I have written some articles about XSS before, mainly discussing the implementation of prevention and defense details:  Preventing XSS may be harder than you think A brief discussion on the various as">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/xss-history/cover-en.png">
+<meta property="article:published_time" content="2021-10-10T16:00:00.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:46:56.936Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/xss-history/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="XSS from scratch: history and origin" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#the-birth-of-xss">1&nbsp;&nbsp;<b>The Birth of XSS</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#the-birth-of-the-third-type-of-xss-classification">2&nbsp;&nbsp;<b>The Birth of the Third Type of XSS Classification</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">3&nbsp;&nbsp;<b>Conclusion</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2021/10/11/xss-history/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            XSS from scratch: history and origin
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2021-10-10T16:00:00.000Z" itemprop="datePublished">11 October 2021</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>I have written some articles about XSS before, mainly discussing the implementation of prevention and defense details:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://tech-blog.cymetrics.io/posts/huli/prevent-xss-might-be-harder-than-you-thought/">Preventing XSS may be harder than you think</a></li>
+<li><a target="_blank" rel="noopener" href="https://tech-blog.cymetrics.io/posts/huli/xss-attack-and-defense/">A brief discussion on the various aspects of XSS attacks and defense</a></li>
+</ol>
+<p>Originally, I wanted to write about the basics of XSS, the three types that everyone has heard of: Stored (Persistent), Reflected (Non-Persistent), and DOM-based XSS. However, when I was about to start writing, I suddenly had a few questions in my mind: “When did XSS appear? When were these three types classified?”</p>
+<p>Therefore, I spent some time looking for information, and this article will talk about the history of XSS with you, so that we can better understand the past and present of XSS.</p>
+<span id="more"></span>
+
+
+<h2><span id="the-birth-of-xss">The Birth of XSS</span></h2><p>From the title of the article published on Microsoft’s MSDN blog in December 2009: <a target="_blank" rel="noopener" href="https://web.archive.org/web/20100723152801/http://blogs.msdn.com/b/dross/archive/2009/12/15/happy-10th-birthday-cross-site-scripting.aspx">Happy 10th birthday Cross-Site Scripting!</a>, we can see that the term XSS (Cross-Site Scripting) was born around December 1999, which is more than 20 years ago now.</p>
+<p>(The screenshot below is from the above link)</p>
+<p><img src="/img/xss-history/xss-10years.png" alt="xss-history"></p>
+<p>The original article ends with this paragraph:</p>
+<blockquote>
+<p>Let’s hope that ten years from now we’ll be celebrating the death, not the birth, of Cross-Site Scripting!</p>
+</blockquote>
+<p>Unfortunately, ten years after 2009, which is 2019, XSS is still active. In 2017, it ranked seventh in the OWASP top 10, and in the 2021 version, it was merged into the third-ranked Injection category.</p>
+<p>The article also mentions <a target="_blank" rel="noopener" href="https://web.archive.org/web/20100516115740/http://www.cert.org/advisories/CA-2000-02.html">CERT® Advisory CA-2000-02 Malicious HTML Tags Embedded in Client Web Requests</a>, which allows us to take a glimpse of the earliest appearance of XSS. Let’s take a brief look at the content of this webpage:</p>
+<blockquote>
+<p>A web site may inadvertently include malicious HTML tags or script in a dynamically generated page based on unvalidated input from untrustworthy sources. This can be a problem when a web server does not adequately ensure that generated pages are properly encoded to prevent unintended execution of scripts, and when input is not validated to prevent malicious HTML from being presented to the user.</p>
+</blockquote>
+<p>In the Overview section, the core concept of XSS is actually explained very clearly: the server does not verify the input or encoding, allowing attackers to insert some malicious HTML tags or scripts.</p>
+<blockquote>
+<p>Malicious code provided by one client for another client</p>
+<p>Sites that host discussion groups with web interfaces have long guarded against a vulnerability where one client embeds malicious HTML tags in a message intended for another client. For example, an attacker might post a message like <code>Hello message board. This is a message.&lt;SCRIPT&gt;malicious code&lt;/SCRIPT&gt;This is the end of my message.</code></p>
+<p>When a victim with scripts enabled in their browser reads this message, the malicious code may be executed unexpectedly. Scripting tags that can be embedded in this way include <code>&lt;SCRIPT</code>&gt; <code>&lt;OBJECT&gt;</code>, <code>&lt;APPLET&gt;</code>, and <code>&lt;EMBED&gt;</code>.</p>
+<p>When client-to-client communications are mediated by a server, site developers explicitly recognize that data input is untrustworthy when it is presented to other users. Most discussion group servers either will not accept such input or will encode&#x2F;filter it before sending anything to other readers.</p>
+</blockquote>
+<p>This paragraph is later referred to as “Stored XSS (also known as Persistent XSS)”. Suppose there is a discussion forum where people can leave messages, and a malicious attacker can leave such content:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup">Hello message board. This is a message.
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>SCRIPT</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">malicious code</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>SCRIPT</span><span class="token punctuation">></span></span>
+This is the end of my message.<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>When other users see this message, because there is <code>&lt;script&gt;</code> in the message, they will execute the JavaScript code left by the attacker.</p>
+<p>In addition to this, <code>&lt;object&gt;</code>, <code>&lt;applet&gt;</code>, and <code>&lt;embed&gt;</code> can also be used to execute JavaScript (by the way, the applet tag should be useless, see: <a href="https://blog.huli.tw/2019/11/26/dont-break-web-smooshgate-and-keygen/">Don’t break the Web: SmooshGate and keygen</a>).</p>
+<blockquote>
+<p>Malicious code sent inadvertently by a client for itself</p>
+<p>Many Internet web sites overlook the possibility that a client may send malicious data intended to be used only by itself. This is an easy mistake to make. After all, why would a user enter malicious code that only the user will see?</p>
+<p>However, this situation may occur when the client relies on an untrustworthy source of information when submitting a request. For example, an attacker may construct a malicious link such as <code>&lt;A HREF=&quot;http://example.com/comment.cgi? mycomment=&lt;SCRIPT&gt;malicious code&lt;/SCRIPT&gt;&quot;&gt; Click here&lt;/A&gt;</code></p>
+<p>When an unsuspecting user clicks on this link, the URL sent to example.co includes the malicious code. If the web server sends a page back to the user including the value of mycomment, the malicious code may be executed unexpectedly on the client. This example also applies to untrusted links followed in email or newsgroup messages.</p>
+</blockquote>
+<p>This paragraph is very interesting. The title is “Malicious code sent inadvertently by a client for itself”, and the content sent is basically only visible to oneself.</p>
+<p>For example, the parameter “mycomment” in the URL will be reflected on the screen, so if it is like <code>http://example.com/comment.cgi?mycomment=123</code>, 123 will appear on the screen.</p>
+<p>But what can you do if only you can see it?</p>
+<p>Because information is passed through the query string in the URL, such a link can be generated: <code>http://example.com/comment.cgi?mycomment=&lt;SCRIPT&gt;malicious code&lt;/SCRIPT&gt;</code>, and then this link is passed to others. When others click on it, <code>&lt;SCRIPT&gt;malicious code&lt;/SCRIPT&gt;</code> will appear on the screen, achieving XSS in the same way.</p>
+<p>This is another classification of XSS: Reflected XSS, and your input will be reflected on the screen.</p>
+<p>The difference between these two types is that Stored XSS, as its name suggests, the XSS payload is saved. In the case of a discussion forum, the article is saved in the database, while Reflected XSS is not.</p>
+<p>Taking PHP as an example, the code for Reflected XSS may look like this:</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token php language-php"><span class="token delimiter important">&lt;?php</span>
+   <span class="token variable">$comment</span> <span class="token operator">=</span> <span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'comment'</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token delimiter important">?></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span><span class="token punctuation">></span></span>
+    <span class="token php language-php"><span class="token delimiter important">&lt;?=</span> <span class="token variable">$comment</span> <span class="token delimiter important">?></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The GET parameter is directly reflected on the screen, so each time the payload must be passed in through the “comment” parameter, otherwise XSS will not be triggered.</p>
+<p>Taking the “discussion forum” website mentioned above as an example, the destructive power of Stored XSS should be stronger, because as long as you click on your article, you will be attacked. You can think of it as posting an article on PTT. As long as a netizen clicks into the article, they will be attacked, which is quite easy to trigger.</p>
+<p>But Reflected XSS is different. It requires the user to click on a link to trigger the attack, such as leaving a link in a PTT post and the user actively clicking on that link to trigger the XSS.</p>
+<p>Other parts of the article are also interesting, such as the fact that even if JavaScript is disabled, the screen can still be tampered with using HTML and CSS. There are also ways to fix it, which can be found here: <a target="_blank" rel="noopener" href="https://web.archive.org/web/20100527204457/http://www.cert.org/tech_tips/malicious_code_mitigation.html">Understanding Malicious Content Mitigation for Web Developers</a></p>
+<p>In addition to the familiar content encoding, there is another way to “specify the encoding method”. This encoding refers to UTF-8, ISO-8859-1, and big5 encoding. Although most websites nowadays use UTF-8, it was not always the case in the past. In the past, browsers also supported encoding methods such as UTF-7, which could achieve XSS even without using special characters:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">></span></span>test page<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  +ADw-script+AD4-alert(1)+ADw-/script+AD4-
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Example taken from: <a target="_blank" rel="noopener" href="https://wooyun.js.org/drops/XSS%E5%92%8C%E5%AD%97%E7%AC%A6%E9%9B%86%E7%9A%84%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF.html">XSS and Character Set</a>, which mentions more similar issues, but most of them occurred on earlier browsers.</p>
+<h2><span id="the-birth-of-the-third-type-of-xss-classification">The Birth of the Third Type of XSS Classification</span></h2><p>Anyone who has read about XSS knows that there are probably three most well-known types of XSS classification:</p>
+<ol>
+<li>Stored XSS (Persistent XSS)</li>
+<li>Reflected XSS (Non-Persistent XSS)</li>
+<li>DOM-based XSS</li>
+</ol>
+<p>Before we continue, let me ask you two questions.</p>
+<p>The first question is, suppose I post an article with the content <code>&lt;img src=x onerror=alert(1)&gt;</code>, and the page code that displays the article is like this:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  <span class="token function">getPost</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span> <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token parameter">post</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'.article'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> post<span class="token punctuation">.</span>content
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Due to the use of innerHTML, there is an XSS vulnerability in this situation. My comment is indeed “saved” in the database, but at the same time, the content is changed using DOM. Should this XSS be classified as Stored XSS or DOM-based XSS?</p>
+<p>The second question is, suppose there is a piece of code in the webpage that looks like this:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">".search"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> <span class="token function">decodeURIComponent</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>search<span class="token punctuation">)</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>This can obviously create an XSS vulnerability through the query string. This XSS does reflect the user’s input and is not stored in the database, but it changes the content using DOM. Should it be classified as Reflected XSS or DOM-based XSS?</p>
+<p>Before reading on, think about these two questions.</p>
+<p>Let’s talk about my previous answer first. I used the following definition to classify these:</p>
+<ol>
+<li>If my XSS payload (such as <code>&lt;script&gt;alert(1)&lt;/script&gt;</code>) exists in the database, it is Stored XSS.</li>
+<li>If not, then it depends on whether my payload is output directly from the backend or assigned through DOM. The former is Reflected, and the latter is DOM-based.</li>
+</ol>
+<p>Later, I realized that this classification method was wrong because I was misled by the term “stored” and did not realize the historical background behind it.</p>
+<p>What does this mean? When XSS first appeared in 1999, Ajax did not exist (it was born in 2005), so data exchange between the front and back ends should be sent to the server through forms and rendered directly. </p>
+<p>In other words, in 1999, there were basically no operations that used JavaScript to change the content of the screen, even if there were, they were some relatively insignificant operations. But in 2021, it is different. In this era of SPA, data is basically called through JavaScript to call the API, and then the screen is changed after the data is obtained. The backend only provides data, and the frontend relies on JavaScript to render. This is completely different from 20 years ago.</p>
+<p>Of the three types of XSS classification, the first two, Stored and Reflected, existed when XSS was born, and the third type appeared five years later (the term or classification to define it, not the attack), and the source should be this article: <a target="_blank" rel="noopener" href="http://www.webappsec.org/projects/articles/071105.shtml">DOM Based Cross Site Scripting or XSS of the Third Kind</a>.</p>
+<p>The following paragraph is from the “Introduction” section of the article:</p>
+<blockquote>
+<p>XSS is typically categorized into “non-persistent” and “persistent” (“reflected” and “stored” accordingly, as defined in [4]). “Non-persistent” means that the malicious (Javascript) payload is echoed by the server in an immediate response to an HTTP request from the victim. “Persistent” means that the payload is stored by the system, and may later be embedded by the vulnerable system in an HTML page provided to a victim.</p>
+</blockquote>
+<p>The key point is that both the “Stored” and “Reflected” categories require the payload to be directly rendered by the backend. The third category mentioned in this article, DOM-based, refers to payloads rendered by the frontend. This is the biggest difference between the third category and the first two.</p>
+<p>When determining XSS, the first thing to confirm is whether the payload is rendered by the frontend or backend. If it is rendered by the frontend, regardless of where the data comes from (database, URL, or anywhere else), it is DOM-based XSS. If it is rendered by the backend, then it is either Stored or Reflected.</p>
+<p>Therefore, both of the previous questions are classified as DOM-based XSS because they are rendered by the frontend.</p>
+<p>The article provides a similar example:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>HTML</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>TITLE</span><span class="token punctuation">></span></span>Welcome!<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>TITLE</span><span class="token punctuation">></span></span>
+Hi
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>SCRIPT</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+<span class="token keyword">var</span> pos<span class="token operator">=</span>document<span class="token punctuation">.</span><span class="token constant">URL</span><span class="token punctuation">.</span><span class="token function">indexOf</span><span class="token punctuation">(</span><span class="token string">"name="</span><span class="token punctuation">)</span><span class="token operator">+</span><span class="token number">5</span><span class="token punctuation">;</span>
+document<span class="token punctuation">.</span><span class="token function">write</span><span class="token punctuation">(</span>document<span class="token punctuation">.</span><span class="token constant">URL</span><span class="token punctuation">.</span><span class="token function">substring</span><span class="token punctuation">(</span>pos<span class="token punctuation">,</span>document<span class="token punctuation">.</span><span class="token constant">URL</span><span class="token punctuation">.</span>length<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>SCRIPT</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>BR</span><span class="token punctuation">></span></span>
+Welcome to our system
+…
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>HTML</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The comment in the article specifically states:</p>
+<blockquote>
+<p>The malicious payload was not embedded in the raw HTML page at any time (unlike the other flavors of XSS).</p>
+</blockquote>
+<p>Because the payload does not actually exist in any HTML page (it is changed later using JavaScript), it does not belong to Stored or Reflected, but is a new type of XSS.</p>
+<p>As for the repair method, since it is rendered by JavaScript on the frontend, encoding is the responsibility of the frontend developer. A common method is as follows (code taken from <a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/2794137/sanitizing-user-input-before-adding-it-to-the-dom-in-javascript">Sanitizing user input before adding it to the DOM in Javascript</a>):</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">sanitize</span><span class="token punctuation">(</span><span class="token parameter">string</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> map <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+      <span class="token string-property property">'&amp;'</span><span class="token operator">:</span> <span class="token string">'&amp;amp;'</span><span class="token punctuation">,</span>
+      <span class="token string-property property">'&lt;'</span><span class="token operator">:</span> <span class="token string">'&amp;lt;'</span><span class="token punctuation">,</span>
+      <span class="token string-property property">'>'</span><span class="token operator">:</span> <span class="token string">'&amp;gt;'</span><span class="token punctuation">,</span>
+      <span class="token string-property property">'"'</span><span class="token operator">:</span> <span class="token string">'&amp;quot;'</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"'"</span><span class="token operator">:</span> <span class="token string">'&amp;#x27;'</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"/"</span><span class="token operator">:</span> <span class="token string">'&amp;#x2F;'</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+  <span class="token keyword">const</span> reg <span class="token operator">=</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">[&amp;&lt;>"'/]</span><span class="token regex-delimiter">/</span><span class="token regex-flags">ig</span></span><span class="token punctuation">;</span>
+  <span class="token keyword">return</span> string<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span>reg<span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">match</span><span class="token punctuation">)</span><span class="token operator">=></span><span class="token punctuation">(</span>map<span class="token punctuation">[</span>match<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>However, it is important to note that this is not enough to prevent XSS. The defense against XSS is more complicated because it requires handling different situations. For example, if your output needs to be placed inside <code>&lt;a href=&quot;&quot;&gt;</code>, you need to consider payloads in the form of <code>javascript:alert(1)</code>. In this case, the sanitize function above is not useful.</p>
+<h2><span id="conclusion">Conclusion</span></h2><p>The reason for the initial confusion was because the vulnerability classification reported on the <a target="_blank" rel="noopener" href="https://zeroday.hitcon.org/">HITCON ZeroDay</a> platform was changed, which made me realize that I had misunderstood the classification. I would like to thank the reviewers for their work.</p>
+<p>In addition to these classifications, there are other ways to classify XSS, such as Self XSS, where users need to enter their own XSS payloads, or Mutation XSS, which exploits inconsistent HTML parsing. These are all interesting applications of XSS, and I will share more with you in the future.</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2021/10/25/en/learn-frontend-from-security-pov/">Discovering My Lack of Front-end Knowledge through Cybersecurity</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2021/09/29/en/prototype-pollution/">Prototype Pollution: An Attack Technique Based on JS Prototype Chain</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2021/10/11/xss-history/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

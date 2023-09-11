@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>不識廬山真面目：Clickjacking 點擊劫持攻擊 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2021/09/26/en/what-is-clickjacking/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2021/09/26/what-is-clickjacking/">
+    
+
+
+
+
+
+    <meta name="description" content="前言在針對前端的各種攻擊手法之中，我覺得 clickjacking 是相當有趣的一個。它的中文翻譯通常翻成「點擊劫持」，實際上的意思是你以為點了 A 網頁的東西，其實卻是點到了 B 網頁，惡意網頁劫持了使用者的點擊，讓使用者點到意料之外的地方。 只是一個點擊而已，這樣會有什麼危害嗎？ 假設在背後的是一個銀行轉帳頁面，而且帳號跟金額都填好了，只要按一個按鈕就會轉錢出去，這樣的話危害就很大了（不過這通">
+<meta property="og:type" content="article">
+<meta property="og:title" content="不識廬山真面目：Clickjacking 點擊劫持攻擊">
+<meta property="og:url" content="https://blog.huli.tw/2021/09/26/what-is-clickjacking/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言在針對前端的各種攻擊手法之中，我覺得 clickjacking 是相當有趣的一個。它的中文翻譯通常翻成「點擊劫持」，實際上的意思是你以為點了 A 網頁的東西，其實卻是點到了 B 網頁，惡意網頁劫持了使用者的點擊，讓使用者點到意料之外的地方。 只是一個點擊而已，這樣會有什麼危害嗎？ 假設在背後的是一個銀行轉帳頁面，而且帳號跟金額都填好了，只要按一個按鈕就會轉錢出去，這樣的話危害就很大了（不過這通">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/clickjacking-intro/top.png">
+<meta property="og:image" content="https://blog.huli.tw/img/clickjacking-intro/caniuse.png">
+<meta property="article:published_time" content="2021-09-26T01:55:26.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.492Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/clickjacking-intro/top.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="不識廬山真面目：Clickjacking 點擊劫持攻擊" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#clickjacking-攻擊原理">2&nbsp;&nbsp;<b>Clickjacking 攻擊原理</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#clickjacking-防禦方式">3&nbsp;&nbsp;<b>Clickjacking 防禦方式</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#frame-busting">3.1&nbsp;&nbsp;Frame busting</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#x-frame-options">3.2&nbsp;&nbsp;X-Frame-Options</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#csp-frame-ancestors">3.3&nbsp;&nbsp;CSP: frame-ancestors</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#防禦總結">3.4&nbsp;&nbsp;防禦總結</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#實際案例">4&nbsp;&nbsp;<b>實際案例</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#yelp">4.1&nbsp;&nbsp;Yelp</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#twitter-periscope-clickjacking-vulnerability">4.2&nbsp;&nbsp;Twitter Periscope Clickjacking Vulnerability</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#highly-wormable-clickjacking-in-player-card">4.3&nbsp;&nbsp;Highly wormable clickjacking in player card</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#apitumblrcom-exploiting-clickjacking-vulnerability-to-trigger-self-dom-based-xss">4.4&nbsp;&nbsp;[api.tumblr.com] Exploiting clickjacking vulnerability to trigger self DOM-based XSS</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#無法防禦的-clickjacking">5&nbsp;&nbsp;<b>無法防禦的 clickjacking？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">6&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2021/09/26/en/what-is-clickjacking/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            不識廬山真面目：Clickjacking 點擊劫持攻擊
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2021-09-26T01:55:26.000Z" itemprop="datePublished">2021年9月26日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="前言">前言</span></h2><p>在針對前端的各種攻擊手法之中，我覺得 clickjacking 是相當有趣的一個。它的中文翻譯通常翻成「點擊劫持」，實際上的意思是你以為點了 A 網頁的東西，其實卻是點到了 B 網頁，惡意網頁劫持了使用者的點擊，讓使用者點到意料之外的地方。</p>
+<p>只是一個點擊而已，這樣會有什麼危害嗎？</p>
+<p>假設在背後的是一個銀行轉帳頁面，而且帳號跟金額都填好了，只要按一個按鈕就會轉錢出去，這樣的話危害就很大了（不過這通常不太可能啦，因為轉帳還需要輸入 OTP 之類的，這只是舉例）。</p>
+<p>或是舉個更常見的例子，例如說有個乍看之下是取消訂閱電子報的頁面，於是你點了「確定取消」的按鈕，但其實底下藏著的是 Facebook 的按讚鈕，所以你不但沒有取消訂閱，還被騙了一個讚（因為劫持的目標是讚，所以又稱為 likejacking）。</p>
+<p>這篇文章我會介紹 clickjacking 的攻擊原理、防禦方式以及實際案例，讓大家更了解這個攻擊手法。</p>
+<span id="more"></span>
+
+<h2><span id="clickjacking-攻擊原理">Clickjacking 攻擊原理</span></h2><p>Clickjacking 的原理就是把兩個網頁疊在一起，透過 CSS 讓使用者看見的是 A 網頁，但點到的卻是 B 網頁。</p>
+<p>以比較技術的講法來說，就是用 iframe 把 B 網頁嵌入然後設透明度 0.001，再用 CSS 把自己的內容疊上去，就大功告成了。</p>
+<p>我覺得 clickjacking 直接看範例是最有趣的，因此做了一些簡單的範例。</p>
+<p>底下這個範例可以先點擊「確定取消」的按鈕，然後再點「切換透明度」，就可以看到背後其實是修改個人資料的頁面以及刪除帳號的按鈕：</p>
+<iframe src="https://aszx87410.github.io/demo/clickjacking/" width="320" height="430"></iframe>
+
+<p>所以我以為我點了「確定取消」，但實際上點到的卻是「刪除帳號」，這就是 clickjacking。</p>
+<p>上面的 iframe 如果打不開，可以去這邊玩：<a target="_blank" rel="noopener" href="https://aszx87410.github.io/demo/clickjacking/">clickjacking 範例</a>。</p>
+<p>有些人可能會覺得這個範例太過簡單，實際應用中可能很少出現這種這麼簡單的攻擊，只要按一個按鈕而已，或許更多網站會更複雜一點，例如說要先輸入一個什麼東西？</p>
+<p>底下這個範例以「更改 email」這個功能來設計 clickjacking，比起前一個範例是整個網頁蓋過去，這個範例刻意留下原網頁的 input，其他都用 CSS 蓋掉，按鈕的部分用 <code>pointer-events:none</code> 讓事件穿透。</p>
+<p>看似是一個輸入 email 訂閱資訊的網頁，但按下確定之後卻跳出「修改 email 成功」，因為背後其實是個修改 email 的網頁：</p>
+<iframe src="https://aszx87410.github.io/demo/clickjacking/adv.html" width="340" height="450"></iframe>
+
+<p>上面的範例沒看到的話，可以去這邊玩：<a target="_blank" rel="noopener" href="https://aszx87410.github.io/demo/clickjacking/adv.html">進階 clickjacking 範例</a>。</p>
+<p>除此之外，我也有在<a target="_blank" rel="noopener" href="https://blog.miniasp.com/post/2008/10/11/The-latest-cross-browser-exploit-Clickjacking">最新的跨瀏覽器攻擊手法：Clickjacking</a> 這篇裡面看到一個很有趣的範例：<a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=gxyLbpldmuU">假遊戲真劫持（YouTube 影片）</a>，看似是遊戲但其實只是為了讓你去點按鈕，超級有趣！</p>
+<p>寫到這邊，幫 clickjacking 做個總結，這個攻擊手法大概就是：</p>
+<ol>
+<li>把目標網頁嵌入惡意網頁之中（透過 iframe 或其他類似標籤）</li>
+<li>在惡意網頁上用 CSS 把目標網頁蓋住，讓使用者看不見</li>
+<li>誘導使用者前往惡意網頁並且做出操作（輸入或點擊等等）</li>
+<li>觸發目標網頁行為，達成攻擊</li>
+</ol>
+<p>因此實際上攻擊的難易度，取決於你的惡意網站設計得怎麼樣，以及目標網頁的原始行為需要多少互動。舉例來說，點擊按鈕就比輸入資訊要容易得多。</p>
+<p>然後還要提醒一點，這種攻擊要達成，使用者要先在目標網站是登入狀態才行。只要能把目標網頁嵌入惡意網頁之中，就會有 clickjacking 的風險。</p>
+<h2><span id="clickjacking-防禦方式">Clickjacking 防禦方式</span></h2><p>如同前面所述，只要能被其他網頁嵌入就會有風險，換句話說，如果沒辦法被嵌入，就不會有 clickjacking 的問題了，這就是解決 clickjacking 的方式。</p>
+<p>一般來說點擊劫持的防禦方式可以分為兩種，一種是自己用 JavaScript 檢查，另一種是透過 response header 告知瀏覽器這個網頁是否能被嵌入。</p>
+<h3><span id="frame-busting">Frame busting</span></h3><p>有一種叫做 frame busting 的方式，就是我前面提到的自己用 JavaScript 檢查，原理很簡單，程式碼也很簡單：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>top <span class="token operator">!==</span> self<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  top<span class="token punctuation">.</span>location <span class="token operator">=</span> self<span class="token punctuation">.</span>location
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>每一個網頁都有自己的 window object，而 <code>window.self</code> 指向的會是自己的 window，那 top 的話就是 top window，可以想成是這整個瀏覽器的「分頁」最上層的 window。</p>
+<p>如果今天是被獨立開啟的網頁，那 top 跟 self 就會指向同一個 window，但如果今天網頁是被鑲在 iframe 裡面，top 指的就會是使用 iframe 的那個 window。</p>
+<p>舉個例子好了，假設今天我在 localhost 有個 index.html，裡面寫著：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://example.com<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://onedegree.hk<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>那關係圖就會是這樣：</p>
+<p><img src="/img/clickjacking-intro/top.png" alt="window 關係圖"></p>
+<p>綠色跟黃色分別是兩個以 iframe 載入的網頁，也就是兩個不同的 window，在這兩個網頁裡面如果存取 <code>top</code> 的話，就會是 <code>localhost/index.html</code> 的 window object。</p>
+<p>所以透過 <code>if (top !== self)</code> 的檢查，就可以知道自己是不是被放在 iframe 裡面。如果是的話，就改變 top.location，把最上層的網頁導向其他地方。</p>
+<p>聽起來很美好而且沒什麼問題，但其實會被 iframe 的 <code>sandbox</code> 屬性繞過。</p>
+<p>iframe 可以設置一個屬性叫做 <code>sandbox</code>，代表這個 iframe 的功能受到限制，如果要把限制打開必須明確指定，可以指定的值包括：</p>
+<ol>
+<li>allow-forms，允許提交表單</li>
+<li>allow-scripts，允許執行 JS</li>
+<li>allow-top-navigation，允許改變 top location</li>
+<li>allow-popups，允許彈出視窗</li>
+</ol>
+<p>（還有一大堆，詳情可參考 <a target="_blank" rel="noopener" href="https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/iframe">MDN: iframe</a>）</p>
+<p>也就是說，如果我是這樣載入 iframe 的：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>./busting.html<span class="token punctuation">"</span></span> <span class="token attr-name">sandbox</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>allow-forms allow-scripts<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>那就算 busting.html 有上面我說的那個防護也沒有用，因為 JavaScript 不會執行，所以那段 script 就不會跑到，但 user 還是可以正常 submit 表單。</p>
+<p>於是就有人提出了更實用的方法，在現有基礎上做一些改良（程式碼取自：<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Framekiller">Wikipedia - Framekiller</a>）：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>style</span><span class="token punctuation">></span></span><span class="token style"><span class="token language-css"><span class="token selector">html</span><span class="token punctuation">&#123;</span><span class="token property">display</span><span class="token punctuation">:</span>none<span class="token punctuation">;</span><span class="token punctuation">&#125;</span></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>style</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+   <span class="token keyword">if</span> <span class="token punctuation">(</span>self <span class="token operator">==</span> top<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+       document<span class="token punctuation">.</span>documentElement<span class="token punctuation">.</span>style<span class="token punctuation">.</span>display <span class="token operator">=</span> <span class="token string">'block'</span><span class="token punctuation">;</span> 
+   <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+       top<span class="token punctuation">.</span>location <span class="token operator">=</span> self<span class="token punctuation">.</span>location<span class="token punctuation">;</span> 
+   <span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>先把網頁整個藏起來，一定要執行 JS 才能開啟，所以用上面的 sandbox 阻止 script 執行的話，就只會看到一個空白的網頁；如果不用 sandbox 的話，JS 的檢查不會過，所以還是看到一片空白。</p>
+<p>雖然說這樣可以做到比較完全的防禦，但也有缺點存在。這個缺點就是，如果使用者把 JS 功能關掉的話，他就什麼都看不到了。所以對於把 JS 功能關閉的使用者來說，體驗還滿差的。</p>
+<p>clickjacking 早期出來的時候（2008 年）可能相關防禦還沒有這麼完全，所以只好用這些方案，但在現今 2021 年，瀏覽器已經支援了其他更好的方式來阻擋網頁被嵌入。</p>
+<h3><span id="x-frame-options">X-Frame-Options</span></h3><p>這個 HTTP response header 在 2009 年時首先由 IE8 實作，接著其他瀏覽器才跟上，在 2013 年時才變成了完整的 <a target="_blank" rel="noopener" href="https://www.rfc-editor.org/rfc/rfc7034.txt">RFC7034</a>。</p>
+<p>這個 header 會有底下這三種值：</p>
+<ol>
+<li>X-Frame-Options: DENY</li>
+<li>X-Frame-Options: SAMEORIGIN</li>
+<li>X-Frame-Options: ALLOW-FROM <a target="_blank" rel="noopener" href="https://example.com/">https://example.com/</a></li>
+</ol>
+<p>第一種就是拒絕任何網頁把這個網頁嵌入，包含 <code>&lt;iframe&gt;</code>, <code>&lt;frame&gt;</code>, <code>&lt;object&gt;</code>, <code>&lt;applet&gt;</code>, <code>&lt;embed&gt;</code> 這些 tag 都不行。</p>
+<p>第二個則是只有 same origin 的網頁可以，最後一個則是只允許特定的 origin 嵌入，除此之外其他的都不行（只能放一個值不能放列表，所以如果要多個 origin，要像 CORS header 那樣在 server 動態調整輸出）。</p>
+<p>在 RFC 裡面還有特別提到最後兩種的判定方式可能跟你想的不一樣，每個瀏覽器的實作會有差異。</p>
+<p>例如說有些瀏覽器可能只檢查「上一層」跟「最上層」，而不是每一層都檢查。這個「層」是什麼意思呢？因為 iframe 理論上可以有無限多層嘛，A 嵌入 B 嵌入 C 嵌入 D…</p>
+<p>如果把這關係化為類似 html tag 的話，會長得像這樣：</p>
+<pre class="line-numbers language-none"><code class="language-none">&lt;example.com&#x2F;A.html&gt;
+  &lt;attacker.com&gt;
+    &lt;example.com&#x2F;B.html&gt;
+        &lt;example.com&#x2F;target.html&gt;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>對於最內層的 target.html 來說，如果瀏覽器只檢查上一層（B.html）跟最上層（A.html）的話，那儘管設置成 <code>X-Frame-Options: SAMEORIGIN</code>，檢查還是會通過，因為這兩層確實是相同的 origin。但實際上，中間卻夾了一個惡意網頁在裡面，所以還是有被攻擊的風險。</p>
+<p>除此之外 <code>X-Frame-Options</code> 還有第二個問題，就是 <code>ALLOW-FROM</code> 的支援度不好，可以參考底下來自 <a target="_blank" rel="noopener" href="https://caniuse.com/?search=X-Frame-Options">caniuse</a> 的表格，黃色的都是不支援 <code>ALLOW-FROM</code> 的：</p>
+<p><img src="/img/clickjacking-intro/caniuse.png"></p>
+<p><code>X-Frame-Options</code> 最前面的 <code>X</code> 說明了它比較像是一個過渡時期的東西，在未來新的瀏覽器當中，它的功能會被 CSP（Content Security Policy）給取代，並且把上面提到的問題解決。</p>
+<h3><span id="csp-frame-ancestors">CSP: frame-ancestors</span></h3><p>在之前的文章：<a target="_blank" rel="noopener" href="https://tech-blog.cymetrics.io/posts/huli/xss-attack-and-defense/">淺談 XSS 攻擊與防禦的各個環節</a>裡面我有稍微講了一下 CSP 這個東西，基本上就是告訴瀏覽器一些安全性相關的設置，其中有一個屬性是 <code>frame-ancestors</code>，設定起來會像這樣：</p>
+<ol>
+<li>Content-Security-Policy: frame-ancestors ‘none’</li>
+<li>Content-Security-Policy: frame-ancestors ‘self’</li>
+<li>Content-Security-Policy: frame-ancestors <a target="_blank" rel="noopener" href="https://a.example.com/">https://a.example.com</a> <a target="_blank" rel="noopener" href="https://b.example.com/">https://b.example.com</a></li>
+</ol>
+<p>這三種剛好對應到了之前 X-Frame-Options 的三種：DENY, SAMEORIGIN 以及 ALLOW-FROM（但這次有支援多個 origin 了）。</p>
+<p>先講一個可能會被搞混的地方，<code>frame-ancestors</code> 限制的行為跟 X-Frame-Options 一樣，都是「哪些網頁可以把我用 iframe 嵌入」，而另外一個 CSP 規則 <code>frame-src</code> 則是：「我這個網頁允許載入哪些來源的 iframe」。</p>
+<p>例如說我在 index.html 設一個規則是 <code>frame-src: &#39;none&#39;</code>，那 index.html 裡面用 <code>&lt;iframe&gt;</code> 載入任何網頁都會被擋下來，不管那個網頁有沒有設置任何東西。</p>
+<p>再舉個例子，我的 index.html 設置成：<code>frame-src: https://example.com</code>，但是 example.com 也有設置：<code>frame-ancestors: &#39;none&#39;</code>，那 index.html 還是沒有辦法用 iframe 把 example.com 載入，因為對方拒絕了。</p>
+<p>總而言之，<code>frame-src</code> 是「跟我交往好嗎？」，<code>frame-ancestors</code> 則是對於這個請求的回答。我可以設置成 <code>frame-ancestors: &#39;none&#39;</code>，代表任何人來跟我告白我都說不要。瀏覽器要成功顯示 iframe，要兩方都同意才行，只要其中一方不同意就會失敗。</p>
+<p>另外，值得注意的是 frame-ancestors 是 CSP level2 才支援的規則，在 2014 年年底才漸漸開始被主流瀏覽器們所支援。</p>
+<h3><span id="防禦總結">防禦總結</span></h3><p>因為支援度的關係，所以建議 <code>X-Frame-Options</code> 跟 CSP 的 <code>frame-ancestors</code>一起使用，若是你的網頁不想被 iframe 載入，記得加上 HTTP response header：</p>
+<pre class="line-numbers language-none"><code class="language-none">X-Frame-Options: DENY
+Content-Security-Policy: frame-ancestors &#39;none&#39;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>若是只允許被 same origin 載入的話，設置成：</p>
+<pre class="line-numbers language-none"><code class="language-none">X-Frame-Options: SAMEORIGIN
+Content-Security-Policy: frame-ancestors &#39;self&#39;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>如果要用 allow list 指定允許的來源，則是：</p>
+<pre class="line-numbers language-none"><code class="language-none">X-Frame-Options: ALLOW-FROM https:&#x2F;&#x2F;example.com&#x2F;
+Content-Security-Policy: frame-ancestors https:&#x2F;&#x2F;example.com&#x2F;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<h2><span id="實際案例">實際案例</span></h2><p>接著我們來看一些實際的 clickjacking 案例，會對這個攻擊更有感覺一點。</p>
+<h3><span id="yelp">Yelp</span></h3><p>美國最大的餐廳評論網站 Yelp 有幾個關於 clickjacking 的 report：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://hackerone.com/reports/305128">ClickJacking on IMPORTANT Functions of Yelp</a></li>
+<li><a target="_blank" rel="noopener" href="https://hackerone.com/reports/355859">CRITICAL-CLICKJACKING at Yelp Reservations Resulting in exposure of victim Private Data (Email info) + Victim Credit Card MissUse.</a></li>
+</ol>
+<p>雖然說沒辦法達到奪取帳號這種很嚴重的攻擊，但還是可以造成一些危害，例如說自己註冊一間餐廳之後：</p>
+<ol>
+<li>幫使用者訂位，藉此偷到他們的 email</li>
+<li>幫使用者訂位，使用者要取消訂位的話就要付取消訂位的費用，造成錢財損失</li>
+</ol>
+<p>對於看不爽的餐廳，也可以靠這方法去製造很多假的訂位，讓餐廳無從辨別（因為都是真的使用者來訂位）</p>
+<h3><span id="twitter-periscope-clickjacking-vulnerability">Twitter Periscope Clickjacking Vulnerability</span></h3><p>原始報告：<a target="_blank" rel="noopener" href="https://hackerone.com/reports/591432">https://hackerone.com/reports/591432</a><br>日期：2019 年 5 月</p>
+<p>這個 bug 是因為相容性問題，網頁只設置了 <code>X-Frame-Options ALLOW-FROM</code> 而沒有設置 CSP，這樣的話其實沒什麼用，因為現在的瀏覽器都不支援 <code>ALLOW-FROM</code>。</p>
+<p>解法很簡單，就是加上 CSP 的 frame-ancestors，讓現代瀏覽器也遵守這個規則。</p>
+<h3><span id="highly-wormable-clickjacking-in-player-card">Highly wormable clickjacking in player card</span></h3><p>原始報告：<a target="_blank" rel="noopener" href="https://hackerone.com/reports/85624">https://hackerone.com/reports/85624</a><br>日期：2015 年 8 月</p>
+<p>這個漏洞滿有趣的，運用了前面所提到的瀏覽器實作問題。這個案例是 twitter 已經有設置 <code>X-Frame-Options: SAMEORIGIN</code> 跟 <code>Content-Security-Policy: frame-ancestors &#39;self&#39;</code>，但當時有些瀏覽器實作檢查時，只檢查 top window 是不是符合條件。</p>
+<p>換句話說，如果是 twitter.com &#x3D;&gt; attacker.com &#x3D;&gt; twitter.com，就會通過檢查，所以還是可以被惡意網頁嵌入。</p>
+<p>再加上這個漏洞發生在 twitter 的 timeline，所以可以達成蠕蟲的效果，clickjacking 之後就發推，然後就會有更多人看到，更多人發同樣的推文。</p>
+<p>作者的 writeup 寫得很棒，但部落格掛掉了，這是存檔：<a target="_blank" rel="noopener" href="http://web.archive.org/web/20190310161937/https://blog.innerht.ml/google-yolo/">Google YOLO</a></p>
+<h3><span id="apitumblrcom-exploiting-clickjacking-vulnerability-to-trigger-self-dom-based-xss">[api.tumblr.com] Exploiting clickjacking vulnerability to trigger self DOM-based XSS</span></h3><p>原始報告：<a target="_blank" rel="noopener" href="https://hackerone.com/reports/953579">https://hackerone.com/reports/953579</a><br>日期：2020 年 8 月</p>
+<p>會特別挑這個案例，是因為它是攻擊鍊的串接！</p>
+<p>在 XSS 漏洞中有一種叫做 self XSS，意思就是通常都要使用者自己做一些操作才會中招，所以影響十分有限，許多 program 也都不接受 self XSS 的漏洞。</p>
+<p>而這份報告把 self XSS 跟 clickjacking 串連在一起，透過 clickjacking 的方式讓使用者去觸發 self XSS，串連攻擊鍊讓這個攻擊更容易被達成，可行性更高。</p>
+<p>以上就是一些 clickjacking 相關的實際案例，值得注意的是有一些是因為相容性問題造成的 issue，而不是沒有設定，所以設定正確也是很重要的一件事。</p>
+<h2><span id="無法防禦的-clickjacking">無法防禦的 clickjacking？</span></h2><p>clickjacking 防禦的方式說穿了就是不要讓別人可以嵌入你的網頁，但如果這個網頁的目的就是讓別人嵌入，那該怎麼辦？</p>
+<p>例如說 Facebook widget，大家常看到的那些「讚」跟「分享」的按鈕，就是為了讓其他人可以用 iframe 嵌入的，這類型的 widget 該怎麼辦呢？</p>
+<p>根據這兩篇：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://www.netsparker.com/blog/web-security/clickjacking-attack-on-facebook-how-tiny-attribute-save-corporation/">Clickjacking Attack on Facebook: How a Tiny Attribute Can Save the Corporation</a></li>
+<li><a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/61968091/facebook-like-button-click">Facebook like button click</a></li>
+</ol>
+<p>裡面得到的資訊，或許目前只能降低一點使用者體驗來換取安全性，例如說點了按鈕之後還會跳出一個 popup 讓你確認，對使用者來說多了一個點擊，但是也避免了 likejacking 的風險。</p>
+<p>或是我猜可能也會根據網站的來源決定是否有這個行為，舉例來說在一些比較有信譽的網站，可能就不會跳出這個 popup。</p>
+<p>我有做了一個簡單的 demo 網頁：<a target="_blank" rel="noopener" href="https://aszx87410.github.io/demo/clickjacking/like.html">https://aszx87410.github.io/demo/clickjacking/like.html</a></p>
+<p>如果 likejacking 成功的話，點了按鈕之後會對 Facebook Developer Plugin 的粉專按讚（我自己實驗是有成功啦），大家可以試試看，按完以後可以按「顯示原始網頁」看看按鈕底下長什麼樣子，順便把讚收回來。</p>
+<h2><span id="總結">總結</span></h2><p>比起以前瀏覽器支援度還沒有這麼完整的時代，現在已經幸福許多了，瀏覽器也實作了愈來愈多的安全性功能以及新的 response header，透過瀏覽器保護使用者避免惡意攻擊。</p>
+<p>雖然說平均來講 clickjacking 的攻擊難易度、先備條件以及影響程度通常都比 XSS 或是 CSRF 之類的攻擊來得低，但依然是不可忽視的風險之一。</p>
+<p>如果你的網頁沒有要讓別的網站嵌入，記得設置 <code>X-Frame-Options: DENY</code> 以及 <code>Content-Security-Policy: frame-ancestors &#39;none&#39;</code>，告訴瀏覽器你的網頁不能被嵌入，藉此防止點擊劫持攻擊。</p>
+<p>參考資料：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/reddelexc/hackerone-reports/blob/master/tops_by_bug_type/TOPCLICKJACKING.md">TOPCLICKJACKING.md</a></li>
+<li><a target="_blank" rel="noopener" href="https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html#x-frame-options-header-types">Clickjacking Defense Cheat Sheet</a></li>
+<li><a target="_blank" rel="noopener" href="https://content-security-policy.com/frame-ancestors/">CSP frame-ancestors</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2021/09/26/what-is-open-redirect/">在做跳轉功能時應該注意的問題：Open Redirect</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2021/08/22/eleventy-over-hexo/">除了 hexo，也可以考慮用 eleventy 來寫技術部落格</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2021/09/26/en/what-is-clickjacking/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

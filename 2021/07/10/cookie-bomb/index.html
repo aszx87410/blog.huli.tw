@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>利用 Cookie 特性進行的 DoS 攻擊：Cookie 炸彈 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2021/07/10/en/cookie-bomb/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2021/07/10/cookie-bomb/">
+    
+
+
+
+
+
+    <meta name="description" content="前言在網站相關的攻擊手法上，大家比較常看見的應該是 XSS、SQL injection 或是 CSRF 這些方法，而今天要介紹的是另外一種大家可能聽過但沒有這麼熟悉的：DoS，Denial-of-Service 攻擊。 講到 DoS，多數人可能都會想到是不是要送很多封包給網站，然後讓網站伺服器來不及回應或是資源耗盡才能達成目標。或也可能想到的是 DDoS（Distributed Denial-of">
+<meta property="og:type" content="article">
+<meta property="og:title" content="利用 Cookie 特性進行的 DoS 攻擊：Cookie 炸彈">
+<meta property="og:url" content="https://blog.huli.tw/2021/07/10/cookie-bomb/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言在網站相關的攻擊手法上，大家比較常看見的應該是 XSS、SQL injection 或是 CSRF 這些方法，而今天要介紹的是另外一種大家可能聽過但沒有這麼熟悉的：DoS，Denial-of-Service 攻擊。 講到 DoS，多數人可能都會想到是不是要送很多封包給網站，然後讓網站伺服器來不及回應或是資源耗盡才能達成目標。或也可能想到的是 DDoS（Distributed Denial-of">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/cookie-bomb/p1.png">
+<meta property="og:image" content="https://blog.huli.tw/img/cookie-bomb/p2.png">
+<meta property="og:image" content="https://blog.huli.tw/img/cookie-bomb/p3.png">
+<meta property="og:image" content="https://blog.huli.tw/img/cookie-bomb/p4.png">
+<meta property="og:image" content="https://blog.huli.tw/img/cookie-bomb/p5.png">
+<meta property="og:image" content="https://blog.huli.tw/img/cookie-bomb/p6.png">
+<meta property="og:image" content="https://blog.huli.tw/img/cookie-bomb/p7.png">
+<meta property="article:published_time" content="2021-07-10T00:51:38.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.475Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/cookie-bomb/p1.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="利用 Cookie 特性進行的 DoS 攻擊：Cookie 炸彈" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#什麼是-cookie">2&nbsp;&nbsp;<b>什麼是 Cookie？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#那-cookie-bomb-又是什麼">3&nbsp;&nbsp;<b>那 Cookie bomb 又是什麼？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#攻擊流程">4&nbsp;&nbsp;<b>攻擊流程</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#防禦方式">5&nbsp;&nbsp;<b>防禦方式</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#攻擊面擴展">6&nbsp;&nbsp;<b>攻擊面擴展</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#找到輕易設置-cookie-的地方">7&nbsp;&nbsp;<b>找到輕易設置 cookie 的地方</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#實際測試">8&nbsp;&nbsp;<b>實際測試</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#防禦方式">9&nbsp;&nbsp;<b>防禦方式</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#再看一個例子">10&nbsp;&nbsp;<b>再看一個例子</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#後續回報">11&nbsp;&nbsp;<b>後續回報</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#結語">12&nbsp;&nbsp;<b>結語</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2021/07/10/en/cookie-bomb/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            利用 Cookie 特性進行的 DoS 攻擊：Cookie 炸彈
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2021-07-10T00:51:38.000Z" itemprop="datePublished">2021年7月10日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="前言">前言</span></h2><p>在網站相關的攻擊手法上，大家比較常看見的應該是 XSS、SQL injection 或是 CSRF 這些方法，而今天要介紹的是另外一種大家可能聽過但沒有這麼熟悉的：DoS，Denial-of-Service 攻擊。</p>
+<p>講到 DoS，多數人可能都會想到是不是要送很多封包給網站，然後讓網站伺服器來不及回應或是資源耗盡才能達成目標。或也可能想到的是 DDoS（Distributed Denial-of-Service），不是一台主機而是一堆主機同時送封包給某個伺服器，然後把它打掛。</p>
+<p>DoS 與 DDoS 其實有分不同層的攻擊，這些層對應到大家以前可能學過的 OSI Model，例如說大家記憶中的攻擊比較像是 L3 網路層與 L4 傳輸層的攻擊，詳細的攻擊手法可以參考：<a target="_blank" rel="noopener" href="https://aws.amazon.com/tw/shield/ddos-attack-protection/">什麼是 DDoS 攻擊？</a> 以及 <a target="_blank" rel="noopener" href="https://www.cloudflare.com/zh-tw/learning/ddos/layer-3-ddos-attacks/">How do layer 3 DDoS attacks work? | L3 DDoS</a>。</p>
+<p>但這篇想跟大家分享的攻擊手法，是存在於 L7 應用層的 DoS 攻擊。</p>
+<p>例如說某個網站有個 API 可以查詢資料，然後有設一個預設的 limit 是 100，結果我把它改成 10000 之後發現 server 大概要一分多鐘才能給我 response，於是我就每兩秒送一個 request，送著送著就發現網站越變越慢，最後整個掛掉只能回 500 Internal Server Error，這就是應用層的 DoS 攻擊。</p>
+<p>只要能找到一個方法讓使用者無法存取網站，就是一種 DoS 的攻擊。而我們找出的方法是建立於 L7 應用層，所以是 L7 的 DoS 攻擊。</p>
+<p>在眾多 L7 DoS 攻擊手法中有一種我覺得特別有趣，那就是 Cookie Bomb，直翻就叫做 Cookie 炸彈。</p>
+<span id="more"></span>
+
+<h2><span id="什麼是-cookie">什麼是 Cookie？</span></h2><p>如果對 cookie 毫無概念的話，可以參考這篇：<a target="_blank" rel="noopener" href="https://hulitw.medium.com/session-and-cookie-15e47ed838bc">白話 Session 與 Cookie：從經營雜貨店開始</a>。</p>
+<p>簡單來說呢，一些網站可能會把某些資料存在瀏覽器裡面，而這些資料就稱之為 cookie。當瀏覽器對網站發送 request 的時候，會自動把之前儲存的 cookie 一併帶上去。</p>
+<p>最常見的應用之一就是廣告追蹤，例如說我造訪 A 網站，然後 A 網站裡面有 GA（Google Analytics）的 script，因此 GA 寫了一個 id&#x3D;abc 的 cookie。當使用者造訪 B 網站而且 B 網站也有裝 GA，此時瀏覽器送 request 給 GA 的時候，就會把這個 id&#x3D;abc 帶上去，那 server 收到以後就會知道「又是這個人，他造訪了 A 網站跟 B 網站」，隨著使用者造訪的網站變多，就會更清楚知道他的喜好。</p>
+<p>（附註：實際上的追蹤應該會更複雜，而且最近又有第三方 cookie 的問題，所以實作可能會不太一樣，這邊只是簡單舉例）</p>
+<p>在寫入 cookie 的時候，有一個 domain 的選項可以設置，你只能往上寫不能往下寫。什麼意思呢，假設你在 <code>abc.com</code>，你就只能寫 cookie 到 <code>abc.com</code>。但如果你在 <code>a.b.abc.com</code>，你可以寫入 <code>a.b.abc.com</code>，也可以寫入 <code>b.abc.com</code>，就連 <code>abc.com</code> 也可以。</p>
+<p>所以你在 subdomain <code>a.b.abc.com</code> 對 root domain <code>abc.com</code> 寫入 cookie 之後，瀏覽器送去 <code>abc.com</code> 的 request 就會帶上你寫入的 cookie。</p>
+<h2><span id="那-cookie-bomb-又是什麼">那 Cookie bomb 又是什麼？</span></h2><p>假設我的攻擊目標是 <code>example.com</code>，那我只要找到任何 subdomain 或是網站中的某個頁面可以讓我寫 cookie 的話，我就可以自由自在地寫入我想要的 cookie。</p>
+<p>舉例來說，假設有個頁面<code>https://example.com/log?uid=abc</code>，造訪這個頁面之後，就會把 <code>uid=abc</code> 這一段寫到 cookie，那我只要把網址改成 <code>?uid=xxxxxxxxxx</code>，就可以把 <code>xxxxxxxxxx</code> 寫到 cookie 裡。</p>
+<p>再舉個例子，假設有個部落格網站，每一個使用者都有一個獨特的 subdomain，例如說我的話就是 <code>huliblog.example.com</code>，然後部落格可以客製化自己想要的 JS，那我就可以利用 JS 在 <code>huliblog.example.com</code> 對 <code>examepl.com</code> 寫入我想要的 cookie。</p>
+<p>好了，那可以寫入任意 cookie 之後能幹嘛呢？</p>
+<p>開始寫一堆垃圾 cookie 進去。</p>
+<p>例如說 <code>a1=o....*4000</code> 之類的，就是寫一堆無意義的內容進去就好，這邊要特別注意的是一個 cookie 能寫的大小大概是 4kb，而我們最少需要兩個 cookie，也就是要能寫入 8kb 的資料，才能達成攻擊。</p>
+<p>當你寫了這些 cookie 進去之後，回到主頁 <code>https://example.com</code> 時，根據 cookie 的特性，就會一起把這些垃圾 cookie 帶上去給 server 對吧？接下來就是見證奇蹟的時刻。</p>
+<p>Server 並沒有顯示你平常會看到的頁面，而是回給你一個錯誤：<code>431 Request Header Fields Too Large</code>。</p>
+<p><img src="/img/cookie-bomb/p1.png"></p>
+<p>在眾多 HTTP status code 裡面，有兩個 code 都跟 request 太大有關：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413">413 Payload Too Large</a></li>
+<li><a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/431">431 Request Header Fields Too Large</a></li>
+</ol>
+<p>假設有個表單，你填了一百萬個字送到 server 去，就很可能會收到一個 <code>413 Payload Too Large</code> 的回應，就如同錯誤訊息所說的，payload 太大了，伺服器無法處理。</p>
+<p>而 header 也是一樣的，當你的 cookie 太多時，requset header 中的 <code>Cookie</code> 會很大，大到伺服器無法處理，就會回一個 <code>431 Request Header Fields Too Large</code>（不過根據實測，有些 server 可能會根據實作不同回覆不同的 code，像微軟就是回 400 bad request）。</p>
+<p>因此我們只要能把使用者的 cookie 塞爆，就能讓他看到這個錯誤畫面，沒有辦法正常存取服務，這就是 cookie bomb，藉由一大堆 cookie 所引發的 DoS 攻擊。而背後的原理就是「瀏覽器造訪網頁時，會自動把相對應的 cookie 一起帶上去」。</p>
+<p>Cookie bomb 這名詞最早的起源應該是 2014 年 1 月 18 日由 Egor Homakov 所發表的 <a target="_blank" rel="noopener" href="http://homakov.blogspot.com/2014/01/cookie-bomb-or-lets-break-internet.html">Cookie Bomb or let’s break the Internet.</a>，但類似的攻擊手法在 2009 年就有出現過：<a target="_blank" rel="noopener" href="http://sirdarckcat.blogspot.com/2009/04/how-to-use-google-analytics-to-dos.html">How to use Google Analytics to DoS a client from some website</a></p>
+<h2><span id="攻擊流程">攻擊流程</span></h2><p>如同上面那段所說，假設我們現在發現一個網址 <code>https://example.com/log?uid=abc</code> 可以讓我們設置任意 cookie，接下來要做的事情就是：</p>
+<ol>
+<li>把網址改一下，讓 cookie 變很大，想辦法讓大小超過 8kb（因為似乎比較多 server 的限制都是 8kb）</li>
+<li>把這個網址傳給攻擊目標，並想辦法讓他點開</li>
+<li>目標點了網址，在瀏覽器上面設了一個很大的 cookie</li>
+<li>目標造訪網站 <code>https://example.com</code>，發現看不到內容，只能看到一片白或是錯誤訊息，攻擊成功</li>
+</ol>
+<p>這時候除非使用者換個瀏覽器或是 cookie 過期，又或者是自己去把 cookie 清掉，否則一直都會是這個狀態。</p>
+<p>綜合以上所述，這個攻擊只能攻擊特定使用者，而且必須滿足兩個前提：</p>
+<ol>
+<li>找到一個地方可以設置任意 cookie</li>
+<li>目標必須點擊步驟一所找到的網址</li>
+</ol>
+<p>有關於實際的攻擊案例，可以參考：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://blog.innerht.ml/overflow-trilogy/">Overflow Trilogy</a></li>
+<li><a target="_blank" rel="noopener" href="https://hackerone.com/reports/777984">#777984 Denial of Service with Cookie Bomb</a></li>
+<li><a target="_blank" rel="noopener" href="https://hackerone.com/reports/57356">#57356 DOM based cookie bomb</a></li>
+<li><a target="_blank" rel="noopener" href="https://hackerone.com/reports/847493">#847493 Cookie Bombing cause DOS - businesses.uber.com</a></li>
+<li><a target="_blank" rel="noopener" href="https://hackerone.com/reports/105363">#105363 [livechat.shopify.com] Cookie bomb at customer chats</a></li>
+</ol>
+<p>再繼續針對攻擊面往下講以前，先來提一下防禦方式。</p>
+<h2><span id="防禦方式">防禦方式</span></h2><p>第一點就是不要相信使用者的輸入，例如說上面提到的那個例子：<code>https://example.com/log?uid=abc</code>，不該把 <code>abc</code> 直接寫進 cookie 裡面，而是應該做個基本檢查，例如說格式或是長度之類的，就可以避免掉這類型的攻擊。</p>
+<p>再來的話，當我提到可以從 subdomain 往 root domain 設 cookie 時，許多人應該都會想到一件事：「那共用的 subdomain 怎麼辦？」</p>
+<p>例如說 GitHub Pages 這功能，每個人的 domain 都是 username.github.io ，那我不就可以用 cookie 炸彈，炸到所有的 GitHub Pages 嗎？只要在我自己的 subdomain 建一個惡意的 HTML，裡面有著設定 cookie 的 JS code，再來只要把這個頁面傳給任何人，他點擊之後就沒辦法訪問任何 <code>*.github.io</code> 的資源，因為都會被 server 拒絕。</p>
+<p>這個假說看似是成立的，但其實有個前提要先成立，那就是：「使用者可以在 <code>*.github.io</code> 對 <code>github.io</code> 設置 cookie」。如果這個前提不成立，那 cookie bomb 就無法執行了。</p>
+<p>事實上，像是這種「不想要共同的上層 domain 可以被設置 cookie」的需求其實不少，例如說 <code>a.com.tw</code> 如果可以設置 cookie 到 <code>.com.tw</code> 或是 <code>.tw</code> 的話，是不是一大堆不相關的網站都會共享到 cookie 了？這樣顯然是不合理的。</p>
+<p>又或者是總統府的網站 <code>https://www.president.gov.tw</code>，應該不會想被財政部的網站 <code>https://www.mof.gov.tw</code> 所影響，因此 <code>.gov.tw</code> 應該也要是一個不給設定 cookie 的 domain。</p>
+<p>當瀏覽器在決定能不能對某個 domain 設置 cookie 時，會參照一個清單叫做 <a target="_blank" rel="noopener" href="https://publicsuffix.org/list/">public suffix list</a>，出現在上面的 domain，其 subdomain 都沒辦法直接設定該 domain 的 cookie。</p>
+<p>例如說以下 domain 都在這份清單上：</p>
+<ol>
+<li>com.tw</li>
+<li>gov.tw</li>
+<li>github.io</li>
+</ol>
+<p>所以前面舉的例子不成立了，因為我在 <code>userA.github.io</code> 的時候，沒辦法設置 <code>github.io</code> 的 cookie，所以無法執行 cookie bomb 攻擊。</p>
+<p>關於 public suffix list，Heroku 有一篇文特別在介紹它的一些歷史沿革：<a target="_blank" rel="noopener" href="https://devcenter.heroku.com/articles/cookies-and-herokuapp-com">Cookies and the Public Suffix List</a>。</p>
+<h2><span id="攻擊面擴展">攻擊面擴展</span></h2><p>上面有講到兩個攻擊成立的前提：</p>
+<ol>
+<li>找到一個地方可以設置任意 cookie</li>
+<li>目標必須點擊步驟一所找到的網址</li>
+</ol>
+<p>如果想讓攻擊變得更容易成立，就可以針對這兩個前提去想說：</p>
+<ol>
+<li>有沒有可能這個地方很好找？</li>
+<li>有沒有可能目標不需要點擊連結就會中招？</li>
+</ol>
+<p>先針對第二點來講，如果可以利用快取污染（Cache poisoning）的話，就可以輕易達成。先簡單講一下什麼是 cache poisoning，簡單來說就是想辦法讓 cache server 存的 cache 是壞掉的那一份（例如說 431 status code 的那一份），這樣不只你，而是所有其他使用者都會因為 cache 的關係，拿到壞掉的檔案，看到同樣的錯誤訊息。</p>
+<p>這樣的話，目標不需要點擊任何東西就會中招，而且攻擊對象就從一個人擴大成所有人。</p>
+<p>其實第二點有個專有名詞：CPDoS（Cache Poisoned Denial of Service），而且因為是利用 cache 的關係，所以也沒有必要設置 cookie 了，用其他的 header 也行，不需要侷限在 cookie bomb。</p>
+<p>更詳細的相關攻擊手法可以參考：<a target="_blank" rel="noopener" href="https://cpdos.org/">https://cpdos.org/</a></p>
+<p>而第一點「有沒有可能這個地方很好找？」就是我真正想提的。</p>
+<p>在針對這點繼續往下之前，其實 cookie bomb 還有更多的攻擊面擴展，可以搭配其他的攻擊手法一起使用，相關的說明以及實際案例很推薦大家去看這個影片：<a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=njQcVWPB1is">HITCON CMT 2019 - The cookie monster in your browsers</a>，裡面除了 cookie bomb 以外，也提到了其他 cookie 相關的特性。</p>
+<p>這場演講裡面利用 cookie bomb 造成的 DoS 搭配其他手法的攻擊方式，真的很漂亮。</p>
+<h2><span id="找到輕易設置-cookie-的地方">找到輕易設置 cookie 的地方</span></h2><p>有什麼地方可以讓我們輕易設置 cookie，達成 cookie bomb 呢？有，那就是像之前所提過的共用的 subdomain，像是 <code>*.github.io</code> 這一種。</p>
+<p>可是這種的不是都在 public suffix list 裡面了嗎？沒有辦法設置 cookie。</p>
+<p>只要找到沒有在裡面的就好啦！</p>
+<p>不過這其實也不是件容易的事情，因為你會發現你知道的服務幾乎都已經註冊了，例如說 GitHub、AmazonS3、Heroku 以及 Netlify 等等，都已經在上面了。</p>
+<p>不過我有找到一個沒在上面的，那就是微軟提供的 Azure CDN：azureedge.net</p>
+<p>不知道為什麼，但這個 domain 並不屬於 public suffix，所以如果我自己去建一個 CDN，就可以執行 cookie bomb。</p>
+<h2><span id="實際測試">實際測試</span></h2><p>我用來 demo 的程式碼如下，參考並改寫自<a target="_blank" rel="noopener" href="https://github.com/wrr/cookie-bomb/blob/master/bomb.html">這裡</a>：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> domain <span class="token operator">=</span> <span class="token string">'azureedge.net'</span>
+<span class="token keyword">const</span> cookieCount <span class="token operator">=</span> <span class="token number">40</span>
+<span class="token keyword">const</span> cookieLength <span class="token operator">=</span> <span class="token number">3000</span>
+<span class="token keyword">const</span> expireAfterMinute <span class="token operator">=</span> <span class="token number">5</span>
+<span class="token function">setCookieBomb</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token keyword">function</span> <span class="token function">setCookie</span><span class="token punctuation">(</span><span class="token parameter">key<span class="token punctuation">,</span> value</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> expires <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token operator">+</span><span class="token keyword">new</span> <span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">+</span> expireAfterMinute <span class="token operator">*</span> <span class="token number">60</span> <span class="token operator">*</span> <span class="token number">1000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  document<span class="token punctuation">.</span>cookie <span class="token operator">=</span> key <span class="token operator">+</span> <span class="token string">'='</span> <span class="token operator">+</span> value <span class="token operator">+</span> <span class="token string">'; path=/; domain='</span> <span class="token operator">+</span> domain <span class="token operator">+</span> <span class="token string">'; Secure; SameSite=None; expires='</span> <span class="token operator">+</span> expires<span class="token punctuation">.</span><span class="token function">toUTCString</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">function</span> <span class="token function">setCookieBomb</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> value <span class="token operator">=</span> <span class="token string">'Boring'</span> <span class="token operator">+</span> <span class="token string">'_'</span><span class="token punctuation">.</span><span class="token function">repeat</span><span class="token punctuation">(</span>cookieLength<span class="token punctuation">)</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span> i<span class="token operator">&lt;</span>cookieCount<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">setCookie</span><span class="token punctuation">(</span><span class="token string">'key'</span> <span class="token operator">+</span> i<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>接著在 Azure 上面上傳檔案然後設置一下 CDN，就可以得到一個自訂的網址：<a target="_blank" rel="noopener" href="https://hulitest2.azureedge.net/cookie.html">https://hulitest2.azureedge.net/cookie.html</a> （我的 azure 過期了，所以現在點進去應該會壞掉）</p>
+<p>點了之後就會在 <code>azureedge.net</code> 上面設置一堆垃圾 cookie：</p>
+<p><img src="/img/cookie-bomb/p2.png"></p>
+<p>重新整理後，會發現網站真的不能存取了：</p>
+<p><img src="/img/cookie-bomb/p3.png"></p>
+<p>這就代表 cookie bomb 成功了。</p>
+<p>所以只要是放在 azureedge.net 的資源，都會受到影響。</p>
+<p>其實 AzureCDN 有自訂網域的功能，所以如果是自訂網域的話就不會受到影響。但有些網站並沒有使用自訂網域，而是直接使用了 azureedge.net 當作 URL。</p>
+<p>大多數情況下，azureedge.net 都是拿來 host 一些資源，例如說 JS 以及 CSS 或者是圖片，我們可以隨便找一個把資源放在 azureedge.net 的網站來試試看攻擊是否有效。</p>
+<p>一開始進去一切都很好，沒什麼問題，但是先造訪過 cookie bomb 那個網址後重新整理，發現整個網頁都跑板了，就是因為 cookie bomb 造成那些資源無法載入：</p>
+<p><img src="/img/cookie-bomb/p4.png"></p>
+<p>雖然說沒辦法讓整個網頁無法讀取，但大幅度跑版外加功能壞掉，基本上也是沒辦法使用了。</p>
+<p>甚至連微軟自己的一些服務也會被這個攻擊影響，因為也把資源放在 azureedge.net 上面：</p>
+<p><img src="/img/cookie-bomb/p5.png"></p>
+<h2><span id="防禦方式">防禦方式</span></h2><p>最好的防禦方式就是改用自訂網域，不要用預設的 azureedge.net，這樣就不會有 cookie bomb 的問題。但撇開自訂網域不談，其實 azureedge.net 應該去註冊 public suffix 才對，不讓使用者在這 domain 上面設置 cookie。</p>
+<p>除了這兩種防禦方式之外，還有一種你可能沒想到的。</p>
+<p>我們平常在引入資源的時候不是都這樣嗎：<code>&lt;script src=&quot;htps://test.azureedge.net/bundle.js&quot;&gt;&lt;/script&gt;</code>。</p>
+<p>只要加一個屬性 <code>crossorigin</code>，變成：<code>&lt;script src=&quot;htps://test.azureedge.net/bundle.js&quot; crossorigin&gt;&lt;/script&gt;</code>，就可以避免掉 cookie bomb 的攻擊。</p>
+<p>這是因為原本的方法在發送 request 時會把 cookie 帶上去，但如果加上 <code>crossorigin</code> 改成用 cross origin 的方式去拿，預設就不會帶 cookie，所以就不會有 header too large 的狀況發生。</p>
+<p>只是記得在 CDN 那邊也要調整一下，要確認 server 有加上 <code>Access-Control-Allow-Origin</code> 的 header，允許跨來源的資源請求。</p>
+<p>以前我很困惑到底什麼情形需要加上 <code>crossorigin</code>，現在我知道其中一種了，如果你不想把 cookie 一起帶上去的話，就可以加上 <code>crossorigin</code>。</p>
+<h2><span id="再看一個例子">再看一個例子</span></h2><p>曾經在特定領域紅過，但被 Automattic 收購後便轉向的 Tumblr 有個特別的功能，那就是你可以在個人頁面自訂 CSS 與 JavaScript，而這個個人頁面的 domain 會是 userA.tumblr.com，而 tumblr.com 並沒有註冊在 public suffix 上，所以一樣會受 cookie bomb 的影響：</p>
+<p><img src="/img/cookie-bomb/p6.png"></p>
+<p>造訪這個網址：<a target="_blank" rel="noopener" href="https://aszx87410.tumblr.com/">https://aszx87410.tumblr.com/</a> 之後重新整理或者是前往 Tumblr 首頁，就會發現無法存取（寫 cookie 的 JS 沒寫好，只在 Chrome 上有用，Firefox 不行）：</p>
+<p><img src="/img/cookie-bomb/p7.png"></p>
+<h2><span id="後續回報">後續回報</span></h2><p>2021-06-16 我在 HackerOne 上面回報了 Tumblr 的 cookie bomb 問題，隔天就收到回覆，對方回說：</p>
+<blockquote>
+<p>this behavior does not pose a concrete and exploitable risk to the platform in and on itself, as this can be fixed by clearing the cache, and is more of a nuisance than a security vulnerability</p>
+</blockquote>
+<p>對有些公司來說，如果只有 cookie bomb 的話造成的危害太小，而且第一受害者必須點那個網址，第二只要把 cookie 清掉就沒事，所以並不認可這是一個安全性的漏洞。</p>
+<p>而微軟那邊則是在 2021-06-10 透過 <a target="_blank" rel="noopener" href="https://www.microsoft.com/en-us/msrc">MSRC</a> 回報，大約兩週後 2021-06-22 收到回覆，對方說已經回報相關的團隊進行處理，但是這個問題並沒有達到 security update 的標準，之後修好也不會有通知。</p>
+<p>後來寫信去問那能不能把這個問題當成範例寫在 blog，2021-06-30 收到回覆說 OK。</p>
+<h2><span id="結語">結語</span></h2><p>我以前關注的漏洞大多數都是像 SQL Injection 或是 XSS 那樣子的，能夠偷走使用者的資料，但前陣子突然發現 DoS 這類型的漏洞很多也都很有趣，尤其是應用層的 DoS，比如說這一篇提到的 cookie bomb，或者是利用 RegExp 達成的 ReDoS，還有 GraphQL 的 DoS 等等。</p>
+<p>雖然說單純的 cookie bomb 如果沒有結合其他的攻擊手法，影響力十分有限，而且只要清掉 cookie 就沒事了，但我覺得還是一個挺有趣的攻擊，畢竟我本來就對 cookie 相關的東西都很感興趣（可能是因為<a href="https://blog.huli.tw/2017/08/27/a-cookie-problem/">以前</a>有被殘害過）。</p>
+<p>但其實這樣研究下來，除了覺得 cookie bomb 很有趣之外，還有個東西讓我收穫良多，眼界大開，就是前面貼的那個 <a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=njQcVWPB1is">HITCON CMT 2019 - The cookie monster in your browsers</a> 影片中提到的利用 cookie bomb 結合其他攻擊手法。</p>
+<p>在資安的領域中怎麼把不同的，看似很小的一些問題串在一起變成大問題，一直以來都是一門藝術。只有 cookie bomb 可能做不了什麼，但跟其他東西結合之後搞不好可以昇華出一個嚴重的漏洞。目前我個人學藝不精，沒辦法達到那種程度，但我相信有朝一日可以的。</p>
+<p>總之呢，這篇文章就是跟大家稍微介紹一下 cookie bomb 的成因以及修復方式，如果你的服務會提供 subdomain 給使用者，記得評估一下是否需要去 public suffix list 上面註冊，避免 subdomain 寫 cookie 到 root domain，進而影響到所有的 subdomain。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2021/08/06/intigriti-xss-0721/">Intigriti 七月份 XSS 挑戰：突破層層關卡</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2021/07/03/xss-challenge-intigriti-june-review/">Intigriti 六月份 XSS 挑戰檢討</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2021/07/10/en/cookie-bomb/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

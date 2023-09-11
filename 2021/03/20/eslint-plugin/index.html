@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>寫一個簡單堪用的 ESLint plugin - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2021/03/20/en/eslint-plugin/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2021/03/20/eslint-plugin/">
+    
+
+
+
+
+
+    <meta name="description" content="前言只要是開發 JavaScript 相關的專案，我的起手式通常都是 ESLint + Prettier，如果你沒有聽過這兩套的話我稍微講一下，Prettier 是幫你格式化程式碼用的，用了之後不必再跟其他人爭論到底要不要加分號，if 區塊的 &amp;#123; 要不要換行，一行最多到底能幾個字。只要用 Prettier，就是讓它幫你全權決定（雖然也有設定檔可以調整就是了）。 這其實對團隊滿有幫助的，因">
+<meta property="og:type" content="article">
+<meta property="og:title" content="寫一個簡單堪用的 ESLint plugin">
+<meta property="og:url" content="https://blog.huli.tw/2021/03/20/eslint-plugin/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言只要是開發 JavaScript 相關的專案，我的起手式通常都是 ESLint + Prettier，如果你沒有聽過這兩套的話我稍微講一下，Prettier 是幫你格式化程式碼用的，用了之後不必再跟其他人爭論到底要不要加分號，if 區塊的 &amp;#123; 要不要換行，一行最多到底能幾個字。只要用 Prettier，就是讓它幫你全權決定（雖然也有設定檔可以調整就是了）。 這其實對團隊滿有幫助的，因">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://static.coderbridge.com/img/aszx87410/bf677339575647dc9bdd29cc03b4a4a2.png">
+<meta property="og:image" content="https://static.coderbridge.com/img/aszx87410/ae85c9da19b94c9da0d7687607047a17.png">
+<meta property="og:image" content="https://static.coderbridge.com/img/aszx87410/9f304ff5534c49df8759a1d65f169d13.png">
+<meta property="og:image" content="https://static.coderbridge.com/img/aszx87410/b14435b7cdd44b6bb206dce3cba40c72.png">
+<meta property="og:image" content="https://static.coderbridge.com/img/aszx87410/33ee7bcd006c44e7995bc9884be70914.png">
+<meta property="article:published_time" content="2021-03-20T14:27:27.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.480Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://static.coderbridge.com/img/aszx87410/bf677339575647dc9bdd29cc03b4a4a2.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="寫一個簡單堪用的 ESLint plugin" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#問題背景">2&nbsp;&nbsp;<b>問題背景</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#實戰">3&nbsp;&nbsp;<b>實戰</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#結語">4&nbsp;&nbsp;<b>結語</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2021/03/20/en/eslint-plugin/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            寫一個簡單堪用的 ESLint plugin
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2021-03-20T14:27:27.000Z" itemprop="datePublished">2021年3月20日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Front-end/">Front-end</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="前言">前言</span></h2><p>只要是開發 JavaScript 相關的專案，我的起手式通常都是 ESLint + Prettier，如果你沒有聽過這兩套的話我稍微講一下，Prettier 是幫你格式化程式碼用的，用了之後不必再跟其他人爭論到底要不要加分號，if 區塊的 <code>&#123;</code> 要不要換行，一行最多到底能幾個字。只要用 Prettier，就是讓它幫你全權決定（雖然也有設定檔可以調整就是了）。</p>
+<p>這其實對團隊滿有幫助的，因為程式碼格式可以統一，要空幾格也可以統一，在基本的 coding style 上面會長差不多。而 ESLint 雖然也有些跟格式相關的部分，但更多的是寫程式時候的一些 best practice，例如說使用變數前要先宣告、不會更改的變數用 const 之類的，這已經脫離了格式的範圍。</p>
+<p>所以 ESLint 搭配 Prettier，就可以讓整個 codebase 的品質有最低限度的保障，至少不會出現排版很慘烈的狀況。而使用 ESLint 時最多人搭配的規則應該就是 <a target="_blank" rel="noopener" href="https://github.com/airbnb/javascript">Airbnb JavaScript Style Guide</a>，裡面有每一條規則的詳細解釋。</p>
+<p>之前在寫 code 時我突然想到一個地方好像很適合用 ESLint，就嘗試了看看，發現要做一個「堪用」的 plugin 比想像中簡單一些，就以這篇文章記錄一下過程跟心得。</p>
+<span id="more"></span>
+
+<h2><span id="問題背景">問題背景</span></h2><p>當時碰到的狀況是這樣的，在專案裡面我們用 <a target="_blank" rel="noopener" href="https://react.i18next.com/latest/usetranslation-hook">react-i18next</a> 來管理 i18n 相關的東西，一段程式碼可能會長得像下面這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">import</span> <span class="token punctuation">&#123;</span> useTranslation <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'react-i18next'</span>
+<span class="token keyword">import</span> <span class="token punctuation">&#123;</span> <span class="token constant">NS_GENERAL</span> <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'@/i18n/namespaces'</span>
+
+<span class="token keyword">function</span> <span class="token function">Hello</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> <span class="token punctuation">&#123;</span> t <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">useTranslation</span><span class="token punctuation">(</span><span class="token constant">NS_GENERAL</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token operator">&lt;</span>div<span class="token operator">></span><span class="token punctuation">&#123;</span><span class="token function">t</span><span class="token punctuation">(</span><span class="token string">'welcome_message'</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>使用 <code>useTranslation</code> 可以拿到一個 function t，把 key 丟進去之後就可以得到翻譯後的字串，而背後對應到的會是多個語言檔：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// en-us/general.json</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"welcome_message"</span><span class="token operator">:</span> <span class="token string">"Hello!"</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// zh-hant/general.json</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"welcome_message"</span><span class="token operator">:</span> <span class="token string">"你好！"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這就是 i18n 的基本原理，語言檔加上對應的 key，就可以根據不同語言顯示不同的文字。看起來雖然簡單，但 i18n 比較麻煩的事情之一就是當你有參數的時候，在這邊就先不多提了。</p>
+<p>而我們通常不會把所有翻譯都放在同一個檔案裡面，會用 namespace 去切分，至於要怎麼切就看專案，有些可能根據頁面分，有些根據使用到的地方，例如說上面提到的 general，可能就會是比較常見的、需要共用的翻譯：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// en-us/general.json</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"contact_us"</span><span class="token operator">:</span> <span class="token string">"contact us"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"close"</span><span class="token operator">:</span> <span class="token string">"close"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"try_again"</span><span class="token operator">:</span> <span class="token string">"Please try again"</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// zh-hant/general.json</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"contact_us"</span><span class="token operator">:</span> <span class="token string">"聯絡我們"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"close"</span><span class="token operator">:</span> <span class="token string">"關閉"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"try_again"</span><span class="token operator">:</span> <span class="token string">"請再試一次"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>而登入或是身份驗證相關頁面專屬的翻譯，可能會長這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// zh-hant/auth.json</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"username_error"</span><span class="token operator">:</span> <span class="token string">"使用者名稱格式錯誤"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"password_error"</span><span class="token operator">:</span> <span class="token string">"帳號或密碼輸入錯誤"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"login_success"</span><span class="token operator">:</span> <span class="token string">"登入成功！"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>把翻譯切分成不同的 namespace 的好處就在於我在瀏覽 A 頁面的時候，就不需要把 B 頁面的翻譯一起下載下來，用到哪個就下載哪個，節省資源。</p>
+<p>當一個 component 需要用到多個 namespace 的時候有幾種不同的寫法，有一種寫法會是這樣用：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">import</span> <span class="token punctuation">&#123;</span> useTranslation <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'react-i18next'</span>
+<span class="token keyword">import</span> <span class="token punctuation">&#123;</span> <span class="token constant">NS_GENERAL</span><span class="token punctuation">,</span> <span class="token constant">NS_AUTH</span> <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'@/i18n/namespaces'</span>
+
+<span class="token keyword">function</span> <span class="token function">Page</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">t</span><span class="token operator">:</span> tGeneral <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">useTranslation</span><span class="token punctuation">(</span><span class="token constant">NS_GENERAL</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">t</span><span class="token operator">:</span> tAuth <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">useTranslation</span><span class="token punctuation">(</span><span class="token constant">NS_AUTH</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token operator">&lt;</span>div<span class="token operator">></span>
+      <span class="token punctuation">&#123;</span><span class="token function">tGeneral</span><span class="token punctuation">(</span><span class="token string">'contact_us'</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span>
+      <span class="token operator">&lt;</span>p<span class="token operator">></span><span class="token punctuation">&#123;</span><span class="token function">tAuth</span><span class="token punctuation">(</span><span class="token string">'login_success'</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>p<span class="token operator">></span>
+    <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>好，第一個問題來了。</p>
+<p>當 team member 人少時，例如說只有一兩個，大家的命名會一致，比如說對於 authorization 這個 namespace，就是命名成 <code>const &#123; t: tAuthorization&#125; = useTranslation()</code>，但當人多了以後可能會有人簡寫成 <code>const &#123; t: tAuth &#125;</code>，雖然說這不是什麼大問題，但我認為同一個 codebase 裡面出現多種不同的命名狀況，能避免的話還是避免掉會比較好。</p>
+<p>那要怎麼避免呢？一種就是在 code review 的時候自己去抓出來，但這個沒什麼效益而且花時間，另一種你應該已經想到了，就是透過 ESLint！像是這種可以交給程式去做的事情，交給程式就對了。</p>
+<p>而 i18n 還有另外一個問題，那就是有時候我們工程師拿到 key 了，但是其他部門其實還沒有把這個 i18n key 新增到語言檔裡面，在畫面上就會看到裸露的 key。像這種情況，其實也可以透過 ESLint 把沒配對到的 key 抓出來，在部署前就提前知道哪些 key 是不存在的。</p>
+<p>綜合以上想法，那時候我就想寫兩個 rule：</p>
+<ol>
+<li>檢查 namespace 是不是用的 alias 都一樣</li>
+<li>檢查哪些 key 存在在程式碼裡面，卻不在語言檔裡</li>
+</ol>
+<p>想要寫一個堪用的 ESLint plugin 不難，需要的基礎知識在這一篇：<a target="_blank" rel="noopener" href="https://blog.techbridge.cc/2018/09/22/visit-ast-with-babel-plugin/">透過製作 Babel-plugin 初訪 AST</a> 都有，稍微了解一下 AST 即可，當初我也是看這一篇然後邊看邊弄的，底下我就預設大家看過這篇了，直接來講應該怎麼弄。</p>
+<h2><span id="實戰">實戰</span></h2><p>首先第一件事情就是打開我們強大的 <a target="_blank" rel="noopener" href="http://astexplorer.net/">AST Explorer</a>，在 transform 那邊選擇 ESLint，就會看到左下角自動載入了範本：</p>
+<p><img src="https://static.coderbridge.com/img/aszx87410/bf677339575647dc9bdd29cc03b4a4a2.png"></p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">context</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">TemplateLiteral</span><span class="token punctuation">(</span><span class="token parameter">node</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      context<span class="token punctuation">.</span><span class="token function">report</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+        node<span class="token punctuation">,</span>
+        <span class="token literal-property property">message</span><span class="token operator">:</span> <span class="token string">'Do not use template literals'</span><span class="token punctuation">,</span>
+
+        <span class="token function">fix</span><span class="token punctuation">(</span><span class="token parameter">fixer</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">if</span> <span class="token punctuation">(</span>node<span class="token punctuation">.</span>expressions<span class="token punctuation">.</span>length<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token comment">// Can't auto-fix template literal with expressions</span>
+            <span class="token keyword">return</span><span class="token punctuation">;</span>
+          <span class="token punctuation">&#125;</span>
+          
+          <span class="token keyword">return</span> <span class="token punctuation">[</span>
+            fixer<span class="token punctuation">.</span><span class="token function">replaceTextRange</span><span class="token punctuation">(</span><span class="token punctuation">[</span>node<span class="token punctuation">.</span>start<span class="token punctuation">,</span> node<span class="token punctuation">.</span>start <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string">'"'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+            fixer<span class="token punctuation">.</span><span class="token function">replaceTextRange</span><span class="token punctuation">(</span><span class="token punctuation">[</span>node<span class="token punctuation">.</span>end <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">,</span> node<span class="token punctuation">.</span>end<span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string">'"'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+          <span class="token punctuation">]</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>會發現 ESLint 跟 babel 其實都是一樣的，可以針對某個特定的節點去做操作，而 ESLint 是用 <code>context.report</code> 來回報錯誤，message 就是你會在 console 看到的那些錯誤，<code>fix</code> 則是給 auto fix 功能用的，這個比較複雜一點，我們先不管它。</p>
+<p>再來呢，就是在左上角先把我們的範例程式碼給寫好：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">import</span> <span class="token punctuation">&#123;</span> useTranslation <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'react-i18next'</span>
+<span class="token keyword">import</span> <span class="token punctuation">&#123;</span> <span class="token constant">NS_GENERAL</span><span class="token punctuation">,</span> <span class="token constant">NS_AUTH</span> <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'@/i18n/namespaces'</span>
+
+<span class="token keyword">function</span> <span class="token function">Page</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">t</span><span class="token operator">:</span> tGeneral <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">useTranslation</span><span class="token punctuation">(</span><span class="token constant">NS_GENERAL</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">t</span><span class="token operator">:</span> tAuth <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">useTranslation</span><span class="token punctuation">(</span><span class="token constant">NS_AUTH</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token operator">&lt;</span>div<span class="token operator">></span>
+      <span class="token punctuation">&#123;</span><span class="token function">tGeneral</span><span class="token punctuation">(</span><span class="token string">'contact_us'</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span>
+      <span class="token operator">&lt;</span>p<span class="token operator">></span><span class="token punctuation">&#123;</span><span class="token function">tAuth</span><span class="token punctuation">(</span><span class="token string">'login_success'</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>p<span class="token operator">></span>
+    <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>接著直接在右邊看 AST，我們關心的是 Variable Declarator</p>
+<p><img src="https://static.coderbridge.com/img/aszx87410/ae85c9da19b94c9da0d7687607047a17.png"></p>
+<p>再繼續往下看 AST，你會發現 <code>const &#123; t: tGeneral &#125; = useTranslation(NS_GENERAL)</code> 可以先簡單分為兩個部分，左邊的 <code>&#123;t: tGeneral&#125;</code> 跟右邊的 <code>useTranslation(NS_GENERAL)</code>。</p>
+<p>左邊是在這個 Variable Declarator node 的 id 的地方，右邊則是 init 的地方。</p>
+<p>init 點下去會看到 callee 跟 arguments</p>
+<p><img src="https://static.coderbridge.com/img/aszx87410/9f304ff5534c49df8759a1d65f169d13.png"></p>
+<p>callee.name 就是 <code>useTranslation</code>，arguments[0].name 則是 <code>NS_GENERAL</code>。</p>
+<p>而另外一邊 id 點下去可以找到 properties[0].key.name 是 <code>t</code>，properties[0].value.name 是 <code>tGeneral</code></p>
+<p>有了這些之後，其實我們想找的元素都找齊了，就可以根據 AST 的這些節點位置來寫一段基本的程式碼：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 正確的命名</span>
+<span class="token keyword">const</span> <span class="token constant">NS_RULES</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token constant">NS_GENERAL</span><span class="token operator">:</span> <span class="token string">'tGeneral'</span><span class="token punctuation">,</span>
+  <span class="token constant">NS_AUTH</span><span class="token operator">:</span> <span class="token string">'tTest'</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">context</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">VariableDeclarator</span><span class="token punctuation">(</span><span class="token parameter">node</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// 判斷是不是 useTranslation</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>node<span class="token punctuation">.</span>init<span class="token punctuation">.</span>callee<span class="token punctuation">.</span>name <span class="token operator">===</span> <span class="token string">'useTranslation'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token comment">// 抓出 namespace 跟 alias</span>
+        <span class="token keyword">const</span> ns <span class="token operator">=</span> node<span class="token punctuation">.</span>init<span class="token punctuation">.</span>arguments<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>name
+        <span class="token keyword">const</span> alias <span class="token operator">=</span> node<span class="token punctuation">.</span>id<span class="token punctuation">.</span>properties<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>value<span class="token punctuation">.</span>name
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>alias <span class="token operator">!==</span> <span class="token constant">NS_RULES</span><span class="token punctuation">[</span>ns<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          context<span class="token punctuation">.</span><span class="token function">report</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+            node<span class="token punctuation">,</span>
+            <span class="token literal-property property">message</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Wrong alias, should use </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token constant">NS_RULES</span><span class="token punctuation">[</span>ns<span class="token punctuation">]</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>結果會長這樣：</p>
+<p><img src="https://static.coderbridge.com/img/aszx87410/b14435b7cdd44b6bb206dce3cba40c72.png"></p>
+<p>其實我們只是根據 AST 上的節點內容去做簡單的判斷，但是只要做到這邊，差不多就完成八成了，上面的結果其實已經是我們要的了。</p>
+<p>但是我們的 ESLint plugin 其實太針對範例程式碼，所以只要輕輕改一下就會壞掉，例如說加一行 <code>var a</code>，就會跑出錯誤：<code>Cannot read property &#39;callee&#39; of null</code>，這是因為 <code>var a</code> 的 type 也是 <code>VariableDeclarator</code>，只是 <code>init</code> 是 null，因為 <code>init.callee</code> 就報錯了。</p>
+<p>其實這些語法可以有各種的組合，所以最後節點的長相有超級多種可能，標題之所以寫「堪用」，就是因為我不想努力了，針對 i18n 的使用場景程式碼結構都會長一樣，所以我只要針對一種就好。如果是這樣的話，只要用最新的 optional chaining 就可以避免這種存取錯誤的問題：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 正確的命名</span>
+<span class="token keyword">const</span> <span class="token constant">NS_RULES</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token constant">NS_GENERAL</span><span class="token operator">:</span> <span class="token string">'tGeneral'</span><span class="token punctuation">,</span>
+  <span class="token constant">NS_AUTH</span><span class="token operator">:</span> <span class="token string">'tTest'</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">context</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">VariableDeclarator</span><span class="token punctuation">(</span><span class="token parameter">node</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// 判斷是不是 useTranslation</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>node<span class="token punctuation">.</span>init<span class="token operator">?.</span>callee<span class="token operator">?.</span>name <span class="token operator">===</span> <span class="token string">'useTranslation'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token comment">// 抓出 namespace 跟 alias</span>
+        <span class="token keyword">const</span> ns <span class="token operator">=</span> node<span class="token punctuation">.</span>init<span class="token operator">?.</span>arguments<span class="token operator">?.</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token operator">?.</span>name
+        <span class="token keyword">const</span> alias <span class="token operator">=</span> node<span class="token punctuation">.</span>id<span class="token operator">?.</span>properties<span class="token operator">?.</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>value<span class="token operator">?.</span>name
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>alias <span class="token operator">!==</span> <span class="token constant">NS_RULES</span><span class="token punctuation">[</span>ns<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          context<span class="token punctuation">.</span><span class="token function">report</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+            node<span class="token punctuation">,</span>
+            <span class="token literal-property property">message</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Wrong alias, should use </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token constant">NS_RULES</span><span class="token punctuation">[</span>ns<span class="token punctuation">]</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>不過 AST Explorer 好像還沒支援 optional chaining 就是了。</p>
+<p>寫到這邊，其實我們的目標就已經達成了，寫出一個會幫你抓錯誤的 alias 的 ESLint rule。不過這個寫法其實有幾個缺陷，那就是我們把東西寫太死，所以結構變了就抓不出來了，例如說：</p>
+<pre class="line-numbers language-none"><code class="language-none">var a &#x3D; NS_AUTH
+const &#123; t: tAuth &#125; &#x3D; useTranslation(a)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>plugin 所抓到的 namespace 就會是 <code>a</code>，而不是 <code>NS_AUTH</code>，但如果有做好處理的話，應該是可以去找 a 的值發現是 NS_AUTH。不過前面我講過了，因為這個 i18n 使用的時候結構都會一樣，所以暫時不會碰到這種問題。</p>
+<p>另外一個找出遺漏的 key 其實也是一樣的做法，就是根據 AST 找出 function call，然後呼叫的 function 名稱是我們剛剛定義好的那些像是 t, tGeneral, tAuth 之類的，把參數取出來，就是應該要存在的 i18n key，接著去語言檔裡面找一下是否存在。</p>
+<p>簡單做個示範：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 正確的命名</span>
+<span class="token keyword">const</span> <span class="token constant">NS_RULES</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token constant">NS_GENERAL</span><span class="token operator">:</span> <span class="token string">'tGeneral'</span><span class="token punctuation">,</span>
+  <span class="token constant">NS_AUTH</span><span class="token operator">:</span> <span class="token string">'tAuth'</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// 應該從語言檔讀入</span>
+<span class="token keyword">const</span> <span class="token constant">KEYS</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">'contact'</span><span class="token punctuation">,</span> <span class="token string">'login_success'</span><span class="token punctuation">]</span>
+
+<span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">context</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">CallExpression</span><span class="token punctuation">(</span><span class="token parameter">node</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>Object<span class="token punctuation">.</span><span class="token function">values</span><span class="token punctuation">(</span><span class="token constant">NS_RULES</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>node<span class="token punctuation">.</span>callee<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token constant">KEYS</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>node<span class="token punctuation">.</span>arguments<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>value<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          context<span class="token punctuation">.</span><span class="token function">report</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+            node<span class="token punctuation">,</span>
+            <span class="token literal-property property">message</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">i18n key: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>node<span class="token punctuation">.</span>arguments<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>value<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string"> not found</span><span class="token template-punctuation string">`</span></span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>結果會長這樣：</p>
+<p><img src="https://static.coderbridge.com/img/aszx87410/33ee7bcd006c44e7995bc9884be70914.png"></p>
+<p>只要掌握 AST 的結構依樣畫葫蘆，就可以快速寫出一個簡單堪用的 ESLint plugin。</p>
+<h2><span id="結語">結語</span></h2><p>這篇寫出來的 ESLint plugin 我大概會用「簡陋」來形容，就是滿足了最低限度的需求而已，沒有 options 可以調整，也沒有對比較複雜的狀況做處理。</p>
+<p>如果你要寫一個沒那麼簡陋的 ESLint plugin，其實不是一件簡單的事，就舉 <code>no-alert</code> 為例好了，裡面需要考慮到不同狀況以及 options 的設置，原始碼在這邊：<a target="_blank" rel="noopener" href="https://github.com/eslint/eslint/blob/master/lib/rules/no-alert.js">eslint&#x2F;lib&#x2F;rules&#x2F;no-alert.js</a>。</p>
+<p>這篇算是做個小嘗試而已，先寫寫看比較針對性而且簡單的的規則來入門，未來如果還有類似的需求，可以再研究該怎麼寫得更完整。</p>
+<p>參考資料：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://dev.to/spukas/how-to-write-your-first-eslint-plugin-145">How To Write Your First ESLint Plugin</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.webiny.com/blog/create-custom-eslint-rules-in-2-minutes-e3d41cb6a9a0">Create custom ESLint rules in 2 minutes</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Front-end/">#Front-end</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2021/04/17/css-attrs/">一些不太好記卻很好用的 CSS 屬性</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2021/02/19/cors-guide-6/">CORS 完全手冊（六）：總結、後記與遺珠</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2021/03/20/en/eslint-plugin/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

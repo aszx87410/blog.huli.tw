@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Android App Reverse Engineering Part 2: Modifying Smali Code - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2023/04/27/android-apk-decompile-intro-2/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2023/04/27/en/android-apk-decompile-intro-2/">
+    
+
+
+
+
+
+    <meta name="description" content="In the first part, we learned the basics of using Apktool to decompile an APK, modify its resources, reassemble it, and install the aligned and signed APK on a device. In this part, we will learn how">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Android App Reverse Engineering Part 2: Modifying Smali Code">
+<meta property="og:url" content="https://blog.huli.tw/2023/04/27/en/android-apk-decompile-intro-2/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="In the first part, we learned the basics of using Apktool to decompile an APK, modify its resources, reassemble it, and install the aligned and signed APK on a device. In this part, we will learn how">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/android-apk-decompile-intro-2/cover-en.png">
+<meta property="article:published_time" content="2023-04-27T06:12:44.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:10:49.040Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/android-apk-decompile-intro-2/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Android App Reverse Engineering Part 2: Modifying Smali Code" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#what-is-smali">1&nbsp;&nbsp;<b>What is Smali</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#decompiling-smali-code-into-java-code-with-jadx">2&nbsp;&nbsp;<b>Decompiling Smali Code into Java Code with jadx</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#modifying-smali-code">3&nbsp;&nbsp;<b>Modifying Smali Code</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#modifying-code-in-other-places">4&nbsp;&nbsp;<b>Modifying code in other places</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#summary">5&nbsp;&nbsp;<b>Summary</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2023/04/27/android-apk-decompile-intro-2/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Android App Reverse Engineering Part 2: Modifying Smali Code
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2023-04-27T06:12:44.000Z" itemprop="datePublished">27 April 2023</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>In the first part, we learned the basics of using Apktool to decompile an APK, modify its resources, reassemble it, and install the aligned and signed APK on a device.</p>
+<p>In this part, we will learn how to modify the code.</p>
+<p>Our goal is to bypass the root detection check on a rooted device and make the app display that it is not rooted. If you are testing on a non-rooted device, you can do the opposite and modify the app to detect that you have root access.</p>
+<span id="more"></span>
+
+<p>Series links:</p>
+<ol>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-1/">Android App Reverse Engineering Part 1: Decompiling and Recompiling APKs</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-2/">Android App Reverse Engineering Part 2: Modifying Smali Code</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-3/">Android App Reverse Engineering Part 3: Intercepting App Traffic</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-4/">Android App Reverse Engineering Part 4: Dynamic Analysis with Frida</a></li>
+</ol>
+<h2><span id="what-is-smali">What is Smali</span></h2><p>In the content we decompiled using <code>apktool d</code>, there is a folder called <code>smali</code>, which contains the code that was decompiled from <code>classes.dex</code>. However, this code may not look like what you expect. For example, let’s take a look at <code>smali/com/cymetrics/demo/MainActivity.smali</code>:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token punctuation">.</span><span class="token keyword">class</span> <span class="token keyword">public</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>cymetrics<span class="token operator">/</span>demo<span class="token operator">/</span><span class="token class-name">MainActivity</span><span class="token punctuation">;</span>
+<span class="token punctuation">.</span><span class="token keyword">super</span> <span class="token class-name">Landroidx</span><span class="token operator">/</span>appcompat<span class="token operator">/</span>app<span class="token operator">/</span><span class="token class-name">AppCompatActivity</span><span class="token punctuation">;</span>
+<span class="token punctuation">.</span>source <span class="token string">"MainActivity.java"</span>
+
+
+# direct methods
+<span class="token punctuation">.</span>method <span class="token keyword">public</span> constructor <span class="token generics"><span class="token punctuation">&lt;</span>init<span class="token punctuation">></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+    <span class="token punctuation">.</span>locals <span class="token number">0</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">16</span>
+    invoke<span class="token operator">-</span>direct <span class="token punctuation">&#123;</span>p0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroidx</span><span class="token operator">/</span>appcompat<span class="token operator">/</span>app<span class="token operator">/</span><span class="token class-name">AppCompatActivity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token generics"><span class="token punctuation">&lt;</span>init<span class="token punctuation">></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token keyword">return</span><span class="token operator">-</span><span class="token keyword">void</span>
+<span class="token punctuation">.</span>end method
+
+
+# virtual methods
+<span class="token punctuation">.</span>method <span class="token keyword">protected</span> <span class="token function">onCreate</span><span class="token punctuation">(</span><span class="token class-name">Landroid</span><span class="token operator">/</span>os<span class="token operator">/</span><span class="token class-name">Bundle</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+    <span class="token punctuation">.</span>locals <span class="token number">1</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">20</span>
+    invoke<span class="token operator">-</span><span class="token keyword">super</span> <span class="token punctuation">&#123;</span>p0<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroidx</span><span class="token operator">/</span>appcompat<span class="token operator">/</span>app<span class="token operator">/</span><span class="token class-name">AppCompatActivity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">onCreate</span><span class="token punctuation">(</span><span class="token class-name">Landroid</span><span class="token operator">/</span>os<span class="token operator">/</span><span class="token class-name">Bundle</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token keyword">const</span> p1<span class="token punctuation">,</span> <span class="token number">0x7f0b001c</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">21</span>
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>cymetrics<span class="token operator">/</span>demo<span class="token operator">/</span><span class="token class-name">MainActivity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">setContentView</span><span class="token punctuation">(</span><span class="token class-name">I</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token keyword">const</span> p1<span class="token punctuation">,</span> <span class="token number">0x7f080122</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">22</span>
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>cymetrics<span class="token operator">/</span>demo<span class="token operator">/</span><span class="token class-name">MainActivity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">findViewById</span><span class="token punctuation">(</span><span class="token class-name">I</span><span class="token punctuation">)</span><span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">View</span><span class="token punctuation">;</span>
+
+    move<span class="token operator">-</span>result<span class="token operator">-</span>object p1
+
+    check<span class="token operator">-</span>cast p1<span class="token punctuation">,</span> <span class="token class-name">Landroidx</span><span class="token operator">/</span>appcompat<span class="token operator">/</span>widget<span class="token operator">/</span><span class="token class-name">Toolbar</span><span class="token punctuation">;</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">23</span>
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>cymetrics<span class="token operator">/</span>demo<span class="token operator">/</span><span class="token class-name">MainActivity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">setSupportActionBar</span><span class="token punctuation">(</span><span class="token class-name">Landroidx</span><span class="token operator">/</span>appcompat<span class="token operator">/</span>widget<span class="token operator">/</span><span class="token class-name">Toolbar</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token keyword">const</span> p1<span class="token punctuation">,</span> <span class="token number">0x7f08007a</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">25</span>
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>cymetrics<span class="token operator">/</span>demo<span class="token operator">/</span><span class="token class-name">MainActivity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">findViewById</span><span class="token punctuation">(</span><span class="token class-name">I</span><span class="token punctuation">)</span><span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">View</span><span class="token punctuation">;</span>
+
+    move<span class="token operator">-</span>result<span class="token operator">-</span>object p1
+
+    check<span class="token operator">-</span>cast p1<span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>google<span class="token operator">/</span>android<span class="token operator">/</span>material<span class="token operator">/</span>floatingactionbutton<span class="token operator">/</span><span class="token class-name">FloatingActionButton</span><span class="token punctuation">;</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">26</span>
+    <span class="token keyword">new</span><span class="token operator">-</span>instance v0<span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>cymetrics<span class="token operator">/</span>demo<span class="token operator">/</span><span class="token class-name">MainActivity</span>$<span class="token number">1</span><span class="token punctuation">;</span>
+
+    invoke<span class="token operator">-</span>direct <span class="token punctuation">&#123;</span>v0<span class="token punctuation">,</span> p0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>cymetrics<span class="token operator">/</span>demo<span class="token operator">/</span><span class="token class-name">MainActivity</span>$<span class="token number">1</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token generics"><span class="token punctuation">&lt;</span>init<span class="token punctuation">></span></span><span class="token punctuation">(</span><span class="token class-name">Lcom</span><span class="token operator">/</span>cymetrics<span class="token operator">/</span>demo<span class="token operator">/</span><span class="token class-name">MainActivity</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p1<span class="token punctuation">,</span> v0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>google<span class="token operator">/</span>android<span class="token operator">/</span>material<span class="token operator">/</span>floatingactionbutton<span class="token operator">/</span><span class="token class-name">FloatingActionButton</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">setOnClickListener</span><span class="token punctuation">(</span><span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">View</span>$<span class="token class-name">OnClickListener</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token keyword">return</span><span class="token operator">-</span><span class="token keyword">void</span>
+<span class="token punctuation">.</span>end method
+
+<span class="token punctuation">.</span>method <span class="token keyword">public</span> <span class="token function">onCreateOptionsMenu</span><span class="token punctuation">(</span><span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">Menu</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+    <span class="token punctuation">.</span>locals <span class="token number">2</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">38</span>
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>cymetrics<span class="token operator">/</span>demo<span class="token operator">/</span><span class="token class-name">MainActivity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">getMenuInflater</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">MenuInflater</span><span class="token punctuation">;</span>
+
+    move<span class="token operator">-</span>result<span class="token operator">-</span>object v0
+
+    <span class="token keyword">const</span><span class="token operator">/</span>high16 v1<span class="token punctuation">,</span> <span class="token number">0x7f0c0000</span>
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>v0<span class="token punctuation">,</span> v1<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">MenuInflater</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">inflate</span><span class="token punctuation">(</span><span class="token class-name">ILandroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">Menu</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token keyword">const</span><span class="token operator">/</span><span class="token number">4</span> p1<span class="token punctuation">,</span> <span class="token number">0x1</span>
+
+    <span class="token keyword">return</span> p1
+<span class="token punctuation">.</span>end method
+
+<span class="token punctuation">.</span>method <span class="token keyword">public</span> <span class="token function">onOptionsItemSelected</span><span class="token punctuation">(</span><span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">MenuItem</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+    <span class="token punctuation">.</span>locals <span class="token number">2</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">47</span>
+    invoke<span class="token operator">-</span><span class="token keyword">interface</span> <span class="token punctuation">&#123;</span>p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">MenuItem</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">getItemId</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">I</span>
+
+    move<span class="token operator">-</span>result v0
+
+    <span class="token keyword">const</span> v1<span class="token punctuation">,</span> <span class="token number">0x7f08003f</span>
+
+    <span class="token keyword">if</span><span class="token operator">-</span>ne v0<span class="token punctuation">,</span> v1<span class="token punctuation">,</span> <span class="token operator">:</span>cond_0
+
+    <span class="token keyword">const</span><span class="token operator">/</span><span class="token number">4</span> p1<span class="token punctuation">,</span> <span class="token number">0x1</span>
+
+    <span class="token keyword">return</span> p1
+
+    <span class="token punctuation">.</span>line <span class="token number">54</span>
+    <span class="token operator">:</span>cond_0
+    invoke<span class="token operator">-</span><span class="token keyword">super</span> <span class="token punctuation">&#123;</span>p0<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroidx</span><span class="token operator">/</span>appcompat<span class="token operator">/</span>app<span class="token operator">/</span><span class="token class-name">AppCompatActivity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">onOptionsItemSelected</span><span class="token punctuation">(</span><span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">MenuItem</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+    move<span class="token operator">-</span>result p1
+
+    <span class="token keyword">return</span> p1
+<span class="token punctuation">.</span>end method
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>If you find it hard to read, that’s normal.</p>
+<p>Smali is the byte code that runs on the Android Dalvik VM and has its own syntax rules. To see the Java code we are familiar with, we need to decompile the Smali code back into Java.</p>
+<h2><span id="decompiling-smali-code-into-java-code-with-jadx">Decompiling Smali Code into Java Code with jadx</span></h2><p>Next, we will use another tool: <a target="_blank" rel="noopener" href="https://github.com/skylot/jadx">jadx</a>, which describes itself on GitHub as a “Dex to Java decompiler.”</p>
+<p>I will skip the installation process, and we will use jadx to decompile the APK:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># -r means don't decompile resources</span>
+<span class="token comment"># -d is for destination</span>
+jadx <span class="token parameter variable">-r</span> demoapp.apk <span class="token parameter variable">-d</span> jadx-demoapp<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>After running the command, we will see a new folder called <code>jadx-demoapp</code>. We can navigate to <code>sources/com/cymetrics/demo/MainActivity.java</code> and see the following content:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token keyword">package</span> <span class="token namespace">com<span class="token punctuation">.</span>cymetrics<span class="token punctuation">.</span>demo</span><span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">android<span class="token punctuation">.</span>os<span class="token punctuation">.</span></span><span class="token class-name">Bundle</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">android<span class="token punctuation">.</span>view<span class="token punctuation">.</span></span><span class="token class-name">Menu</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">android<span class="token punctuation">.</span>view<span class="token punctuation">.</span></span><span class="token class-name">MenuItem</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">android<span class="token punctuation">.</span>view<span class="token punctuation">.</span></span><span class="token class-name">View</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">androidx<span class="token punctuation">.</span>appcompat<span class="token punctuation">.</span>app<span class="token punctuation">.</span></span><span class="token class-name">AppCompatActivity</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">androidx<span class="token punctuation">.</span>appcompat<span class="token punctuation">.</span>widget<span class="token punctuation">.</span></span><span class="token class-name">Toolbar</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">com<span class="token punctuation">.</span>google<span class="token punctuation">.</span>android<span class="token punctuation">.</span>material<span class="token punctuation">.</span>floatingactionbutton<span class="token punctuation">.</span></span><span class="token class-name">FloatingActionButton</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">com<span class="token punctuation">.</span>google<span class="token punctuation">.</span>android<span class="token punctuation">.</span>material<span class="token punctuation">.</span>snackbar<span class="token punctuation">.</span></span><span class="token class-name">Snackbar</span></span><span class="token punctuation">;</span>
+<span class="token comment">/* loaded from: classes.dex */</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">MainActivity</span> <span class="token keyword">extends</span> <span class="token class-name">AppCompatActivity</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">/* JADX INFO: Access modifiers changed from: protected */</span>
+    <span class="token annotation punctuation">@Override</span> <span class="token comment">// androidx.appcompat.app.AppCompatActivity, androidx.fragment.app.FragmentActivity, androidx.activity.ComponentActivity, androidx.core.app.ComponentActivity, android.app.Activity</span>
+    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">onCreate</span><span class="token punctuation">(</span><span class="token class-name">Bundle</span> bundle<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">super</span><span class="token punctuation">.</span><span class="token function">onCreate</span><span class="token punctuation">(</span>bundle<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">setContentView</span><span class="token punctuation">(</span><span class="token class-name">R</span><span class="token punctuation">.</span>layout<span class="token punctuation">.</span>activity_main<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">setSupportActionBar</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token class-name">Toolbar</span><span class="token punctuation">)</span> <span class="token function">findViewById</span><span class="token punctuation">(</span><span class="token class-name">R</span><span class="token punctuation">.</span>id<span class="token punctuation">.</span>toolbar<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token class-name">FloatingActionButton</span><span class="token punctuation">)</span> <span class="token function">findViewById</span><span class="token punctuation">(</span><span class="token class-name">R</span><span class="token punctuation">.</span>id<span class="token punctuation">.</span>fab<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">setOnClickListener</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">View<span class="token punctuation">.</span>OnClickListener</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span> <span class="token comment">// from class: com.cymetrics.demo.MainActivity.1</span>
+            <span class="token annotation punctuation">@Override</span> <span class="token comment">// android.view.View.OnClickListener</span>
+            <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">onClick</span><span class="token punctuation">(</span><span class="token class-name">View</span> view<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                <span class="token class-name">Snackbar</span><span class="token punctuation">.</span><span class="token function">make</span><span class="token punctuation">(</span>view<span class="token punctuation">,</span> <span class="token string">"Replace with your own action"</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">setAction</span><span class="token punctuation">(</span><span class="token string">"Action"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token class-name">View<span class="token punctuation">.</span>OnClickListener</span><span class="token punctuation">)</span> <span class="token keyword">null</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">show</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token annotation punctuation">@Override</span> <span class="token comment">// android.app.Activity</span>
+    <span class="token keyword">public</span> <span class="token keyword">boolean</span> <span class="token function">onCreateOptionsMenu</span><span class="token punctuation">(</span><span class="token class-name">Menu</span> menu<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">getMenuInflater</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">inflate</span><span class="token punctuation">(</span><span class="token class-name">R</span><span class="token punctuation">.</span>menu<span class="token punctuation">.</span>menu_main<span class="token punctuation">,</span> menu<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token annotation punctuation">@Override</span> <span class="token comment">// android.app.Activity</span>
+    <span class="token keyword">public</span> <span class="token keyword">boolean</span> <span class="token function">onOptionsItemSelected</span><span class="token punctuation">(</span><span class="token class-name">MenuItem</span> menuItem<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>menuItem<span class="token punctuation">.</span><span class="token function">getItemId</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token class-name">R</span><span class="token punctuation">.</span>id<span class="token punctuation">.</span>action_settings<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">return</span> <span class="token keyword">super</span><span class="token punctuation">.</span><span class="token function">onOptionsItemSelected</span><span class="token punctuation">(</span>menuItem<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This is the content we want to see! Since this APK has not been obfuscated, we can see almost the entire Java file, which is not much different from the original source code.</p>
+<p>To briefly explain obfuscation, it is the process of scrambling the code to make it difficult for people to see what the original code was. For example, changing variable names to meaningless names like aa, bb, cc, dd is the most basic form of obfuscation. In Android development, ProGuard is usually used to obfuscate code.</p>
+<p>The code above is obviously not obfuscated, making it easy for us to see the original logic.</p>
+<p>The code we want to modify is in <code>com/cymetrics/demo/FirstFragment.java</code>:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token keyword">package</span> <span class="token namespace">com<span class="token punctuation">.</span>cymetrics<span class="token punctuation">.</span>demo</span><span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">android<span class="token punctuation">.</span>os<span class="token punctuation">.</span></span><span class="token class-name">Bundle</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">android<span class="token punctuation">.</span>view<span class="token punctuation">.</span></span><span class="token class-name">LayoutInflater</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">android<span class="token punctuation">.</span>view<span class="token punctuation">.</span></span><span class="token class-name">View</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">android<span class="token punctuation">.</span>view<span class="token punctuation">.</span></span><span class="token class-name">ViewGroup</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">android<span class="token punctuation">.</span>widget<span class="token punctuation">.</span></span><span class="token class-name">TextView</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">androidx<span class="token punctuation">.</span>fragment<span class="token punctuation">.</span>app<span class="token punctuation">.</span></span><span class="token class-name">Fragment</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">com<span class="token punctuation">.</span>scottyab<span class="token punctuation">.</span>rootbeer<span class="token punctuation">.</span></span><span class="token class-name">RootBeer</span></span><span class="token punctuation">;</span>
+<span class="token comment">/* loaded from: classes.dex */</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">FirstFragment</span> <span class="token keyword">extends</span> <span class="token class-name">Fragment</span> <span class="token punctuation">&#123;</span>
+    <span class="token annotation punctuation">@Override</span> <span class="token comment">// androidx.fragment.app.Fragment</span>
+    <span class="token keyword">public</span> <span class="token class-name">View</span> <span class="token function">onCreateView</span><span class="token punctuation">(</span><span class="token class-name">LayoutInflater</span> layoutInflater<span class="token punctuation">,</span> <span class="token class-name">ViewGroup</span> viewGroup<span class="token punctuation">,</span> <span class="token class-name">Bundle</span> bundle<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> layoutInflater<span class="token punctuation">.</span><span class="token function">inflate</span><span class="token punctuation">(</span><span class="token class-name">R</span><span class="token punctuation">.</span>layout<span class="token punctuation">.</span>fragment_first<span class="token punctuation">,</span> viewGroup<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token annotation punctuation">@Override</span> <span class="token comment">// androidx.fragment.app.Fragment</span>
+    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">onViewCreated</span><span class="token punctuation">(</span><span class="token class-name">View</span> view<span class="token punctuation">,</span> <span class="token class-name">Bundle</span> bundle<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">super</span><span class="token punctuation">.</span><span class="token function">onViewCreated</span><span class="token punctuation">(</span>view<span class="token punctuation">,</span> bundle<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        view<span class="token punctuation">.</span><span class="token function">findViewById</span><span class="token punctuation">(</span><span class="token class-name">R</span><span class="token punctuation">.</span>id<span class="token punctuation">.</span>button_first<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">setOnClickListener</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">View<span class="token punctuation">.</span>OnClickListener</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span> <span class="token comment">// from class: com.cymetrics.demo.FirstFragment.1</span>
+            <span class="token annotation punctuation">@Override</span> <span class="token comment">// android.view.View.OnClickListener</span>
+            <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">onClick</span><span class="token punctuation">(</span><span class="token class-name">View</span> view2<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                <span class="token class-name">TextView</span> textView <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token class-name">TextView</span><span class="token punctuation">)</span> view2<span class="token punctuation">.</span><span class="token function">getRootView</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">findViewById</span><span class="token punctuation">(</span><span class="token class-name">R</span><span class="token punctuation">.</span>id<span class="token punctuation">.</span>textview_first<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">RootBeer</span><span class="token punctuation">(</span>view2<span class="token punctuation">.</span><span class="token function">getContext</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">isRooted</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                    textView<span class="token punctuation">.</span><span class="token function">setText</span><span class="token punctuation">(</span><span class="token string">"Rooted!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+                    textView<span class="token punctuation">.</span><span class="token function">setText</span><span class="token punctuation">(</span><span class="token string">"Safe, not rooted"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The main logic is in this section:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">onClick</span><span class="token punctuation">(</span><span class="token class-name">View</span> view2<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token class-name">TextView</span> textView <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token class-name">TextView</span><span class="token punctuation">)</span> view2<span class="token punctuation">.</span><span class="token function">getRootView</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">findViewById</span><span class="token punctuation">(</span><span class="token class-name">R</span><span class="token punctuation">.</span>id<span class="token punctuation">.</span>textview_first<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">RootBeer</span><span class="token punctuation">(</span>view2<span class="token punctuation">.</span><span class="token function">getContext</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">isRooted</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        textView<span class="token punctuation">.</span><span class="token function">setText</span><span class="token punctuation">(</span><span class="token string">"Rooted!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+        textView<span class="token punctuation">.</span><span class="token function">setText</span><span class="token punctuation">(</span><span class="token string">"Safe, not rooted"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This section calls a third-party library to check for root access. If root access is detected, it displays “Rooted!” Otherwise, it displays “Safe, not rooted.”</p>
+<p>When studying the code logic, we can look at the Java code. However, if we want to modify the code, it is not as simple as modifying the Java code. We must modify the Smali code directly to repackage the app.</p>
+<h2><span id="modifying-smali-code">Modifying Smali Code</span></h2><p>Do you remember the folder we extracted using Apktool? The Smali code is in there, and the path is <code>smali/com/cymetrics/demo/FirstFragment$1.smali</code>. If we carefully examine the content, we can find the <code>onClick</code> code:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"># virtual methods
+<span class="token punctuation">.</span>method <span class="token keyword">public</span> <span class="token function">onClick</span><span class="token punctuation">(</span><span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">View</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+    <span class="token punctuation">.</span>locals <span class="token number">2</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">32</span>
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">View</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">getRootView</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">View</span><span class="token punctuation">;</span>
+
+    move<span class="token operator">-</span>result<span class="token operator">-</span>object v0
+
+    <span class="token keyword">const</span> v1<span class="token punctuation">,</span> <span class="token number">0x7f08011c</span>
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>v0<span class="token punctuation">,</span> v1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">View</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">findViewById</span><span class="token punctuation">(</span><span class="token class-name">I</span><span class="token punctuation">)</span><span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">View</span><span class="token punctuation">;</span>
+
+    move<span class="token operator">-</span>result<span class="token operator">-</span>object v0
+
+    check<span class="token operator">-</span>cast v0<span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>widget<span class="token operator">/</span><span class="token class-name">TextView</span><span class="token punctuation">;</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">34</span>
+    <span class="token keyword">new</span><span class="token operator">-</span>instance v1<span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span>
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">View</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">getContext</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Landroid</span><span class="token operator">/</span>content<span class="token operator">/</span><span class="token class-name">Context</span><span class="token punctuation">;</span>
+
+    move<span class="token operator">-</span>result<span class="token operator">-</span>object p1
+
+    invoke<span class="token operator">-</span>direct <span class="token punctuation">&#123;</span>v1<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token generics"><span class="token punctuation">&lt;</span>init<span class="token punctuation">></span></span><span class="token punctuation">(</span><span class="token class-name">Landroid</span><span class="token operator">/</span>content<span class="token operator">/</span><span class="token class-name">Context</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">35</span>
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>v1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">isRooted</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+    move<span class="token operator">-</span>result p1
+
+    <span class="token keyword">if</span><span class="token operator">-</span>eqz p1<span class="token punctuation">,</span> <span class="token operator">:</span>cond_0
+
+    <span class="token keyword">const</span><span class="token operator">-</span>string p1<span class="token punctuation">,</span> <span class="token string">"Rooted!"</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">36</span>
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>v0<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>widget<span class="token operator">/</span><span class="token class-name">TextView</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">setText</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">CharSequence</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token keyword">goto</span> <span class="token operator">:</span>goto_0
+
+    <span class="token operator">:</span>cond_0
+    <span class="token keyword">const</span><span class="token operator">-</span>string p1<span class="token punctuation">,</span> <span class="token string">"Safe, not rooted"</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">38</span>
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>v0<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>widget<span class="token operator">/</span><span class="token class-name">TextView</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">setText</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">CharSequence</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token operator">:</span>goto_0
+    <span class="token keyword">return</span><span class="token operator">-</span><span class="token keyword">void</span>
+<span class="token punctuation">.</span>end method<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This is a brief explanation of some basic smali syntax. <code>.method public onClick(Landroid/view/View;)V</code> means that there is a public method called onClick, which takes a parameter of type <code>android/view/View</code>, and the V at the end of the parentheses means void, indicating that there is no return value.</p>
+<p><code>.locals 2</code> means that this function will use two registers, v0 and v1. If you use v2, it will cause an error. Therefore, if you need more registers, remember to change this part.</p>
+<p>The parameter is represented by p. Usually, p0 represents this, and p1 is the first parameter. Therefore, <code>invoke-virtual &#123;p1&#125;, Landroid/view/View;-&gt;getRootView()Landroid/view/View;</code> calls the <code>getRootView()</code> method with the first parameter.</p>
+<p>The core code in this section is:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token punctuation">.</span>line <span class="token number">35</span>
+invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>v1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">isRooted</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+move<span class="token operator">-</span>result p1
+
+<span class="token keyword">if</span><span class="token operator">-</span>eqz p1<span class="token punctuation">,</span> <span class="token operator">:</span>cond_0
+
+<span class="token keyword">const</span><span class="token operator">-</span>string p1<span class="token punctuation">,</span> <span class="token string">"Rooted!"</span>
+
+<span class="token punctuation">.</span>line <span class="token number">36</span>
+invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>v0<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>widget<span class="token operator">/</span><span class="token class-name">TextView</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">setText</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">CharSequence</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+<span class="token keyword">goto</span> <span class="token operator">:</span>goto_0
+
+<span class="token operator">:</span>cond_0
+<span class="token keyword">const</span><span class="token operator">-</span>string p1<span class="token punctuation">,</span> <span class="token string">"Safe, not rooted"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>if-eqz p1, :cond_0</code> means that if p1 is 0, it will jump to <code>:cond_0</code>, and p1 is the return value of <code>RootBeer-&gt;isRooted()</code>. That is to say, p1 represents the result of the root check, and as long as p1 is changed, different results can be forged.</p>
+<p>There are many ways to change it. For example, changing the original <code>if-eqz</code> to <code>if-nez</code> can reverse the logic, or we can directly change p1 to 0 and add a log to confirm that we have executed here:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token punctuation">.</span>line <span class="token number">35</span>
+invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>v1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">isRooted</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+move<span class="token operator">-</span>result p1
+
+# add log<span class="token punctuation">,</span> print <span class="token string">"we are here"</span>
+<span class="token keyword">const</span><span class="token operator">-</span>string v1<span class="token punctuation">,</span> <span class="token string">"we are here"</span>
+invoke<span class="token operator">-</span><span class="token keyword">static</span> <span class="token punctuation">&#123;</span>v1<span class="token punctuation">,</span> v1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>util<span class="token operator">/</span><span class="token class-name">Log</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">e</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">I</span>
+
+# set p1 <span class="token keyword">to</span> <span class="token number">0</span>
+<span class="token keyword">const</span><span class="token operator">/</span><span class="token number">4</span> p1<span class="token punctuation">,</span> <span class="token number">0x0</span>
+
+<span class="token keyword">if</span><span class="token operator">-</span>eqz p1<span class="token punctuation">,</span> <span class="token operator">:</span>cond_0
+
+<span class="token keyword">const</span><span class="token operator">-</span>string p1<span class="token punctuation">,</span> <span class="token string">"Rooted!"</span>
+
+<span class="token punctuation">.</span>line <span class="token number">36</span>
+invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>v0<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>widget<span class="token operator">/</span><span class="token class-name">TextView</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">setText</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">CharSequence</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+<span class="token keyword">goto</span> <span class="token operator">:</span>goto_0
+
+<span class="token operator">:</span>cond_0
+<span class="token keyword">const</span><span class="token operator">-</span>string p1<span class="token punctuation">,</span> <span class="token string">"Safe, not rooted"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>After adding those three lines, save it, then repack it as mentioned in the previous article, install it on the phone, and check the log.</p>
+<p>To view Android’s log, you need to use the <code>adb logcat</code> command. However, if you enter this command directly, a lot of logs will be displayed. Here are two useful commands.</p>
+<p>The first is <code>adb logcat -c</code>, which clears the previous log. The second is:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">adb logcat <span class="token parameter variable">--pid</span><span class="token operator">=</span><span class="token variable"><span class="token variable">`</span>adb shell pidof <span class="token parameter variable">-s</span> com.cymetrics.demo<span class="token variable">`</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>This can display logs of the specified package name and exclude other noise, which is really useful.</p>
+<p>After preparation, click the <code>CHECK ROOT</code> button in the app, and you will see a new log:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">01-25 09:32:06.528 <span class="token number">27651</span> <span class="token number">27651</span> E we are here: we are here<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>And the words <code>Safe, not rooted</code> on the screen, which means we have succeeded.</p>
+<h2><span id="modifying-code-in-other-places">Modifying code in other places</span></h2><p>We just modified the code in the fragment, which is the logic of the program, and replaced the return value of <code>isRooted()</code> to always be false, bypassing the check.</p>
+<p>But if there are other places in the program that will do similar checks, it will be troublesome because we must find every place that does the check and do similar things to change each one.</p>
+<p>Therefore, a more efficient method is to directly modify the code of this third-party library to make <code>isRooted</code> always return false. This way, even if the app checks in multiple places, they will all be bypassed.</p>
+<p>The code when calling the function is <code>Lcom/scottyab/rootbeer/RootBeer;-&gt;isRooted()</code>, so we can find this file by searching for <code>com/scottyab/rootbeer/RootBeer.smali</code> and searching for <code>isRooted</code> to find the code:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token punctuation">.</span>method <span class="token keyword">public</span> <span class="token function">isRooted</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+    <span class="token punctuation">.</span>locals <span class="token number">1</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">44</span>
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">detectRootManagementApps</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+    move<span class="token operator">-</span>result v0
+
+    <span class="token keyword">if</span><span class="token operator">-</span>nez v0<span class="token punctuation">,</span> <span class="token operator">:</span>cond_1
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">detectPotentiallyDangerousApps</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+    move<span class="token operator">-</span>result v0
+
+    <span class="token keyword">if</span><span class="token operator">-</span>nez v0<span class="token punctuation">,</span> <span class="token operator">:</span>cond_1
+
+    <span class="token keyword">const</span><span class="token operator">-</span>string v0<span class="token punctuation">,</span> <span class="token string">"su"</span>
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">,</span> v0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">checkForBinary</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+    move<span class="token operator">-</span>result v0
+
+    <span class="token keyword">if</span><span class="token operator">-</span>nez v0<span class="token punctuation">,</span> <span class="token operator">:</span>cond_1
+
+    <span class="token punctuation">.</span>line <span class="token number">45</span>
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">checkForDangerousProps</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+    move<span class="token operator">-</span>result v0
+
+    <span class="token keyword">if</span><span class="token operator">-</span>nez v0<span class="token punctuation">,</span> <span class="token operator">:</span>cond_1
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">checkForRWPaths</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+    move<span class="token operator">-</span>result v0
+
+    <span class="token keyword">if</span><span class="token operator">-</span>nez v0<span class="token punctuation">,</span> <span class="token operator">:</span>cond_1
+
+    <span class="token punctuation">.</span>line <span class="token number">46</span>
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">detectTestKeys</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+    move<span class="token operator">-</span>result v0
+
+    <span class="token keyword">if</span><span class="token operator">-</span>nez v0<span class="token punctuation">,</span> <span class="token operator">:</span>cond_1
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">checkSuExists</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+    move<span class="token operator">-</span>result v0
+
+    <span class="token keyword">if</span><span class="token operator">-</span>nez v0<span class="token punctuation">,</span> <span class="token operator">:</span>cond_1
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">checkForRootNative</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+    move<span class="token operator">-</span>result v0
+
+    <span class="token keyword">if</span><span class="token operator">-</span>nez v0<span class="token punctuation">,</span> <span class="token operator">:</span>cond_1
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lcom</span><span class="token operator">/</span>scottyab<span class="token operator">/</span>rootbeer<span class="token operator">/</span><span class="token class-name">RootBeer</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">checkForMagiskBinary</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+
+    move<span class="token operator">-</span>result v0
+
+    <span class="token keyword">if</span><span class="token operator">-</span>eqz v0<span class="token punctuation">,</span> <span class="token operator">:</span>cond_0
+
+    <span class="token keyword">goto</span> <span class="token operator">:</span>goto_0
+
+    <span class="token operator">:</span>cond_0
+    <span class="token keyword">const</span><span class="token operator">/</span><span class="token number">4</span> v0<span class="token punctuation">,</span> <span class="token number">0x0</span>
+
+    <span class="token keyword">goto</span> <span class="token operator">:</span>goto_1
+
+    <span class="token operator">:</span>cond_1
+    <span class="token operator">:</span>goto_0
+    <span class="token keyword">const</span><span class="token operator">/</span><span class="token number">4</span> v0<span class="token punctuation">,</span> <span class="token number">0x1</span>
+
+    <span class="token operator">:</span>goto_1
+    <span class="token keyword">return</span> v0
+<span class="token punctuation">.</span>end method<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Patching this function is very simple. We just make it always return false:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token punctuation">.</span>method <span class="token keyword">public</span> <span class="token function">isRooted</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">Z</span>
+    <span class="token punctuation">.</span>locals <span class="token number">1</span>
+    
+    # always returns <span class="token boolean">false</span>
+    <span class="token keyword">const</span><span class="token operator">/</span><span class="token number">4</span> v0<span class="token punctuation">,</span> <span class="token number">0x0</span>
+    <span class="token keyword">return</span> v0
+    
+    # 以下省略<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+<span class="token punctuation">.</span>end method<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>After that, repack it and install it on the phone as before, and you will see the bypassed result.</p>
+<h2><span id="summary">Summary</span></h2><p>In this article, we learned how to read basic smali code and modify it, and how to use <code>adb logcat</code> to view Android app logs. We also modified smali practically, reversed the original logic, and bypassed the root check of the app.</p>
+<p>Adding logs is a method that I think seems stupid and inefficient, but it is very useful. It is like adding a lot of <code>console.log</code> when writing code with errors to confirm that the execution flow of the program matches our expectations, which is helpful for restoring logic.</p>
+<p>Finally, I only briefly mentioned smali in this article. If you want to learn more about smali syntax, you can refer to the following articles:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/9931a1e77066">Android Reverse Basics: Smali Syntax</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/chenrunhua/article/details/41250613">APK Decompilation 1: Basic Knowledge-Smali File Reading</a></li>
+</ol>
+<p>In the next article, I will introduce how to monitor the requests and responses sent by the app to help us understand the communication between the app and the API server.</p>
+<p>Series links:</p>
+<ol>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-1/">Android App Reverse Engineering Part 1: Decompiling and Rebuilding APKs</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-2/">Android App Reverse Engineering Part 2: Modifying Smali Code</a> - You are here</li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-3/">Android App Reverse Engineering Part 3: Monitoring App Packets</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-4/">Android App Reverse Engineering Part 4: Dynamic Analysis with Frida</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2023/04/27/en/android-apk-decompile-intro-3/">Android App Reverse Engineering Part 3: Monitoring App Packets</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2023/04/27/en/android-apk-decompile-intro-1/">Android App Reverse Engineering Part 1: Decompiling and Rebuilding APKs</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2023/04/27/android-apk-decompile-intro-2/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

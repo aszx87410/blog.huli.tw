@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>Medium 爬蟲進化史 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2019/07/12/en/medium-crawler/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2019/07/12/medium-crawler/">
+    
+
+
+
+
+
+    <meta name="description" content="前言前幾天的時候我在 Medium 上發了這篇文：Medium 中文寫作者追蹤人數排名與不專業數據分析，內文是我用 Node.js 寫了一個簡單的 Medium 爬蟲之後整理出來的數據。 在原本那篇文章裡面有簡單提到爬蟲的資料來源，但是對技術的部分沒有太多著墨。事實上，在寫 Medium 爬蟲的時候其實踩了一些坑，與其教大家寫一個 Medium 爬蟲，不如讓大家跟我一起走過這些坑，盡可能地還原我當">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Medium 爬蟲進化史">
+<meta property="og:url" content="https://blog.huli.tw/2019/07/12/medium-crawler/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言前幾天的時候我在 Medium 上發了這篇文：Medium 中文寫作者追蹤人數排名與不專業數據分析，內文是我用 Node.js 寫了一個簡單的 Medium 爬蟲之後整理出來的數據。 在原本那篇文章裡面有簡單提到爬蟲的資料來源，但是對技術的部分沒有太多著墨。事實上，在寫 Medium 爬蟲的時候其實踩了一些坑，與其教大家寫一個 Medium 爬蟲，不如讓大家跟我一起走過這些坑，盡可能地還原我當">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/61093603-2e954300-a400-11e9-9e70-acd06b97a6a8.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/61093614-3654e780-a400-11e9-96c3-8434cde2eef2.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/61093619-3c4ac880-a400-11e9-8b19-1f91c330551f.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/61093627-440a6d00-a400-11e9-9489-1eb6b1e49d62.png">
+<meta property="article:published_time" content="2019-07-12T12:10:00.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.486Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Others">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://user-images.githubusercontent.com/2755720/61093603-2e954300-a400-11e9-9e70-acd06b97a6a8.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Medium 爬蟲進化史" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#第一次嘗試尋找資料來源">2&nbsp;&nbsp;<b>第一次嘗試：尋找資料來源</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#第二次嘗試puppeteer">3&nbsp;&nbsp;<b>第二次嘗試：puppeteer</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#第三次嘗試puppeteer-api">4&nbsp;&nbsp;<b>第三次嘗試：puppeteer + API</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#第四次嘗試google-大神">5&nbsp;&nbsp;<b>第四次嘗試：Google 大神</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#爬蟲架構">6&nbsp;&nbsp;<b>爬蟲架構</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#users">6.1&nbsp;&nbsp;Users</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#queue">6.2&nbsp;&nbsp;Queue</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#第一版爬蟲">7&nbsp;&nbsp;<b>第一版爬蟲</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#第二版爬蟲判斷中文">8&nbsp;&nbsp;<b>第二版爬蟲：判斷中文</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#第三版爬蟲判斷日文">9&nbsp;&nbsp;<b>第三版爬蟲：判斷日文</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#第四版爬蟲直接重構">10&nbsp;&nbsp;<b>第四版爬蟲：直接重構</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">11&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2019/07/12/en/medium-crawler/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Medium 爬蟲進化史
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2019-07-12T12:10:00.000Z" itemprop="datePublished">2019年7月12日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Others/">Others</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="前言">前言</span></h2><p>前幾天的時候我在 Medium 上發了這篇文：<a target="_blank" rel="noopener" href="https://medium.com/@hulitw/medium-analysis-40752b9efa03">Medium 中文寫作者追蹤人數排名與不專業數據分析</a>，內文是我用 Node.js 寫了一個簡單的 Medium 爬蟲之後整理出來的數據。</p>
+<p>在原本那篇文章裡面有簡單提到爬蟲的資料來源，但是對技術的部分沒有太多著墨。事實上，在寫 Medium 爬蟲的時候其實踩了一些坑，與其教大家寫一個 Medium 爬蟲，不如讓大家跟我一起走過這些坑，盡可能地還原我當初在寫這個爬蟲時碰到的障礙以及解決方法，我覺得這樣會更有趣一點。</p>
+<p>因此，這篇就是用來記錄我寫這個 Medium 爬蟲的經過，其中也會有點教學的成份在，所以看完之後你應該也能夠寫出一個類似的爬蟲，或至少你看到 source code 的時候不會一頭霧水。</p>
+<p>雖然說最後寫出來的是這個跟使用者資料有關的爬蟲，但我一開始其實是先從文章列表開始的，因為那時候剛好有一個需求，想要把自己的文章全部爬下來。</p>
+<p>會有這個需求是因為 Medium 內建的功能其實滿爛的，你很難找到一個作者 po 過的所有文章，或者是說很難一目瞭然。所以早期的文章除了透過 Google 以外，是很難被找到的。</p>
+<p>所以我後來就手動做了一個<a target="_blank" rel="noopener" href="https://aszx87410.github.io/blog/medium">文章的索引</a>，自己整理了以前發過的所有文章。但是身為工程師，這明明就是一件可以寫程式來做的事啊！所以想嘗試看看能不能先寫一個文章列表的爬蟲。</p>
+<span id="more"></span>
+
+<h2><span id="第一次嘗試尋找資料來源">第一次嘗試：尋找資料來源</span></h2><p>對我來說，爬蟲的第一步也是最困難的一步就是找到資料來源。只要這一步完成了，其他的相比之下都比較簡單。</p>
+<p>如果能拿到 Medium 的 API 那當然是最好的。若是沒有的話，就必須用 puppeteer 之類的東西去爬 HTML 然後自己 parse 了。</p>
+<p>在 Medium 的文章列表那邊捲動一下並且打開 devtool，可以看到 medium 後面是用 GraphQL：</p>
+<img width="792" alt="p1" src="https://user-images.githubusercontent.com/2755720/61093603-2e954300-a400-11e9-9e70-acd06b97a6a8.png">
+
+
+<p>這個就麻煩了…我對 GraphQL 不太熟，要花時間去研究一下它的資料結構，感覺要花不少時間，於是那時我就暫時先放棄這條路，決定來試試看用 puppeteer。</p>
+<h2><span id="第二次嘗試puppeteer">第二次嘗試：puppeteer</span></h2><p>如果你不知道什麼是 puppeteer，我在這邊簡單介紹一下。你可以想成 puppeteer 會自動幫你打開一個瀏覽器，你可以寫程式去操控這個瀏覽器。例如說我要打開一個頁面並且在這頁面上執行 JS 等等，所以使用 puppeteer 的話，爬蟲的原理就是打開某個頁面，執行一段 JS 拿到頁面上的資料。</p>
+<p>puppeteer 用起來很簡單，只要找一下現成的範例看一下語法，改一改就可以直接拿來用了。稍微研究了一下 HTML 結構之後，可以寫出下面的程式碼：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> puppeteer <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'puppeteer'</span><span class="token punctuation">)</span>
+  
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> username <span class="token operator">=</span> <span class="token string">'hulitw'</span>
+  <span class="token keyword">const</span> url <span class="token operator">=</span> <span class="token string">'https://medium.com/@'</span> <span class="token operator">+</span> username
+  
+  <span class="token keyword">const</span> browser <span class="token operator">=</span> <span class="token keyword">await</span> puppeteer<span class="token punctuation">.</span><span class="token function">launch</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">headless</span><span class="token operator">:</span> <span class="token boolean">true</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  
+  <span class="token comment">// 造訪頁面</span>
+  <span class="token keyword">const</span> page <span class="token operator">=</span> <span class="token keyword">await</span> browser<span class="token punctuation">.</span><span class="token function">newPage</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token keyword">await</span> page<span class="token punctuation">.</span><span class="token function">goto</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">waitUntil</span><span class="token operator">:</span> <span class="token string">'domcontentloaded'</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  
+  <span class="token comment">// 執行準備好的 script 並回傳資料 </span>
+  <span class="token keyword">const</span> data <span class="token operator">=</span> <span class="token keyword">await</span> page<span class="token punctuation">.</span><span class="token function">evaluate</span><span class="token punctuation">(</span>mediumParser<span class="token punctuation">)</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span>
+  
+  <span class="token keyword">await</span> page<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token keyword">await</span> browser<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">function</span> <span class="token function">mediumParser</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  
+  <span class="token comment">// selector 是透過觀察而得來的</span>
+  <span class="token keyword">const</span> elements <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">querySelectorAll</span><span class="token punctuation">(</span><span class="token string">'section > div:nth-child(2) > div > div'</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> elements<span class="token punctuation">.</span>length<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> h1 <span class="token operator">=</span> elements<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'h1'</span><span class="token punctuation">)</span>
+    <span class="token keyword">const</span> a <span class="token operator">=</span> elements<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">querySelectorAll</span><span class="token punctuation">(</span><span class="token string">'a'</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>h1<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      result<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">title</span><span class="token operator">:</span> h1<span class="token punctuation">.</span>innerText<span class="token punctuation">,</span>
+        <span class="token literal-property property">link</span><span class="token operator">:</span> a<span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span><span class="token punctuation">.</span>href
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> result
+<span class="token punctuation">&#125;</span>
+  
+<span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>只要觀察出 HTML 與 CSS 的規則之後，就可以取得想拿的資料。但 Medium 不好爬是因為在 class name 的部分有使用 <a target="_blank" rel="noopener" href="https://blog.techbridge.cc/2019/01/26/functional-css/">functional CSS</a>，而且 class 的命名都有經過處理，看起來是用程式自動去跑的，所以只要 Medium 一更新，元素的命名應該會不太一樣。</p>
+<p>所以最後只能從 HTML 的結構下手，去把文章給抓出來。</p>
+<p>解決了這個問題之後，還有一個問題，那就是無限捲動。Medium 跟很多網頁一樣，要一直往下滑才會載入新文章，而這邊必須觀察的規律是滑到什麼時候才要停止。</p>
+<p>觀察之後發現當發表過的文章載入完以後，才會顯示 <code>Highlighted by xxx</code> 這個區塊，所以可以用這個元素有沒有出現當作終止條件。</p>
+<p>接著可以寫一段程式碼，讓頁面不斷往下捲動直到載入所有文章為止：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">/*
+  要用的話就是： await scroll(page)
+*/</span>
+  
+<span class="token keyword">function</span> <span class="token function">getArticlesCount</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> elements <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">querySelectorAll</span><span class="token punctuation">(</span><span class="token string">'section > div:nth-child(2) > div > div'</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> elements<span class="token punctuation">.</span>length
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">scroll</span><span class="token punctuation">(</span><span class="token parameter">page</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">await</span> page<span class="token punctuation">.</span><span class="token function">evaluate</span><span class="token punctuation">(</span><span class="token string">'window.scrollTo(0, document.body.scrollHeight)'</span><span class="token punctuation">)</span>
+  <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+  
+    <span class="token comment">// 終止條件</span>
+    <span class="token keyword">await</span> page<span class="token punctuation">.</span><span class="token function">waitForSelector</span><span class="token punctuation">(</span><span class="token string">'h4 ~ p'</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">timeout</span><span class="token operator">:</span> <span class="token number">1000</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  
+    <span class="token comment">// 印出目前抓到的文章數目</span>
+    <span class="token keyword">const</span> count <span class="token operator">=</span> <span class="token keyword">await</span> page<span class="token punctuation">.</span><span class="token function">evaluate</span><span class="token punctuation">(</span>getArticlesCount<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Fetching... </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>count<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string"> articles</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span>
+  
+    <span class="token comment">// 繼續往下捲動</span>
+    <span class="token keyword">await</span> <span class="token function">scroll</span><span class="token punctuation">(</span>page<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>為了在 console 上讓我能看到現在的進度（可以確認程式是不是有 bug），還加了一段是每一次捲動都會印出現在畫面上有的文章數量。</p>
+<p>做到這邊，就可以抓到使用者所有的文章標題以及連結了。</p>
+<p>那發文日期呢？也拿得到嗎？</p>
+<p>拿得到，但是麻煩很多。看看下面的 Medium 截圖就知道了：</p>
+<img width="728" alt="p2" src="https://user-images.githubusercontent.com/2755720/61093614-3654e780-a400-11e9-96c3-8434cde2eef2.png">
+
+
+<p>如果是今年（2019）的文章，就不會顯示年份，否則的話就會顯示出發文年份。所以這邊要再經過特殊的判斷處理，而且只拿得到日期，拿不到詳細發文時間。</p>
+<p>做到這邊，我就懶得再繼續下去了。想說有很多眉眉角角要處理，而且抓到的資料有限，還不如轉去研究 API 比較實在。</p>
+<h2><span id="第三次嘗試puppeteer-api">第三次嘗試：puppeteer + API</span></h2><p>前面已經說過我那時對 GraphQL API 不熟，所以暫時放棄了。但是嘗試了 puppeteer 之後，反而讓我有了新的思路。</p>
+<p>在 puppeteer 裡面你可以加上監聽 network response 的事件，而頁面在載入文章的時候，一定會呼叫 API 去拿文章。這樣子事情不就好辦多了嗎？我不用自己研究怎麼 call API，我讓頁面自己去 call API，我自己只要監聽 response，研究一下 response 的格式就行了！</p>
+<p>程式碼大概是長這樣的：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> apiResponses <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+  
+page<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'response'</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token parameter">response</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>response<span class="token punctuation">.</span>_url<span class="token punctuation">.</span><span class="token function">indexOf</span><span class="token punctuation">(</span><span class="token string">'graphql'</span><span class="token punctuation">)</span> <span class="token operator">&lt;</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token keyword">return</span>
+    <span class="token keyword">const</span> json <span class="token operator">=</span> <span class="token keyword">await</span> response<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">const</span> post <span class="token operator">=</span> <span class="token function">parsePosts</span><span class="token punctuation">(</span>json<span class="token punctuation">)</span>
+      apiResponses<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token operator">...</span>post<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  
+<span class="token keyword">function</span> <span class="token function">parsePosts</span><span class="token punctuation">(</span><span class="token parameter">json</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+  <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+  
+    <span class="token comment">// 研究到一半沒做完</span>
+    <span class="token keyword">const</span> streams <span class="token operator">=</span> json<span class="token punctuation">.</span>data<span class="token punctuation">.</span>user<span class="token punctuation">.</span>profileStreamConnection<span class="token punctuation">.</span>stream
+    <span class="token keyword">for</span> <span class="token punctuation">(</span>stream <span class="token keyword">of</span> streams<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>stream<span class="token punctuation">.</span>itemType<span class="token punctuation">.</span>__typename <span class="token operator">===</span> <span class="token string">'StreamItemCompressedPostList'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>每次有新的 response 進來就可以解析一下並丟到 array 裡面，最後拿到的就會是完整的從 API 傳來的資料。</p>
+<p>但後來我發現這條路也行不通。</p>
+<p>為什麼呢？因為頁面在第一次載入的時候，從 Server 回傳的 HTML 就已經有前幾筆文章的資料了，往下捲動的時候才是使用 ajax 來載入新的文章。意思是說，如果我想靠監聽 ajax response 的方式拿到所有文章的資料是沒辦法的，前幾筆是拿不到的。</p>
+<p>做到這邊的時候我有點心灰意冷，想說花了兩天寫出一個不能用的東西。抓取文章列表的部分做到這我就放棄了，懶得繼續花時間去研究，並且把心力轉向我真正想抓的東西。</p>
+<p>最前面提到的抓文章列表的需求其實是突然蹦出來的，在這之前我有更想抓的東西：follower，我想統計臺灣寫作者的 follower 人數，然後看看自己可以排到第幾名（滿足一下虛榮心）。</p>
+<p>在嘗試了抓文章列表並失敗以後，我有試過用類似的方式去抓 follower，但做到一半發現這樣抓的話效率也太差了，每次捲動載入 25 個 follower 的話，1000 人可是要捲動 40 次。</p>
+<p>自己如果做不出來的話，答案就很明顯了：Google，就拜託你了！</p>
+<h2><span id="第四次嘗試google-大神">第四次嘗試：Google 大神</span></h2><p>直接在 Google 打上關鍵字：<code>medium follower api</code>，出現的第一個搜尋結果是最無用的官方 API，幾乎什麼資料都沒給，而且要申請還要寄信給客服，有夠麻煩。</p>
+<p>但是第二個搜尋結果讓我眼睛為之一亮，是一個 gist 檔案：<a target="_blank" rel="noopener" href="https://gist.github.com/newhouse/843c444ddefe084ea7f01603627dbcfd">Medium API: get number of followers for User · GitHub</a>。</p>
+<p>程式碼才五十行而已，很短，掃過一遍可以看到最關鍵的一行：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// BUILD THE URL TO REQUEST FROM</span>
+<span class="token keyword">function</span> <span class="token function">generateMediumProfileUri</span><span class="token punctuation">(</span><span class="token parameter">username</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://medium.com/@</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>username<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">?format=json</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>什麼！原來還有這招，在網址後面加 <code>?format=json</code> 就可以拿到 json 格式的資料，這真是太神奇了。</p>
+<p>把得到的資料丟到 <a target="_blank" rel="noopener" href="https://jsonformatter.curiousconcept.com/">JSON Formatter</a> 之後，可以看到大概的結構：</p>
+<img width="615" alt="p3" src="https://user-images.githubusercontent.com/2755720/61093619-3c4ac880-a400-11e9-8b19-1f91c330551f.png">
+
+
+<p>在這邊可以拿到使用者的個人資料以及發過的一些文章，也可以拿到我們的目標：follower！</p>
+<p>我們順便來看一下使用者資料可以拿到些什麼：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token string-property property">"user"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>  
+   <span class="token string-property property">"userId"</span><span class="token operator">:</span><span class="token string">"f1fb3e40dc37"</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"name"</span><span class="token operator">:</span><span class="token string">"Huli"</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"username"</span><span class="token operator">:</span><span class="token string">"hulitw"</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"createdAt"</span><span class="token operator">:</span><span class="token number">1487549030919</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"imageId"</span><span class="token operator">:</span><span class="token string">"1*WQyJUJBQpBNIHH8GEWE6Sg.jpeg"</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"backgroundImageId"</span><span class="token operator">:</span><span class="token string">""</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"bio"</span><span class="token operator">:</span><span class="token string">"自學程式，後來跑去唸哲學系但沒念完，前往新加坡工作了兩年半後決定放一年的假，到處旅遊。喜歡教學，發現自己好像有把事情講得簡單又清楚的能力，相信分享與交流可以讓世界更美好。\bMedium 文章列表請參考：https://aszx87410.github.io/blog/medium"</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"allowNotes"</span><span class="token operator">:</span><span class="token number">1</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"mediumMemberAt"</span><span class="token operator">:</span><span class="token number">1542441600000</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"isNsfw"</span><span class="token operator">:</span><span class="token boolean">false</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"isWriterProgramEnrolled"</span><span class="token operator">:</span><span class="token boolean">true</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"isQuarantined"</span><span class="token operator">:</span><span class="token boolean">false</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"User"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>除了基本的自介跟姓名以外，還可以拿到成為 Medium 付費會員的時間以及成為 Medium 會員的時間，還滿有趣的，還有一個 flag 也很有趣：isNsfw。</p>
+<p>唯一缺的就是 follower 的清單了。</p>
+<p>這邊我嘗試用一樣的方法，在 Medium 網址後面接了參數：<code>https://medium.com/@hulitw/followers?format=json</code>，沒想到還真的有東西！在 response 裡面可以找到 10 個 follower 的資料。</p>
+<p>有了資料之後就確定這個 API 是有用的，再來直接跳到 response 最下面 paging 的部分：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token string-property property">"paging"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>  
+   <span class="token string-property property">"path"</span><span class="token operator">:</span><span class="token string">"https://medium.com/_/api/users/f1fb3e40dc37/profile/stream"</span><span class="token punctuation">,</span>
+   <span class="token string-property property">"next"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>  
+      <span class="token string-property property">"limit"</span><span class="token operator">:</span><span class="token number">10</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"to"</span><span class="token operator">:</span><span class="token string">"10590c54e527"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"source"</span><span class="token operator">:</span><span class="token string">"followers"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"page"</span><span class="token operator">:</span><span class="token number">2</span>
+   <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>path 的部分看起來是個 API 網址，next 應該是參數，試著把這些參數帶到網址上面：<a target="_blank" rel="noopener" href="https://medium.com/_/api/users/f1fb3e40dc37/profile/stream?limit=10&to=10590c54e527&source=followers&page=2">https://medium.com/_/api/users/f1fb3e40dc37/profile/stream?limit=10&amp;to=10590c54e527&amp;source=followers&amp;page=2</a> ，就出現了只有 follower 相關的資料！</p>
+<img width="660" alt="p4" src="https://user-images.githubusercontent.com/2755720/61093627-440a6d00-a400-11e9-9489-1eb6b1e49d62.png">
+
+
+<p>試著把 limit 換一下，發現最大值應該是 25，一次可以抓 25 筆資料；page 換一下之後發現沒什麼作用，於是把 to 也改一下，發現可以成功抓到新的資料。看來分頁機制是採用 cursor based 的。</p>
+<p>在經過了幾次嘗試之後，終於拿到了兩個 API 的網址，一個可以獲得詳細個人資料，另外一個可以拿到 follower 的列表！</p>
+<p>資料來源確定有了之後，就可以來構思一下爬蟲的架構了。</p>
+<h2><span id="爬蟲架構">爬蟲架構</span></h2><p>我要怎麼樣才能儘可能爬到所有的台灣寫作者？</p>
+<p>首先第一個問題是我們必須把範圍放大一點，因為中文寫作者裡面可能有香港來的或是中國來的，你比較難靠程式去辨別到底是哪裡來的，尤其是香港跟台灣，因為都使用繁體中文。</p>
+<p>為了不讓問題變得更複雜，我們只要能抓到「中文使用者就好」。</p>
+<p>那要怎麼樣才能抓到最多中文使用者？一個很簡單的策略就是我們預設中文使用者的 follower 應該都是中文使用者，所以我們只要從某個使用者開始，把他所有的 follower 都丟進一個 queue 裡面，一直持續這個動作就好。</p>
+<p>用文字簡化就是這樣：</p>
+<ol>
+<li>從 queue 裡面拿出一個使用者</li>
+<li>把他的資料寫進資料庫</li>
+<li>把他的所有 follower 丟進 queue</li>
+<li>回到步驟一</li>
+</ol>
+<p>這樣子就可以靠著一個使用者無限延伸出去，而且理論上來說可以抓到超級多使用者的資料。這邊之所有選擇 follower（追蹤我的人）而不是 following（我追蹤的人），是考量到追蹤的使用者可能會有別的國家的，例如說我可能會追蹤國外的工程師之類的，但因為我不寫英文，所以國外的工程師應該不會來追蹤我。這樣的話就可以讓使用者侷限在中文，符合我們的目標。</p>
+<p>接著就是系統架構的部分，這邊依據你想達成的效率會有不同種做法。</p>
+<p>對我來說效率會最高的就是找那種很適合用來當 queue 的 service，例如說 redis 之類的，然後資料庫的部分可以選用 MySQL 或任何你熟悉的軟體。這樣子的好處是你可以開不同機器，然後每一台機器都是一個 worker，例如說你開五台機器，就會有五個 worker 一直從 queue 裡面拿東西出來並且把 follower 丟進去。</p>
+<p>這邊之所以開很多台機器而不是開很多 thread 或 process，是因為 rate limiting 的問題。一般 API 都會有流量限制，你如果同一個 IP 發太多 request 會被 ban 掉或者是一段時間拿不到 response，所以開再多 process 跟 thread 都沒有用，只能開不同機器來解決（或只要有辦法換 IP 的話就可以）。</p>
+<p>後來因為我沒有很在乎效率而且懶得開很多機器，所以只打算開一台讓他慢慢抓。如果只有一個 worker 的話，queue 的部分也可以簡單做一下，這邊我就也用 MySQL 來實做簡單的 queue，讓整個爬蟲的架構變得很簡單。</p>
+<p>我們可以來看一下資料庫的架構：</p>
+<h3><span id="users">Users</span></h3><table>
+<thead>
+<tr>
+<th>id</th>
+<th>userId</th>
+<th>username</th>
+<th>name</th>
+<th>bio</th>
+<th>follower</th>
+<th>fr</th>
+<th>mediumMemberAt</th>
+<th>createdAt</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>自增ID</td>
+<td>使用者 ID</td>
+<td>前面加上 @ 就是 profile 網址</td>
+<td>使用者名稱</td>
+<td>自介</td>
+<td>追蹤人數</td>
+<td>分類</td>
+<td>成為付費會員的時間</td>
+<td>加入會員的時間</td>
+</tr>
+</tbody></table>
+<h3><span id="queue">Queue</span></h3><table>
+<thead>
+<tr>
+<th>id</th>
+<th>userId</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>自增ID</td>
+<td>使用者 ID</td>
+</tr>
+</tbody></table>
+<p>程式的執行流程是這樣的：</p>
+<ol>
+<li>從 Queue 裡面拿出一個 userId</li>
+<li>如果 userId 已存在 Users，回到步驟一</li>
+<li>把他的資料寫進 Users</li>
+<li>把他的所有 follower 丟進 Queue</li>
+<li>回到步驟一</li>
+</ol>
+<p>從 queue 拿出來的時候先確保沒有爬過這個使用者，有的話就跳過，然後把所有追蹤者再丟到 queue 裡面，這樣程式就會一直跑，直到 queue 裡面沒有東西為止。</p>
+<p>架構設計好之後，就可以來開始 coding 啦！</p>
+<h2><span id="第一版爬蟲">第一版爬蟲</span></h2><p>首先我們需要有一個 queue，能夠 push 跟 pop，還要能確定現在拿的 userId 是不是已經爬過了。這個很適合用 class 來實作：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Queue</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">conn</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>conn <span class="token operator">=</span> conn
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">resolve<span class="token punctuation">,</span> reject</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>conn<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token string">'SELECT userId from Queues limit 1'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">error<span class="token punctuation">,</span> results</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>error<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span>
+          <span class="token keyword">return</span> <span class="token function">reject</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>results<span class="token punctuation">.</span>length <span class="token operator">!==</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">return</span> <span class="token function">resolve</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">const</span> data <span class="token operator">=</span> results<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>conn<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token string">'DELETE from Queues where userId=?'</span><span class="token punctuation">,</span> <span class="token punctuation">[</span>data<span class="token punctuation">.</span>userId<span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">err<span class="token punctuation">,</span> results</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">if</span> <span class="token punctuation">(</span>error<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span>
+            <span class="token keyword">return</span> <span class="token function">reject</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span>
+          <span class="token punctuation">&#125;</span>
+          <span class="token keyword">return</span> <span class="token function">resolve</span><span class="token punctuation">(</span>data<span class="token punctuation">.</span>userId<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">check</span><span class="token punctuation">(</span><span class="token parameter">uid</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">resolve<span class="token punctuation">,</span> reject</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>conn<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token string">'SELECT userId from Users where userId=?'</span><span class="token punctuation">,</span> <span class="token punctuation">[</span>uid<span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">error<span class="token punctuation">,</span> results</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>error<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">return</span> <span class="token function">reject</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>results<span class="token punctuation">.</span>length <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">return</span> <span class="token function">resolve</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">return</span> <span class="token function">resolve</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">push</span><span class="token punctuation">(</span><span class="token parameter">list</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">resolve<span class="token punctuation">,</span> reject</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">const</span> values <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+      <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> item <span class="token keyword">of</span> list<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        values<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token punctuation">[</span>item<span class="token punctuation">]</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>conn<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+        INSERT IGNORE INTO Queues (userId) VALUES ?</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token punctuation">[</span>values<span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">err</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">if</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token comment">// console.log(err)</span>
+          <span class="token punctuation">&#125;</span>
+          <span class="token function">resolve</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>有了 queue 以後可以來寫主要邏輯，主程式的架構會長這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> connection <span class="token operator">=</span> mysql<span class="token punctuation">.</span><span class="token function">createPool</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">connectionLimit</span> <span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">host</span>     <span class="token operator">:</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span>host<span class="token punctuation">,</span>
+  <span class="token literal-property property">user</span>     <span class="token operator">:</span> <span class="token string">''</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">password</span> <span class="token operator">:</span> <span class="token string">''</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">database</span> <span class="token operator">:</span> <span class="token string">'medium'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">charset</span><span class="token operator">:</span> <span class="token string">'utf8mb4'</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> queue <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Queue</span><span class="token punctuation">(</span>connection<span class="token punctuation">)</span>
+  
+  <span class="token comment">// 不斷從 queue 拿東西出來</span>
+  <span class="token keyword">while</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> userId <span class="token operator">=</span> <span class="token keyword">await</span> queue<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>userId<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'no data from queue, end'</span><span class="token punctuation">)</span>
+      <span class="token keyword">break</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  
+    <span class="token comment">// 看看是否已經爬過，爬過就跳掉</span>
+    <span class="token keyword">const</span> check <span class="token operator">=</span> <span class="token keyword">await</span> queue<span class="token punctuation">.</span><span class="token function">check</span><span class="token punctuation">(</span>userId<span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>check<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">continue</span>
+    <span class="token punctuation">&#125;</span>
+  
+    <span class="token comment">// 拿 userId 做你想做的事</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'uid:'</span><span class="token punctuation">,</span> userId<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>接著只要實作以下兩個功能就好：</p>
+<ol>
+<li>抓取使用者資料</li>
+<li>把使用者資料寫進資料庫</li>
+<li>把 follower 丟回 queue</li>
+</ol>
+<p>由於 Medium API 的 response 都會有一個防 <a target="_blank" rel="noopener" href="https://medium.com/@jaydenlin/%E7%82%BA%E4%BD%95-facebook-api-%E8%A6%81%E5%9B%9E%E5%82%B3%E7%84%A1%E7%AA%AE%E8%BF%B4%E5%9C%88-%E8%AB%87%E6%8D%B2%E5%9C%9F%E9%87%8D%E4%BE%86%E7%9A%84-json-hijacking-bc220617ceba">json hijacking</a> 的開頭，因此我們可以包裝一個函式專門來 parse API 的 response：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">getMediumResponse</span><span class="token punctuation">(</span><span class="token parameter">url</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> axios<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span>
+    <span class="token keyword">const</span> json <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>response<span class="token punctuation">.</span>data<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token string">'])&#125;while(1);&lt;/x>'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span> json
+  <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token keyword">null</span>
+  <span class="token punctuation">&#125;</span> 
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>接著就可以寫兩個 function，一個抓使用者資料，一個抓 follower 資料（有出現 _ 的都是 lodash 的 function）：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">getUserInfo</span><span class="token punctuation">(</span><span class="token parameter">uid</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> url <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://medium.com/_/api/users/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>uid<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/profile/stream</span><span class="token template-punctuation string">`</span></span>
+  <span class="token keyword">const</span> json <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getMediumResponse</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>json<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">const</span> userId <span class="token operator">=</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.userId'</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> follower <span class="token operator">=</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">payload.references.SocialStats.</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>userId<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">.usersFollowedByCount</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span>
+  
+  <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">followerCount</span><span class="token operator">:</span> follower<span class="token punctuation">,</span>
+    <span class="token literal-property property">userId</span><span class="token operator">:</span> userId<span class="token punctuation">,</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.name'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">username</span><span class="token operator">:</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.username'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">bio</span><span class="token operator">:</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.bio'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">mediumMemberAt</span><span class="token operator">:</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.mediumMemberAt'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">isWriterProgramEnrolled</span><span class="token operator">:</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.isWriterProgramEnrolled'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">createdAt</span><span class="token operator">:</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.createdAt'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">getFollowers</span><span class="token punctuation">(</span><span class="token parameter">uid<span class="token punctuation">,</span> to</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">let</span> url <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://medium.com/_/api/users/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>uid<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/profile/stream?source=followers&amp;limit=200</span><span class="token template-punctuation string">`</span></span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>to<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    url <span class="token operator">+=</span> <span class="token string">'&amp;to='</span> <span class="token operator">+</span> to
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">const</span> json <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getMediumResponse</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>json<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">const</span> followers <span class="token operator">=</span> _<span class="token punctuation">.</span><span class="token function">keys</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>payload<span class="token punctuation">.</span>references<span class="token punctuation">.</span>Social<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+  <span class="token keyword">const</span> nextTo <span class="token operator">=</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.paging.next.to'</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+    followers<span class="token punctuation">,</span>
+    nextTo
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>基本上都是 call API 之後稍微處理一下資料，然後把我們關注的東西傳回去。</p>
+<p>上面我們只實做了「抓一次 follower」的 function，所以最後還要再實作一個「抓全部 follower 並且丟進 queue」的 function：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">getAllFollowers</span><span class="token punctuation">(</span><span class="token parameter">uid<span class="token punctuation">,</span> queue</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> followers <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+  <span class="token keyword">let</span> to <span class="token operator">=</span> <span class="token keyword">undefined</span>
+  <span class="token keyword">while</span> <span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> data <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getFollowers</span><span class="token punctuation">(</span>uid<span class="token punctuation">,</span> to<span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>data<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">break</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    followers<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token operator">...</span>data<span class="token punctuation">.</span>followers<span class="token punctuation">)</span>
+    to <span class="token operator">=</span> data<span class="token punctuation">.</span>nextTo
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>uid<span class="token punctuation">,</span> <span class="token string">'fetching...'</span><span class="token punctuation">,</span> followers<span class="token punctuation">.</span>length<span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>data<span class="token punctuation">.</span>followers<span class="token punctuation">.</span>length <span class="token operator">===</span> <span class="token number">0</span> <span class="token operator">||</span> <span class="token operator">!</span>to<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">break</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">await</span> queue<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>data<span class="token punctuation">.</span>followers<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> followers
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這個函式會不斷去抓 follower 出來並丟進 queue，並且印出現在總共抓了幾筆 follower 的資料，全部抓完會把所有的 follower 回傳回去（會回傳是因為一開始我是全部抓完才一次寫進 queue，但後來發現比較沒效率，所以改成現在這樣抓一次就寫一次）。</p>
+<p>最後是把使用者資料寫進去資料庫的程式碼：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">format</span><span class="token punctuation">(</span><span class="token parameter">time</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>time<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token keyword">null</span>
+  <span class="token keyword">return</span> <span class="token function">moment</span><span class="token punctuation">(</span>time<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">format</span><span class="token punctuation">(</span><span class="token string">'YYYY-MM-DD HH:mm:ss'</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">function</span> <span class="token function">saveUserInfo</span><span class="token punctuation">(</span><span class="token parameter">conn<span class="token punctuation">,</span> info</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  conn<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+    INSERT INTO Users
+    (
+      userId, username, name, bio, follower,
+      mediumMemberAt, createdAt, isWriterProgramEnrolled
+    ) VALUES ?</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">[</span><span class="token punctuation">[</span>
+      info<span class="token punctuation">.</span>userId<span class="token punctuation">,</span> info<span class="token punctuation">.</span>username<span class="token punctuation">,</span> info<span class="token punctuation">.</span>name<span class="token punctuation">,</span> info<span class="token punctuation">.</span>bio<span class="token punctuation">,</span> info<span class="token punctuation">.</span>followerCount<span class="token punctuation">,</span>
+      <span class="token function">format</span><span class="token punctuation">(</span>info<span class="token punctuation">.</span>mediumMemberAt<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">format</span><span class="token punctuation">(</span>info<span class="token punctuation">.</span>createdAt<span class="token punctuation">)</span><span class="token punctuation">,</span> info<span class="token punctuation">.</span>isWriterProgramEnrolled
+    <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">err</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token comment">// console.log(err)</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>把這幾個核心功能的 function 寫完以後，只要修正一下我們的主程式，就可以把整個爬蟲完成了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> queue <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Queue</span><span class="token punctuation">(</span>connection<span class="token punctuation">)</span>
+  
+  <span class="token keyword">while</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  
+    <span class="token comment">// 1. 從 Queue 裡面拿出一個 userId</span>
+    <span class="token keyword">const</span> userId <span class="token operator">=</span> <span class="token keyword">await</span> queue<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>userId<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'no data from queue, end'</span><span class="token punctuation">)</span>
+      <span class="token keyword">break</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  
+    <span class="token comment">// 2. 如果 userId 已存在 Users，回到步驟一</span>
+    <span class="token keyword">const</span> check <span class="token operator">=</span> <span class="token keyword">await</span> queue<span class="token punctuation">.</span><span class="token function">check</span><span class="token punctuation">(</span>userId<span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>check<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">continue</span>
+    <span class="token punctuation">&#125;</span>
+  
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'uid:'</span><span class="token punctuation">,</span> userId<span class="token punctuation">)</span>
+    <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">const</span> info <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getUserInfo</span><span class="token punctuation">(</span>userId<span class="token punctuation">)</span>
+      
+      <span class="token comment">// 如果沒抓到資料有可能是被擋了，先停個 3 秒</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>info<span class="token punctuation">.</span>userId<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'sleep...'</span><span class="token punctuation">)</span>
+        <span class="token keyword">await</span> <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">3000</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span>
+  
+      <span class="token comment">// 3. 把他的資料寫進 Users</span>
+      <span class="token function">saveUserInfo</span><span class="token punctuation">(</span>connection<span class="token punctuation">,</span> info<span class="token punctuation">)</span>
+  
+      <span class="token comment">// 4. 把他的所有 follower 丟進 Queue</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>info<span class="token punctuation">.</span>followerCount <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token comment">// 把 followers 放到 queue 並印出總共幾筆資料</span>
+        <span class="token keyword">const</span> followerList <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getAllFollowers</span><span class="token punctuation">(</span>userId<span class="token punctuation">,</span> queue<span class="token punctuation">)</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'Add '</span> <span class="token operator">+</span> followerList<span class="token punctuation">.</span>length <span class="token operator">+</span> <span class="token string">' into queue.'</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// 有錯誤就先睡個 3 秒</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'error...sleep'</span><span class="token punctuation">)</span>
+      <span class="token keyword">await</span> <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">3000</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span> 
+  <span class="token punctuation">&#125;</span>  
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>上面就是我們按照先前的邏輯寫出來的程式碼：</p>
+<ol>
+<li>從 Queue 裡面拿出一個 userId</li>
+<li>如果 userId 已存在 Users，回到步驟一</li>
+<li>把他的資料寫進 Users</li>
+<li>把他的所有 follower 丟進 Queue</li>
+<li>回到步驟一</li>
+</ol>
+<p>不過這邊額外加了一個邏輯是當呼叫 API 有問題的時候，就先暫停 3 秒鐘，這樣是為了防止被 rate limiting 擋到。但這個機制做的不是很好，因為沒有 retry，所以一但發生錯誤，這個 userId 就被跳過了。</p>
+<p>當初的想法是只跳過一個 userId 無傷大雅，畢竟 queue 裡面可能有十萬筆的 userId，而且就算跳過，之後還是有可能再被丟到 queue 裡面，所以不做 retry 的機制也無所謂。</p>
+<p>上面的程式碼全部組裝起來，就是第一版爬蟲的雛形了。運作的 ok 沒什麼問題，就只是速度比較慢而已。而且 queue 增長的速度比想像中驚人，我跑了一個晚上 queue 大概就多了十萬筆資料，而 users 裡面卻只有四五千筆而已。</p>
+<p>不過在跑了一個晚上之後，我發現了一個致命的錯誤。</p>
+<h2><span id="第二版爬蟲判斷中文">第二版爬蟲：判斷中文</span></h2><p>這個致命的錯誤就是當初的預設：「中文作者的 follower 都是中文作者」是有問題的，而且仔細想想會發現這個預設的確很不可靠。</p>
+<p>所以跑了一個晚上的爬蟲，我發現資料庫裡面多了一大堆外國使用者。而且一但多了一個，你的 queue 裡面就會出現一大堆的外國使用者。</p>
+<p>為了避免這個情形，我決定從自介跟暱稱下手，寫一個判斷自介跟暱稱是否含有中文的函式，如果有中文才被放進來。這邊我直接複製在 Stack Overflow 上找到的程式碼，看起來十分神奇：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">isChinese</span><span class="token punctuation">(</span>text <span class="token operator">=</span> <span class="token string">''</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// @see: https://stackoverflow.com/questions/44669073/regular-expression-to-match-and-split-on-chinese-comma-in-javascript/51941287#51941287</span>
+  <span class="token keyword">const</span> regex <span class="token operator">=</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">(\p&#123;Script=Hani&#125;)+</span><span class="token regex-delimiter">/</span><span class="token regex-flags">gu</span></span><span class="token punctuation">;</span>
+  <span class="token keyword">return</span> text<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span>regex<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在 queue 裡面抓完使用者資料後會進行判斷：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> info <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getUserInfo</span><span class="token punctuation">(</span>userId<span class="token punctuation">)</span>
+  
+<span class="token comment">// 非中文，直接略過</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token function">isChinese</span><span class="token punctuation">(</span>info<span class="token punctuation">.</span>bio<span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span><span class="token function">isChinese</span><span class="token punctuation">(</span>info<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">continue</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>做這個判斷的時候我就已經想到會有一個問題，那就是有些人他們喜歡國際化一點，在自介會放全英文，暱稱也會是英文，所以會被誤判。明明就是用中文寫作，但是卻沒有被加進 queue 裡面。</p>
+<p>這邊我當時覺得無所謂，畢竟這樣的人不多，而且要解的話有點麻煩。當時我腦中本來就有浮現一個解法，就是去抓他最近拍手過或發表過的文章，看看標題是不是中文，這樣的判斷會準確很多。但當時我懶得實作，想說先讓爬蟲繼續跑一天看看。</p>
+<p>隔天早上，又發現了一個完全沒想過會碰到的問題。</p>
+<h2><span id="第三版爬蟲判斷日文">第三版爬蟲：判斷日文</span></h2><p>使用者清單裡面出現一大堆日本人。</p>
+<p>因為他們有些暱稱是漢字，要嘛就是自介有漢字，所以不會被中文判斷篩掉。發現這個問題的時候我第一個想法是：「如果這是在面試我一定被刷掉，這種 case 居然當初沒想到…」。</p>
+<p>為了解決這種情況，就再找了一個判斷是不是有日文（不含漢字）的正則表達式：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">isJapanese</span><span class="token punctuation">(</span>text <span class="token operator">=</span> <span class="token string">''</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// @see: https://gist.github.com/ryanmcgrath/982242</span>
+  <span class="token keyword">const</span> regexJP <span class="token operator">=</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">[\u3040-\u309F]|[\u30A0-\u30FF]</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">;</span> 
+  <span class="token keyword">const</span> jp <span class="token operator">=</span> text<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span>regexJP<span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>jp <span class="token operator">&amp;&amp;</span> jp<span class="token punctuation">.</span>length <span class="token operator">>=</span> <span class="token number">3</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token boolean">true</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> <span class="token boolean">false</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果含有三個以上的日文字母，就回傳是日文。這邊會設定數量是我怕有些台灣人用什麼 <code>の</code> 之類的，就會被誤判。不過除了寫死數量以外，還有個比較好的做法可能是看比例，例如說一句話如果有八九成是中文字，就是中文之類的。</p>
+<p>判斷邏輯的部分改成這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> info <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getUserInfo</span><span class="token punctuation">(</span>userId<span class="token punctuation">)</span>
+  
+<span class="token comment">// 非中文，直接略過</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token function">isChinese</span><span class="token punctuation">(</span>info<span class="token punctuation">.</span>bio<span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span><span class="token function">isChinese</span><span class="token punctuation">(</span>info<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">continue</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">isJapanese</span><span class="token punctuation">(</span>info<span class="token punctuation">.</span>bio<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token function">isJapanese</span><span class="token punctuation">(</span>info<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">continue</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果不是中文就跳過，再來確認是不是日文，如果自介或是暱稱是日文也跳過。</p>
+<p>好，這樣就沒有問題了吧！於是我把資料砍光，再讓爬蟲跑一個晚上試試看。</p>
+<p>隔天起來，發現我真是天真的可以。</p>
+<h2><span id="第四版爬蟲直接重構">第四版爬蟲：直接重構</span></h2><p>打開資料庫，發現還是有很多日本使用者。原因在於他們可能暱稱是用漢字，然後沒有寫自介，或者自介只有一兩個字之類的，所以還是會被判定為是中文使用者。</p>
+<p>追根究底，都是這個判斷機制太不可靠的原因。</p>
+<p>既然事情已經到這個地步，就沒辦法偷懶了，我只能實作剛開始提到的更準確的解法：「看看最近發表過或是拍手過的文章是不是中文」，而這部分的資料幸好原本的 API 就有提供，實作起來比想像中簡單許多。</p>
+<p>除了這個以外，由於 queue 增長的速度比消耗的速度快太多，因此我一度改變了一下方法。我寫了另外一支小程式，把原本流程中的「把 followers 丟到 queue」拿掉，並且一次拿 10 筆使用者資料出來。</p>
+<p>換句話說，這個新的小程式做的事情很簡單，就是不斷抓使用者資料並存到資料庫，這樣 queue 就會一直變小，讓使用者資料愈來愈多。大概一個小時可以抓兩萬筆，累積一個晚上的 queue 白天花半天就可以跑完。</p>
+<p>好處就是我可以快速累積使用者資料，畢竟原本的實作太慢了，一天大概只能跑個一萬筆左右，現在新的實作因為不用把東西丟到 queue 裡面，會讓使用者資料長得很快。</p>
+<p>那時候偷懶直接複製程式碼改一下就做完這個新的小程式，導致程式寫到這邊愈來愈亂，考量到之後想要 open source，是時候整理一下程式碼了，於是就順便把程式重構一下。</p>
+<p>重構完的架構如下：</p>
+<pre class="line-numbers language-none"><code class="language-none">.
+├── README.md     &#x2F;&#x2F; 說明
+├── app.js        &#x2F;&#x2F; 主程式
+├── getUsers.js   &#x2F;&#x2F; 只抓使用者資料的小程式 
+├── config.js     &#x2F;&#x2F; 設定檔
+├── db.js         &#x2F;&#x2F; 資料庫相關
+├── medium.js     &#x2F;&#x2F; medium API 相關
+├── package.json  
+├── queue.js     
+└── utils.js       <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>我們先從 config 開始看起吧：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">module<span class="token punctuation">.</span>exports <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">db</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">connectionLimit</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">host</span>     <span class="token operator">:</span> <span class="token string">''</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">user</span>     <span class="token operator">:</span> <span class="token string">''</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">password</span> <span class="token operator">:</span> <span class="token string">''</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">database</span> <span class="token operator">:</span> <span class="token string">'medium'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">charset</span><span class="token operator">:</span> <span class="token string">'utf8mb4'</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">batchLimit</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token comment">// 一次抓多少筆使用者資料</span>
+  <span class="token function-variable function">randomDelay</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> Math<span class="token punctuation">.</span><span class="token function">floor</span><span class="token punctuation">(</span>Math<span class="token punctuation">.</span><span class="token function">random</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">200</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token number">100</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">errorRateTolerance</span><span class="token operator">:</span> <span class="token number">0.2</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">delayWhenError</span><span class="token operator">:</span> <span class="token number">500</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這邊就是放一些設定檔，包括資料庫的設定以及一些抓資料的參數，大多數都是跟抓使用者資料的那個小程式有關，例如說要抓幾筆，然後每一次要停多久之類的。這些都是為了避免送太多 request 被擋而做的措施。</p>
+<p>再來看一下 utils.js：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">module<span class="token punctuation">.</span>exports <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// @see: https://stackoverflow.com/questions/44669073/regular-expression-to-match-and-split-on-chinese-comma-in-javascript/51941287#51941287</span>
+  <span class="token literal-property property">isChinese</span><span class="token operator">:</span> <span class="token punctuation">(</span>text <span class="token operator">=</span> <span class="token string">''</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> regex <span class="token operator">=</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">(\p&#123;Script=Hani&#125;)+</span><span class="token regex-delimiter">/</span><span class="token regex-flags">gu</span></span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> text<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span>regex<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  
+  <span class="token comment">// @see: https://gist.github.com/ryanmcgrath/982242</span>
+  <span class="token literal-property property">isJapanese</span><span class="token operator">:</span> <span class="token punctuation">(</span>text <span class="token operator">=</span> <span class="token string">''</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> regexJP <span class="token operator">=</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">[\u3040-\u309F]|[\u30A0-\u30FF]</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">;</span> 
+    <span class="token keyword">const</span> jp <span class="token operator">=</span> text<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span>regexJP<span class="token punctuation">)</span>
+  
+    <span class="token comment">// more than 2 japanese char</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>jp <span class="token operator">&amp;&amp;</span> jp<span class="token punctuation">.</span>length <span class="token operator">>=</span> <span class="token number">2</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> <span class="token boolean">true</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> <span class="token boolean">false</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  
+  <span class="token function-variable function">sleep</span><span class="token operator">:</span> <span class="token parameter">ms</span> <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token parameter">resolve</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token function">setTimeout</span><span class="token punctuation">(</span>resolve<span class="token punctuation">,</span> ms<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  
+  <span class="token function-variable function">log</span><span class="token operator">:</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> args <span class="token operator">=</span> <span class="token class-name">Array</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span>arguments<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">.</span><span class="token function">apply</span><span class="token punctuation">(</span>console<span class="token punctuation">,</span> args<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這邊基本上就是把剛剛用到的一些函式搬過來統一放在這邊，日文字母的限制縮小為兩個，然後把 console.log 包裝了一下，想說之後要客製化比較方便。</p>
+<p>然後是 medium.js，這邊是有關 medium API 的部分，並且新增了一個函式 <code>isMandarinUser</code> 來判斷是否是中文使用者：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> axios <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'axios'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> _ <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'lodash'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> utils <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'./utils'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> <span class="token constant">JSON_HIJACKING_PREFIX</span> <span class="token operator">=</span> <span class="token string">'])&#125;while(1);&lt;/x>'</span>
+  
+<span class="token comment">// wrapper function, return null instead of throwing error</span>
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">getMediumResponse</span><span class="token punctuation">(</span><span class="token parameter">url</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> axios<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span>
+    <span class="token keyword">const</span> json <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>response<span class="token punctuation">.</span>data<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token constant">JSON_HIJACKING_PREFIX</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span> json
+  <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token keyword">null</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">function</span> <span class="token function">isMandarinUser</span><span class="token punctuation">(</span><span class="token parameter">name<span class="token punctuation">,</span> bio<span class="token punctuation">,</span> posts</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  
+  <span class="token comment">// if bio or name is japanese, must be japanese</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>utils<span class="token punctuation">.</span><span class="token function">isJapanese</span><span class="token punctuation">(</span>name<span class="token punctuation">)</span> <span class="token operator">||</span> utils<span class="token punctuation">.</span><span class="token function">isJapanese</span><span class="token punctuation">(</span>bio<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token boolean">false</span>
+  <span class="token punctuation">&#125;</span>
+  
+   <span class="token comment">// this user has no activity on medium, decide by name and bio</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>posts<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> utils<span class="token punctuation">.</span><span class="token function">isChinese</span><span class="token punctuation">(</span>name<span class="token punctuation">)</span> <span class="token operator">||</span> utils<span class="token punctuation">.</span><span class="token function">isChinese</span><span class="token punctuation">(</span>bio<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token keyword">const</span> contents <span class="token operator">=</span> _<span class="token punctuation">.</span><span class="token function">values</span><span class="token punctuation">(</span>posts<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token parameter">item</span> <span class="token operator">=></span> item<span class="token punctuation">.</span>title <span class="token operator">+</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>item<span class="token punctuation">,</span> <span class="token string">'content.subtitle'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token function">Boolean</span><span class="token punctuation">(</span>
+    contents<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token parameter">item</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> utils<span class="token punctuation">.</span><span class="token function">isChinese</span><span class="token punctuation">(</span>item<span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span>utils<span class="token punctuation">.</span><span class="token function">isJapanese</span><span class="token punctuation">(</span>item<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+  
+module<span class="token punctuation">.</span>exports <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token function-variable function">getFollowers</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token parameter">uid<span class="token punctuation">,</span> to</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">let</span> url <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://medium.com/_/api/users/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>uid<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/profile/stream?source=followers&amp;limit=200</span><span class="token template-punctuation string">`</span></span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>to<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      url <span class="token operator">+=</span> <span class="token string">'&amp;to='</span> <span class="token operator">+</span> to
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">const</span> json <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getMediumResponse</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>json<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> <span class="token keyword">null</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">const</span> followers <span class="token operator">=</span> _<span class="token punctuation">.</span><span class="token function">keys</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>payload<span class="token punctuation">.</span>references<span class="token punctuation">.</span>Social<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+    <span class="token keyword">const</span> nextTo <span class="token operator">=</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.paging.next.to'</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+      followers<span class="token punctuation">,</span>
+      nextTo
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  
+  <span class="token function-variable function">getUserInfo</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token parameter">uid</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> url <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://medium.com/_/api/users/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>uid<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/profile/stream</span><span class="token template-punctuation string">`</span></span>
+    <span class="token keyword">const</span> json <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getMediumResponse</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>json<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">const</span> userId <span class="token operator">=</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.userId'</span><span class="token punctuation">)</span>
+    <span class="token keyword">const</span> follower <span class="token operator">=</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">payload.references.SocialStats.</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>userId<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">.usersFollowedByCount</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span>
+  
+    <span class="token keyword">const</span> posts <span class="token operator">=</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.references.Post'</span><span class="token punctuation">)</span>
+    <span class="token keyword">const</span> name <span class="token operator">=</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.name'</span><span class="token punctuation">)</span>
+    <span class="token keyword">const</span> bio <span class="token operator">=</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.bio'</span><span class="token punctuation">)</span>
+  
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">isMandarinUser</span><span class="token operator">:</span> <span class="token function">isMandarinUser</span><span class="token punctuation">(</span>name<span class="token punctuation">,</span> bio<span class="token punctuation">,</span> posts<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      userId<span class="token punctuation">,</span>
+      name<span class="token punctuation">,</span>
+      <span class="token literal-property property">username</span><span class="token operator">:</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.username'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+      bio<span class="token punctuation">,</span>
+      <span class="token literal-property property">followerCount</span><span class="token operator">:</span> follower<span class="token punctuation">,</span>
+      <span class="token literal-property property">mediumMemberAt</span><span class="token operator">:</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.mediumMemberAt'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">isWriterProgramEnrolled</span><span class="token operator">:</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.isWriterProgramEnrolled'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">createdAt</span><span class="token operator">:</span> _<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>json<span class="token punctuation">,</span> <span class="token string">'payload.user.createdAt'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>isMandarinUser 會根據三個參數來決定：暱稱、自介以及相關文章。相關文章可能是使用者最近發表過的或者是回覆過與拍手過的文章，會根據文章的標題以及副標題來做判定。</p>
+<p>如果使用者沒有任何活動的話，就會跟之前一樣採用自介跟暱稱來判定，所以還是有誤判的可能，但實測過後誤判率已經滿低的了。</p>
+<p>接著來看與資料庫相關的操作，db.js：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> mysql <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'mysql'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> moment <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'moment'</span><span class="token punctuation">)</span>
+  
+<span class="token keyword">function</span> <span class="token function">format</span><span class="token punctuation">(</span><span class="token parameter">time</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>time<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token keyword">null</span>
+  <span class="token keyword">return</span> <span class="token function">moment</span><span class="token punctuation">(</span>time<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">format</span><span class="token punctuation">(</span><span class="token string">'YYYY-MM-DD HH:mm:ss'</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">function</span> <span class="token function">transform</span><span class="token punctuation">(</span><span class="token parameter">info</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">[</span>
+    info<span class="token punctuation">.</span>userId<span class="token punctuation">,</span> info<span class="token punctuation">.</span>username<span class="token punctuation">,</span> info<span class="token punctuation">.</span>name<span class="token punctuation">,</span> info<span class="token punctuation">.</span>bio<span class="token punctuation">,</span> info<span class="token punctuation">.</span>followerCount<span class="token punctuation">,</span>
+    <span class="token function">format</span><span class="token punctuation">(</span>info<span class="token punctuation">.</span>mediumMemberAt<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">format</span><span class="token punctuation">(</span>info<span class="token punctuation">.</span>createdAt<span class="token punctuation">)</span><span class="token punctuation">,</span> info<span class="token punctuation">.</span>isWriterProgramEnrolled<span class="token punctuation">,</span> <span class="token keyword">null</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">class</span> <span class="token class-name">DB</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">config</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>conn <span class="token operator">=</span> mysql<span class="token punctuation">.</span><span class="token function">createPool</span><span class="token punctuation">(</span>config<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">getExistingUserIds</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">resolve<span class="token punctuation">,</span> reject</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>conn<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token string">'SELECT userId from Users'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">err<span class="token punctuation">,</span> results</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">return</span> <span class="token function">reject</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+       <span class="token keyword">return</span> <span class="token function">resolve</span><span class="token punctuation">(</span>results<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token parameter">item</span> <span class="token operator">=></span> item<span class="token punctuation">.</span>userId<span class="token punctuation">)</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span> 
+  
+  <span class="token function">getUserIds</span><span class="token punctuation">(</span><span class="token parameter">limit</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">resolve<span class="token punctuation">,</span> reject</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>conn<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token string">'SELECT userId from Users where fr="TW" order by follower desc limit '</span> <span class="token operator">+</span> limit<span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">err<span class="token punctuation">,</span> results</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">return</span> <span class="token function">reject</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+       <span class="token keyword">return</span> <span class="token function">resolve</span><span class="token punctuation">(</span>results<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token parameter">item</span> <span class="token operator">=></span> item<span class="token punctuation">.</span>userId<span class="token punctuation">)</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span> 
+  
+  <span class="token function">deleteUserIds</span><span class="token punctuation">(</span><span class="token parameter">userIds</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">resolve<span class="token punctuation">,</span> reject</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>conn<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token string">'DELETE from Queues WHERE userId IN (?)'</span><span class="token punctuation">,</span> <span class="token punctuation">[</span>userIds<span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">err<span class="token punctuation">,</span> results</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">return</span> <span class="token function">reject</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">return</span> <span class="token function">resolve</span><span class="token punctuation">(</span>userIds<span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">insertUserData</span><span class="token punctuation">(</span><span class="token parameter">info</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>info<span class="token punctuation">)</span> <span class="token keyword">return</span>
+    <span class="token keyword">const</span> data <span class="token operator">=</span> Array<span class="token punctuation">.</span><span class="token function">isArray</span><span class="token punctuation">(</span>info<span class="token punctuation">)</span> <span class="token operator">?</span> info<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span>transform<span class="token punctuation">)</span> <span class="token operator">:</span> <span class="token punctuation">[</span><span class="token function">transform</span><span class="token punctuation">(</span>info<span class="token punctuation">)</span><span class="token punctuation">]</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>conn<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+      INSERT INTO Users
+      (
+        userId, username, name, bio, follower,
+        mediumMemberAt, createdAt, isWriterProgramEnrolled, fr
+      ) VALUES ?</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token punctuation">[</span>data<span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">err</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token comment">// console.log(err)</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token function">insertIntoQueue</span><span class="token punctuation">(</span><span class="token parameter">list</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">resolve<span class="token punctuation">,</span> reject</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">const</span> values <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+      <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> item <span class="token keyword">of</span> list<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        values<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token punctuation">[</span>item<span class="token punctuation">]</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>conn<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+        INSERT IGNORE INTO Queues (userId) VALUES ?</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token punctuation">[</span>values<span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">err</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">if</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token comment">// console.log(err)</span>
+          <span class="token punctuation">&#125;</span>
+          <span class="token function">resolve</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+module<span class="token punctuation">.</span>exports <span class="token operator">=</span> <span class="token constant">DB</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>基本上就是把一大堆 SQL query 包裝成 Promise 以及 function，方便其他的 module 來使用。大部分的函式都能夠接收一個 array 來做批次操作，這樣會更有效率一點。</p>
+<p>而且把這些東西包裝起來之後，queue 的程式碼就會變得非常單純：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Queue</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">db</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>db <span class="token operator">=</span> db
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token keyword">async</span> <span class="token function">get</span><span class="token punctuation">(</span>limit<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> items <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token keyword">this</span><span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">getUserIds</span><span class="token punctuation">(</span>limit<span class="token punctuation">)</span>
+    <span class="token keyword">await</span> <span class="token keyword">this</span><span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">deleteUserIds</span><span class="token punctuation">(</span>items<span class="token punctuation">)</span>
+    <span class="token keyword">return</span> items
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token keyword">async</span> <span class="token function">push</span><span class="token punctuation">(</span><span class="token parameter">list</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">await</span> <span class="token keyword">this</span><span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">insertIntoQueue</span><span class="token punctuation">(</span>list<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+module<span class="token punctuation">.</span>exports <span class="token operator">=</span> Queue<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>最後來看一下我們的主程式 app.js，在重構之後程式碼變得乾淨很多，可讀性也提昇了不少：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token constant">DB</span> <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'./db'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> Queue <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'./queue'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> config <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'./config'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> medium <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'./medium'</span><span class="token punctuation">)</span>
+<span class="token keyword">const</span> utils <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'./utils'</span><span class="token punctuation">)</span>
+  
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> db <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">DB</span><span class="token punctuation">(</span>config<span class="token punctuation">.</span>db<span class="token punctuation">)</span>
+  <span class="token keyword">const</span> queue <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Queue</span><span class="token punctuation">(</span>db<span class="token punctuation">)</span>
+  <span class="token keyword">const</span> existingUserIds <span class="token operator">=</span> <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">getExistingUserIds</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> userIdMap <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> userId <span class="token keyword">of</span> existingUserIds<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    userIdMap<span class="token punctuation">[</span>userId<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">true</span>
+  <span class="token punctuation">&#125;</span>
+  
+  utils<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'Existing userId:'</span><span class="token punctuation">,</span> existingUserIds<span class="token punctuation">.</span>length<span class="token punctuation">)</span>
+  
+  <span class="token keyword">while</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> userIds <span class="token operator">=</span> <span class="token keyword">await</span> queue<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>userIds<span class="token punctuation">.</span>length <span class="token operator">===</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      utils<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'Done'</span><span class="token punctuation">)</span>
+      <span class="token keyword">break</span>
+    <span class="token punctuation">&#125;</span>
+  
+    <span class="token keyword">const</span> userId <span class="token operator">=</span> userIds<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>userIdMap<span class="token punctuation">[</span>userId<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">continue</span>
+    <span class="token punctuation">&#125;</span>
+    userIdMap<span class="token punctuation">[</span>userId<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">true</span>
+    utils<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'userId:'</span><span class="token punctuation">,</span> userId<span class="token punctuation">)</span>
+  
+    <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">const</span> userInfo <span class="token operator">=</span> <span class="token keyword">await</span> medium<span class="token punctuation">.</span><span class="token function">getUserInfo</span><span class="token punctuation">(</span>userId<span class="token punctuation">)</span>
+  
+      <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>userInfo<span class="token punctuation">.</span>userId<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        utils<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'getUerrInfo error, sleep for'</span><span class="token punctuation">,</span> config<span class="token punctuation">.</span>delayWhenError<span class="token punctuation">)</span>
+        <span class="token keyword">await</span> utils<span class="token punctuation">.</span><span class="token function">sleep</span><span class="token punctuation">(</span>config<span class="token punctuation">.</span>delayWhenError<span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span>
+  
+      <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>userInfo<span class="token punctuation">.</span>isMandarinUser<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        utils<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>userId<span class="token punctuation">,</span> <span class="token string">'not MandarinUser'</span><span class="token punctuation">)</span>
+        <span class="token keyword">continue</span>
+      <span class="token punctuation">&#125;</span>
+  
+      db<span class="token punctuation">.</span><span class="token function">insertUserData</span><span class="token punctuation">(</span>userInfo<span class="token punctuation">)</span>
+  
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>userInfo<span class="token punctuation">.</span>followerCount <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">let</span> to <span class="token operator">=</span> <span class="token keyword">undefined</span>
+        <span class="token keyword">let</span> count <span class="token operator">=</span> <span class="token number">0</span>
+        <span class="token keyword">while</span> <span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">const</span> data <span class="token operator">=</span> <span class="token keyword">await</span> medium<span class="token punctuation">.</span><span class="token function">getFollowers</span><span class="token punctuation">(</span>userInfo<span class="token punctuation">.</span>userId<span class="token punctuation">,</span> to<span class="token punctuation">)</span>
+          <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>data<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">break</span>
+          <span class="token punctuation">&#125;</span>
+          <span class="token keyword">const</span> <span class="token punctuation">&#123;</span> nextTo<span class="token punctuation">,</span> followers <span class="token punctuation">&#125;</span> <span class="token operator">=</span> data
+          to <span class="token operator">=</span> nextTo
+          count <span class="token operator">+=</span> followers<span class="token punctuation">.</span>length
+          utils<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>userInfo<span class="token punctuation">.</span>userId<span class="token punctuation">,</span> <span class="token string">'fetching'</span><span class="token punctuation">,</span> count<span class="token punctuation">,</span> <span class="token string">'followers'</span><span class="token punctuation">)</span>
+          <span class="token keyword">await</span> queue<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>followers<span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span><span class="token parameter">uid</span> <span class="token operator">=></span> <span class="token operator">!</span>userIdMap<span class="token punctuation">[</span>uid<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+          <span class="token keyword">if</span> <span class="token punctuation">(</span>followers<span class="token punctuation">.</span>length <span class="token operator">===</span> <span class="token number">0</span> <span class="token operator">||</span> <span class="token operator">!</span>to<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">break</span>
+          <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      utils<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'sleep for'</span><span class="token punctuation">,</span> config<span class="token punctuation">.</span>delayWhenError<span class="token punctuation">)</span>
+      utils<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span>
+      <span class="token keyword">await</span> utils<span class="token punctuation">.</span><span class="token function">sleep</span><span class="token punctuation">(</span>config<span class="token punctuation">.</span>delayWhenError<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  process<span class="token punctuation">.</span><span class="token function">exit</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這邊有個機制與之前不一樣，之前是每次從 queue 拿一個 userId 出來就去資料庫確認一下是否爬過，但是這樣太沒有效率。在這個版本改成程式執行時就直接從資料庫裡面把所有資料拿出來，並且變成一個 map，如果有值的話就代表已經抓取過，反之亦然。</p>
+<p>重構過的程式碼把 module 切開之後看起來順眼很多，而且要改什麼都很容易，沒有重構過的話我還真不敢 open source 出去…</p>
+<p>這邊是重構完的程式碼：<a target="_blank" rel="noopener" href="https://github.com/aszx87410/medium-user-crawler">https://github.com/aszx87410/medium-user-crawler</a></p>
+<h2><span id="總結">總結</span></h2><p>在寫爬蟲的過程中也是踩了滿多坑的，其中最麻煩的就是語言判斷那一塊，當初沒有想到日文漢字這個 case 要判斷，花了不少時間。偷懶也花了很多時間，原本偷懶不想用更精確的方法來做判定，沒想到最後還是得用，中間浪費了不少時間。</p>
+<p>這爬蟲還有滿多地方可以改進的，例如說執行速度的部分，或者是判定語言的部分，目前是我把資料撈出來之後手動標是香港、台灣還是中國，但或許可以寫一些小程式來自動判定，例如說簡體就是中國，有出現一些粵語的字就是香港，反之則是台灣等等，雖然不一定準確，但至少用程式來輔助會方便很多。</p>
+<p>這篇主要是分享一下我寫這個爬蟲的歷程，其實只要資料來源能確定抓得到，其他都不是什麼大問題。再加上這個爬蟲沒有很完整（例如說沒有 retry 機制），所以花個一兩天就能夠實作完成了。</p>
+<p>希望這篇有吸引到大家，也很希望大家能試試看自己爬資料，做出有趣的數據分析！</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Others/">#Others</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2019/08/09/session-and-cookie-part2/">淺談 Session 與 Cookie：一起來讀 RFC</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2019/06/14/http-status-code-418-teapot/">搶救茶壺大作戰：418 I am a teapot</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2019/07/12/en/medium-crawler/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

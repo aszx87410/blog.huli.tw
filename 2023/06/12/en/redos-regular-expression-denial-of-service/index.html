@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>ReDoS: Attacks using regexp - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2023/06/12/redos-regular-expression-denial-of-service/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2023/06/12/en/redos-regular-expression-denial-of-service/">
+    
+
+
+
+
+
+    <meta name="description" content="Regular expressions (hereinafter referred to as regexp), are mainly used for string matching. After writing a pattern, it can be used to match text that meets the rules. Whether it’s a phone number, e">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ReDoS: Attacks using regexp">
+<meta property="og:url" content="https://blog.huli.tw/2023/06/12/en/redos-regular-expression-denial-of-service/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="Regular expressions (hereinafter referred to as regexp), are mainly used for string matching. After writing a pattern, it can be used to match text that meets the rules. Whether it’s a phone number, e">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/redos-regular-expression-denial-of-service/cover-en.png">
+<meta property="article:published_time" content="2023-06-12T06:10:44.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:10:49.074Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/redos-regular-expression-denial-of-service/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="ReDoS: Attacks using regexp" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#without-further-ado-lets-take-an-example">1&nbsp;&nbsp;<b>Without further ado, let’s take an example</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#actual-case">2&nbsp;&nbsp;<b>Actual case</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#how-to-know-if-there-is-a-risk-of-redos">3&nbsp;&nbsp;<b>How to know if there is a risk of ReDoS?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#application-of-redos-in-attacks">4&nbsp;&nbsp;<b>Application of ReDoS in attacks</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#summary">5&nbsp;&nbsp;<b>Summary</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2023/06/12/redos-regular-expression-denial-of-service/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            ReDoS: Attacks using regexp
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2023-06-12T06:10:44.000Z" itemprop="datePublished">12 June 2023</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>Regular expressions (hereinafter referred to as regexp), are mainly used for string matching. After writing a pattern, it can be used to match text that meets the rules.</p>
+<p>Whether it’s a phone number, email, or ID number, regexp can be used to perform basic format validation to ensure that the string format matches specific rules.</p>
+<p>Although regexp is convenient, if it is not written properly, it may cause some input validations to be bypassed and evolve into a security issue. In addition to this, there is another type of problem that will cause issues, which is ReDoS, the full name is: Regular expression Denial-of-Service, due to the denial of service attack caused by regular expressions.</p>
+<span id="more"></span>
+
+<p>Before talking about ReDoS, let’s first mention what is DoS.</p>
+<p>For example, suppose a website framework does not parse HTTP requests well and crashes when encountering special characters, causing the server to restart. At this time, attackers can continuously send such requests that will cause the website to crash, causing the server to keep restarting, which is a DoS attack.</p>
+<p>If you want to divide it further, you can also divide it into which layer is being attacked, such as the network layer or the application layer, etc. This article is about attacks on the application layer.</p>
+<p>Most of the attacks you see in network news are DDoS, with an additional D in front, meaning distributed, and most of them are attacks on the network layer. As can be seen from the DoS example we mentioned earlier, basically, it is because the website itself has problems, such as not considering special situations, etc., that attackers can use it, and DDoS is more like: “I will find a bunch of people to overload you regardless of whether you have problems or not.”</p>
+<p>To give a real-life example, suppose you run a snack shop that sells common items like dry noodles and boiled greens. Because it takes a lot of time to look at the customer’s menu and what they ordered, and it feels impersonal to order with a mobile phone, you ordered a “menu reading robot” to help you look at the customer’s order.</p>
+<p>At this time, I deliberately drew symbols on the menu, but some places looked normal, making it difficult to read the menu, and the robot’s recognition function was not done well and could not be interpreted, so it stopped. This is called DoS, exhausting resources with one’s own strength.</p>
+<p>I will find a hundred people to go to your place, and each person will draw a lot of blank menus and throw them to the robot, making the robot overwhelmed and unable to handle other customers’ menus. This is called DDoS.</p>
+<p>In short, DoS is usually “able to cause service interruption with a small amount of resources”, while DDoS is “using a lot more resources to directly knock out your service.”</p>
+<p>Okay, let’s talk about DoS. As can be seen from the example above, when your program itself has some problems, it is the easiest to have problems. If this premise is met, it is easy to use a simple method to knock out your service.</p>
+<p>ReDoS relies on poorly written regular expressions to achieve this.</p>
+<h2><span id="without-further-ado-lets-take-an-example">Without further ado, let’s take an example</span></h2><p>The fastest way is to look at the example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">console<span class="token punctuation">.</span><span class="token function">time</span><span class="token punctuation">(</span><span class="token string">'test'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">(a|a?)+$</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span><span class="token string">'a'</span><span class="token punctuation">.</span><span class="token function">repeat</span><span class="token punctuation">(</span><span class="token number">25</span><span class="token punctuation">)</span> <span class="token operator">+</span><span class="token string">'b'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">timeEnd</span><span class="token punctuation">(</span><span class="token string">'test'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment">// test: 2128.498046875 ms</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>A 26-character string takes 2 seconds to match. By the way, the time required for this regexp is calculated in multiples, and one more character requires 4 seconds, then 8 seconds, 16 seconds, and so on.</p>
+<p>So why does this regexp take so long?</p>
+<p>This is related to the implementation and principle of the regexp engine. I haven’t studied the details yet, so I won’t mislead the public. But simply put, the regexp engine must traverse all possibilities before it can find that the string does not match, so it takes so long.</p>
+<p>In summary, if the regexp is not written well, it will consume a lot of time when used.</p>
+<h2><span id="actual-case">Actual case</span></h2><p>You may think, is it so easy to write regexp wrong?</p>
+<p>Yes, a lot of libraries have had ReDoS vulnerabilities, and someone has compiled a detailed list: <a target="_blank" rel="noopener" href="https://github.com/engn33r/awesome-redos-security">Awesome ReDoS Security</a></p>
+<p>For example, CKEditor used to have a regexp that detects whether it is a picture URL. After passing in a carefully constructed string, it takes 6 seconds to execute:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// from: https://github.com/ckeditor/ckeditor5/commit/e36175e86b7f5ca597b39df6e47112b91ab4e0a0</span>
+<span class="token keyword">const</span> <span class="token constant">IMAGE_URL_REGEXP</span> <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">RegExp</span><span class="token punctuation">(</span> <span class="token function">String</span><span class="token punctuation">(</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^(http(s)?:\/\/)?[\w-]+(\.[\w-]+)+[\w._~:/?#[\]@!$&amp;'()*+,;=%-]+</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">.</span>source <span class="token operator">+</span>
+    <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">\.(jpg|jpeg|png|gif|ico|webp|JPG|JPEG|PNG|GIF|ICO|WEBP)\??[\w._~:/#[\]@!$&amp;'()*+,;=%-]*$</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">.</span>source <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">time</span><span class="token punctuation">(</span><span class="token string">'test'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token constant">IMAGE_URL_REGEXP</span><span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span><span class="token string">'a.'</span> <span class="token operator">+</span> <span class="token string">'a'</span><span class="token punctuation">.</span><span class="token function">repeat</span><span class="token punctuation">(</span><span class="token number">100000</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">timeLog</span><span class="token punctuation">(</span><span class="token string">'test'</span><span class="token punctuation">)</span>
+<span class="token comment">// test: 6231.137939453125 ms</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Although the length of the string is 100,000, if it is changed to a version without problems, the result can be obtained in less than 1 millisecond:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// from: https://github.com/ckeditor/ckeditor5/commit/e36175e86b7f5ca597b39df6e47112b91ab4e0a0</span>
+<span class="token keyword">const</span> <span class="token constant">IMAGE_URL_REGEXP</span> <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">RegExp</span><span class="token punctuation">(</span> <span class="token function">String</span><span class="token punctuation">(</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^(http(s)?:\/\/)?[\w-]+\.[\w._~:/?#[\]@!$&amp;'()*+,;=%-]+</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">.</span>source <span class="token operator">+</span>
+    <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">\.(jpg|jpeg|png|gif|ico|webp|JPG|JPEG|PNG|GIF|ICO|WEBP)(\?[\w._~:/#[\]@!$&amp;'()*+,;=%-]*)?$</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">.</span>source <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+console<span class="token punctuation">.</span><span class="token function">time</span><span class="token punctuation">(</span><span class="token string">'test'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token constant">IMAGE_URL_REGEXP</span><span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span><span class="token string">'a.'</span> <span class="token operator">+</span> <span class="token string">'a'</span><span class="token punctuation">.</span><span class="token function">repeat</span><span class="token punctuation">(</span><span class="token number">100000</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">timeLog</span><span class="token punctuation">(</span><span class="token string">'test'</span><span class="token punctuation">)</span>
+<span class="token comment">// test: 0.570068359375 ms</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In JavaScript, these matching codes are all run on the main thread. If it is a webpage, the screen will freeze directly, and if it is executed with Node.js, the server will also be stuck and unable to handle other requests.</p>
+<h2><span id="how-to-know-if-there-is-a-risk-of-redos">How to know if there is a risk of ReDoS?</span></h2><p>There are some ready-made tools that can help, and the one I use most often is this: <a target="_blank" rel="noopener" href="https://devina.io/redos-checker">https://devina.io/redos-checker</a></p>
+<p>Just throw the regexp in, and it will tell you if there are any problems. If there are, it will even provide a test string for you to test again.</p>
+<p><img src="/img/redos-regular-expression-denial-of-service/p1.png" alt="devina redos checker"></p>
+<p>However, sometimes there may be false positives, where it thinks there is a problem but there isn’t, or there may actually be a problem, but the attack string it provides doesn’t work. Therefore, it is still recommended to test the payload it provides again after testing to confirm.</p>
+<h2><span id="application-of-redos-in-attacks">Application of ReDoS in attacks</span></h2><p>The previous discussion was all about “the regexp is already written, and the user can control the input”. In this case, all you have to do is find the problematic regexp and generate an attack string.</p>
+<p>There is another situation where “the user can control the regexp”. For example, suppose there is a website that provides a search function for users, and you can pass in a regexp, and the server will return whether there is a username that matches this regexp.</p>
+<p>The server’s implementation is roughly as follows (written arbitrarily, just to convey the idea):</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'/search'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> q <span class="token operator">=</span> req<span class="token punctuation">.</span>query<span class="token punctuation">.</span>q
+    <span class="token keyword">return</span> users
+        <span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span><span class="token parameter">user</span> <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token class-name">RegExp</span><span class="token punctuation">(</span>q<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span>user<span class="token punctuation">.</span>username<span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This dangerous function not only allows attackers to get all the usernames, but also has the risk of ReDoS.</p>
+<p>For example, when <code>/((([^m]|[^m]?)+)+)+$/</code> encounters <code>&quot;username&quot;</code>, it takes nearly 4 seconds to complete:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">console<span class="token punctuation">.</span><span class="token function">time</span><span class="token punctuation">(</span><span class="token string">'test'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">((([^m]|[^m]?)+)+)+$</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span><span class="token string">'username'</span><span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">timeEnd</span><span class="token punctuation">(</span><span class="token string">'test'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment">// test: 3728.89990234375 ms</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>As long as you continue to extend the regexp in the same pattern, you can make this entire block of code run for more than 30 seconds or longer, paralyzing the entire server.</p>
+<p>Another common situation when playing CTF is that you can also pass in a regexp, but the server won’t tell you if it was successful. You can only judge based on the time difference, and ReDoS is very useful in this case:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">console<span class="token punctuation">.</span><span class="token function">time</span><span class="token punctuation">(</span><span class="token string">'CTF&#123;a'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">CTF&#123;[a](((((.*)*)*)*)*)!</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span><span class="token string">'CTF&#123;this_is_flag&#125;'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">timeEnd</span><span class="token punctuation">(</span><span class="token string">'CTF&#123;a'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment">// CTF&#123;a: 0.071ms</span>
+
+console<span class="token punctuation">.</span><span class="token function">time</span><span class="token punctuation">(</span><span class="token string">'CTF&#123;t'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">CTF&#123;[t](((((.*)*)*)*)*)!</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span><span class="token string">'CTF&#123;this_is_flag&#125;'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">timeEnd</span><span class="token punctuation">(</span><span class="token string">'CTF&#123;t'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment">// CTF&#123;t: 24.577s</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>By passing in a carefully constructed regexp, you can use the time difference to know what the first character is.</p>
+<p>Finally, a simple defense method is mentioned. The most fundamental solution is not to write flawed regexps. First, learn which patterns should be used as little as possible, and you can grasp the general direction. In addition, it seems that some people have done some automated tools to help scan the regexps that appear in the code, which is also a way to prevent problems before they occur.</p>
+<h2><span id="summary">Summary</span></h2><p>I personally think that ReDoS is a pretty interesting attack method. I never thought that such an effect could be achieved by relying on regexps.</p>
+<p>The first time I learned about this attack, I seemed to be still a developer. I occasionally saw libraries with this vulnerability being used, but I didn’t care much about it at the time. Later, I encountered this thing again in information security, and I felt that it was quite interesting.</p>
+<p>This article is more like my personal notes, just wanting to record some payloads while the memory is still fresh, so it’s easier to find them later.</p>
+<p>Finally, here are some reference materials and further reading. Interested readers can take a look:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://book.hacktricks.xyz/pentesting-web/regular-expression-denial-of-service-redos">HackTricks - Regular expression Denial of Service - ReDoS</a></li>
+<li><a target="_blank" rel="noopener" href="https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS">OWASP: Regular expression Denial of Service - ReDoS</a></li>
+<li><a target="_blank" rel="noopener" href="https://learn.snyk.io/lessons/redos/javascript/">snyk: ReDoS</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2023/06/20/en/update-blog-with-chatgpt/">Updating Blog with chatGPT</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2023/04/27/en/android-apk-decompile-intro-4/">Android App Reverse Engineering Part 4: Dynamic Analysis with Frida</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2023/06/12/redos-regular-expression-denial-of-service/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

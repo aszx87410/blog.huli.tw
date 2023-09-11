@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Android App Reverse Engineering Part 3: Monitoring App Packets - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2023/04/27/android-apk-decompile-intro-3/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2023/04/27/en/android-apk-decompile-intro-3/">
+    
+
+
+
+
+
+    <meta name="description" content="I remember when I first started working with Android, it was easy to see which requests an app was sending. All I had to do was install Charles on my computer, set up the Wi-Fi on my phone to proxy to">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Android App Reverse Engineering Part 3: Monitoring App Packets">
+<meta property="og:url" content="https://blog.huli.tw/2023/04/27/en/android-apk-decompile-intro-3/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="I remember when I first started working with Android, it was easy to see which requests an app was sending. All I had to do was install Charles on my computer, set up the Wi-Fi on my phone to proxy to">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/android-apk-decompile-intro-3/cover-en.png">
+<meta property="article:published_time" content="2023-04-27T06:20:44.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:10:49.040Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/android-apk-decompile-intro-3/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Android App Reverse Engineering Part 3: Monitoring App Packets" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#prerequisites">1&nbsp;&nbsp;<b>Prerequisites</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#modifying-the-apk">2&nbsp;&nbsp;<b>Modifying the Apk</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#certificate-pinning">3&nbsp;&nbsp;<b>Certificate pinning</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#summary">4&nbsp;&nbsp;<b>Summary</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2023/04/27/android-apk-decompile-intro-3/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Android App Reverse Engineering Part 3: Monitoring App Packets
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2023-04-27T06:20:44.000Z" itemprop="datePublished">27 April 2023</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>I remember when I first started working with Android, it was easy to see which requests an app was sending. All I had to do was install <a target="_blank" rel="noopener" href="https://www.charlesproxy.com/">Charles</a> on my computer, set up the Wi-Fi on my phone to proxy to my computer, and then download the certificate provided by Charles by entering a specific URL. Once installed, I was good to go.</p>
+<p>However, when I tried the same process recently, I could see some packets being sent, but the traffic coming out of the app was empty. I searched online for various solutions, but none of them worked.</p>
+<p>Finally, I found out that Android changed its security settings above 6.0, and by default, it does not trust certificates installed by users, which is why it cannot intercept them. One solution is to install a local VPN, which will route all traffic through the proxy, but I found it a bit cumbersome after trying it out.</p>
+<p>Among the many methods, the most useful one I tried was to unpack the apk, modify some settings, and then repack it. This article will document the process and experience.</p>
+<span id="more"></span>
+
+<p>Series links:</p>
+<ol>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-1/">Android App Reverse Engineering Part 1: Unpacking and Rebuilding Apks</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-2/">Android App Reverse Engineering Part 2: Modifying Smali Code</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-3/">Android App Reverse Engineering Part 3: Monitoring App Packets</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-4/">Android App Reverse Engineering Part 4: Dynamic Analysis with Frida</a></li>
+</ol>
+<h2><span id="prerequisites">Prerequisites</span></h2><p>There are two prerequisites:</p>
+<ol>
+<li>Prepare a proxy</li>
+<li>Set up the phone</li>
+</ol>
+<p>Any proxy can be used for the proxy part. I used the common <a target="_blank" rel="noopener" href="https://portswigger.net/burp">Burp Suite</a>, and the settings for other software should be similar.</p>
+<p>First, go to Proxy -&gt; Options to add Proxy Listeners, and remember to select all interfaces for the bind to address so that the phone can connect:</p>
+<p><img src="/img/android-apk-decompile-intro/p7-proxy.png"></p>
+<p>The computer’s proxy is now set up, and we can move on to setting up the phone.</p>
+<p>Before starting the setup, make sure that the phone and computer are connected to the same Wi-Fi network. Then, check the internal IP address of the computer and go to Settings &#x3D;&gt; Connections &#x3D;&gt; Wi-Fi on the phone to edit the connected network and set up a manual proxy to route the phone’s traffic to the computer.</p>
+<p>Next, we need to install Burp Suite’s certificate on the phone. Simply visit <code>http://burpsuite</code> on the phone, and a file called <code>cert.der</code> will be downloaded. Remember to rename it to <code>cert.cer</code> and then install the certificate.</p>
+<p>At this point, the phone is ready.</p>
+<h2><span id="modifying-the-apk">Modifying the Apk</span></h2><p>The apk used for this demonstration can be found here: <a target="_blank" rel="noopener" href="https://github.com/aszx87410/demo/raw/master/android/demoapp-http.apk">https://github.com/aszx87410/demo/raw/master/android/demoapp-http.apk</a></p>
+<p>The content of the app is simple: pressing a button sends a request, and if it is intercepted, it means that it was successful. After installing the app, you can try it out. You should find that even though all the settings are in place, the proxy is still empty.</p>
+<p>As I mentioned at the beginning, there is a section in the Android official documentation that explains this: <a target="_blank" rel="noopener" href="https://developer.android.com/training/articles/security-config">Network security configuration</a></p>
+<p>The modification method is also simple and basically does not require any changes to the code. Therefore, we first use Apktool to unpack the apk.</p>
+<p>Next, open AndroidManifest.xml and find <code>&lt;application&gt;</code>. Check if it has the attribute <code>android:networkSecurityConfig</code>. If it does not, add it: <code>android:networkSecurityConfig=&quot;@xml/network_security_config&quot;</code>. If it does, remember the name of the xml.</p>
+<p>Then, go to res&#x2F;xml and add <code>network_security_config.xml</code>, with the following content:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token prolog">&lt;?xml version="1.0" encoding="utf-8"?></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>network-security-config</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>base-config</span> <span class="token attr-name">cleartextTrafficPermitted</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>true<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>trust-anchors</span><span class="token punctuation">></span></span>
+      <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>certificates</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>system<span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span>
+      <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>certificates</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>user<span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>trust-anchors</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>base-config</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>network-security-config</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This file represents that the app trusts all certificates, including those installed by the user. If the app already has this file, you can replace the contents with the above to ensure that the app trusts user certificates.</p>
+<p>Then repack the apk and click the button again to see if you can intercept the traffic from the proxy:</p>
+<p><img src="/img/android-apk-decompile-intro/p8-success.png"></p>
+<h2><span id="certificate-pinning">Certificate pinning</span></h2><p>If the proxy still cannot listen after the above steps, it means that the app may have other security settings, such as certificate pinning.</p>
+<p>What is certificate pinning? If a webpage uses https, it means that the server has an https certificate, and certificate pinning means that the app specifies what certificate should correspond to a certain domain. If the certificate does not match, it means that someone is messing with it in the middle, so the connection is rejected.</p>
+<p>Taking the popular library OkHttp as an example, the <a target="_blank" rel="noopener" href="https://square.github.io/okhttp/4.x/okhttp/okhttp3/-certificate-pinner/">document</a> writes how to implement this feature:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token class-name">String</span> hostname <span class="token operator">=</span> <span class="token string">"publicobject.com"</span><span class="token punctuation">;</span>
+<span class="token class-name">CertificatePinner</span> certificatePinner <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">CertificatePinner<span class="token punctuation">.</span>Builder</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>hostname<span class="token punctuation">,</span> <span class="token string">"sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">build</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token class-name">OkHttpClient</span> client <span class="token operator">=</span> <span class="token class-name">OkHttpClient<span class="token punctuation">.</span>Builder</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">certificatePinner</span><span class="token punctuation">(</span>certificatePinner<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">build</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token class-name">Request</span> request <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Request<span class="token punctuation">.</span>Builder</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">url</span><span class="token punctuation">(</span><span class="token string">"https://"</span> <span class="token operator">+</span> hostname<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">build</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+client<span class="token punctuation">.</span><span class="token function">newCall</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">execute</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>If you want to try it out, you can use this apk file: <a target="_blank" rel="noopener" href="https://github.com/aszx87410/demo/raw/master/android/demoapp-pinning.apk">https://github.com/aszx87410/demo/raw/master/android/demoapp-pinning.apk</a></p>
+<p>We still use apktool to unpack it, then put the network security config in as before, and then find where the code uses certificate pinner.</p>
+<p>Because the code has turned on proguard this time, even okhttp has been obfuscated, and searching for the keyword <code>certificatePinner</code> may not find anything. What should we do? We can try another way. When using this feature, you must write a set of sha256 values in it, so we can search for: <code>sha256/</code></p>
+<p>We can find such a paragraph:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"># virtual methods
+<span class="token punctuation">.</span>method <span class="token keyword">public</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+    <span class="token punctuation">.</span>locals <span class="token number">13</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">1</span>
+    <span class="token keyword">new</span><span class="token operator">-</span>instance v0<span class="token punctuation">,</span> <span class="token class-name">Ljava</span><span class="token operator">/</span>util<span class="token operator">/</span><span class="token class-name">ArrayList</span><span class="token punctuation">;</span>
+
+    invoke<span class="token operator">-</span>direct <span class="token punctuation">&#123;</span>v0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Ljava</span><span class="token operator">/</span>util<span class="token operator">/</span><span class="token class-name">ArrayList</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token generics"><span class="token punctuation">&lt;</span>init<span class="token punctuation">></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token keyword">const</span><span class="token operator">-</span>string v1<span class="token punctuation">,</span> <span class="token string">"sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">2</span>
+    filled<span class="token operator">-</span><span class="token keyword">new</span><span class="token operator">-</span>array <span class="token punctuation">&#123;</span>v1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span>
+
+    move<span class="token operator">-</span>result<span class="token operator">-</span>object v1
+
+    <span class="token keyword">const</span><span class="token operator">-</span>string v2<span class="token punctuation">,</span> <span class="token string">"archive.org"</span>
+
+    <span class="token keyword">const</span><span class="token operator">-</span>string v3<span class="token punctuation">,</span> <span class="token string">"pattern"</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">3</span>
+    invoke<span class="token operator">-</span><span class="token keyword">static</span> <span class="token punctuation">&#123;</span>v2<span class="token punctuation">,</span> v3<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lc</span><span class="token operator">/</span>j<span class="token operator">/</span>b<span class="token operator">/</span>d<span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">d</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">Object</span><span class="token punctuation">;</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token keyword">const</span><span class="token operator">-</span>string v3<span class="token punctuation">,</span> <span class="token string">"pins"</span>
+
+    invoke<span class="token operator">-</span><span class="token keyword">static</span> <span class="token punctuation">&#123;</span>v1<span class="token punctuation">,</span> v3<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lc</span><span class="token operator">/</span>j<span class="token operator">/</span>b<span class="token operator">/</span>d<span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">d</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">Object</span><span class="token punctuation">;</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token keyword">const</span><span class="token operator">/</span><span class="token number">4</span> v3<span class="token punctuation">,</span> <span class="token number">0x0</span>
+
+    <span class="token keyword">const</span><span class="token operator">/</span><span class="token number">4</span> v4<span class="token punctuation">,</span> <span class="token number">0x0</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>What should we do after finding it? Do we need to change smali and remove certificate pinner? In fact, there is a simpler way.</p>
+<p>From the code, we can guess that the <code>archive.org</code> below should be the bound domain, so as long as we change this domain to any other string, other domains will not check whether the certificate matches.</p>
+<p>After changing it, repack the app and install it, and you can listen to the traffic normally.</p>
+<p>Like the above, changing where certificatePinner is used, there is another way to directly change the implementation of okhttp. Find <code>okhttp3/CertificatePinner$Builder.smali</code> in smali, and there is a function:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"># virtual methods
+<span class="token punctuation">.</span>method <span class="token keyword">public</span> varargs <span class="token function">add</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token punctuation">[</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">Lokhttp3</span><span class="token operator">/</span><span class="token class-name">CertificatePinner</span>$<span class="token class-name">Builder</span><span class="token punctuation">;</span>
+    <span class="token punctuation">.</span>locals <span class="token number">5</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>This is the method that okhttp uses to handle adding certificate pinner. We just need to change it like this:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"># virtual methods
+<span class="token punctuation">.</span>method <span class="token keyword">public</span> varargs <span class="token function">add</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token punctuation">[</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">Lokhttp3</span><span class="token operator">/</span><span class="token class-name">CertificatePinner</span>$<span class="token class-name">Builder</span><span class="token punctuation">;</span>
+    <span class="token punctuation">.</span>locals <span class="token number">5</span>
+
+    # patch
+    <span class="token keyword">const</span><span class="token operator">-</span>string p1<span class="token punctuation">,</span> <span class="token string">"abc"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>So the first parameter (domain) will always be abc and will never take effect.</p>
+<h2><span id="summary">Summary</span></h2><p>In this article, we learned how to modify the app ourselves and remove some anti-man-in-the-middle attack mechanisms, such as changing the network security config and the part of the code that handles certificate pinning.</p>
+<p>For general apps, this should be enough, at least to monitor traffic and see what the app is sending. And compared to the VPN solution, there is another advantage, that is, it can be repackaged twice, and a version that can work by replacing the API address can be produced, with higher flexibility.</p>
+<p>In the next article, we will learn another way to analyze apps.</p>
+<p>Series link:</p>
+<ol>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-1/">Android App Reverse Engineering Part 1: Disassembling and Reassembling APKs</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-2/">Android App Reverse Engineering Part 2: Modifying Smali Code</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-3/">Android App Reverse Engineering Part 3: Intercepting App Packets</a> - You are here</li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-4/">Android App Reverse Engineering Part 4: Dynamic Analysis with Frida</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2023/04/27/en/android-apk-decompile-intro-4/">Android App Reverse Engineering Part 4: Dynamic Analysis with Frida</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2023/04/27/en/android-apk-decompile-intro-2/">Android App Reverse Engineering Part 2: Modifying Smali Code</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2023/04/27/android-apk-decompile-intro-3/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

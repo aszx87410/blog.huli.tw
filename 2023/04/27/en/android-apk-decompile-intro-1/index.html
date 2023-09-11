@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Android App Reverse Engineering Part 1: Decompiling and Rebuilding APKs - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2023/04/27/android-apk-decompile-intro-1/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2023/04/27/en/android-apk-decompile-intro-1/">
+    
+
+
+
+
+
+    <meta name="description" content="Five years ago, I wrote an article titled [Android] Everyone Can Reverse Engineer APKs. At that time, I was an Android engineer who, due to work requirements, researched basic Android reverse engineer">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Android App Reverse Engineering Part 1: Decompiling and Rebuilding APKs">
+<meta property="og:url" content="https://blog.huli.tw/2023/04/27/en/android-apk-decompile-intro-1/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="Five years ago, I wrote an article titled [Android] Everyone Can Reverse Engineer APKs. At that time, I was an Android engineer who, due to work requirements, researched basic Android reverse engineer">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/android-apk-decompile-intro-1/cover-en.png">
+<meta property="article:published_time" content="2023-04-27T06:10:44.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:46:56.894Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/android-apk-decompile-intro-1/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Android App Reverse Engineering Part 1: Decompiling and Rebuilding APKs" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#start-by-understanding-android-app-development">1&nbsp;&nbsp;<b>Start by Understanding Android App Development</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#simple-apk-decompilation">2&nbsp;&nbsp;<b>Simple APK decompilation</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#using-apktool-to-disassemble-apk">3&nbsp;&nbsp;<b>Using Apktool to disassemble APK</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#repackaging-apk">4&nbsp;&nbsp;<b>Repackaging APK</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#summary">5&nbsp;&nbsp;<b>Summary</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2023/04/27/android-apk-decompile-intro-1/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Android App Reverse Engineering Part 1: Decompiling and Rebuilding APKs
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2023-04-27T06:10:44.000Z" itemprop="datePublished">27 April 2023</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>Five years ago, I wrote an article titled <a href="https://blog.huli.tw/2016/03/20/android-apk-decompile/">[Android] Everyone Can Reverse Engineer APKs</a>. At that time, I was an Android engineer who, due to work requirements, researched basic Android reverse engineering with my colleagues. Our goal was to achieve a fully automated process: upload an APK, automatically decompile it, insert some strange things, and then repackage it.</p>
+<p>Now, due to work requirements, I have revisited and reinforced my knowledge of APK reverse engineering and modification, and have written this series of articles to share with you.</p>
+<p>First of all, I want to emphasize that this series is only an “introduction.” By using various tools to decompile and rebuild APKs, it should be sufficient for apps that are not obfuscated. However, if the app has been obfuscated, deeper knowledge of binary is required to unlock it, which is another world.</p>
+<p>In any case, this series is suitable for those who have not been exposed to Android app reverse engineering and want to try it out, as well as for Android engineers who want to decompile their own apps and see what they look like. I think it’s quite useful.</p>
+<span id="more"></span>
+
+<p>Series links:</p>
+<ol>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-1/">Introduction to Android App Reverse Engineering Part 1: Decompiling and Rebuilding APKs</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-2/">Introduction to Android App Reverse Engineering Part 2: Modifying Smali Code</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-3/">Introduction to Android App Reverse Engineering Part 3: Monitoring App Packets</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-4/">Introduction to Android App Reverse Engineering Part 4: Dynamic Analysis with Frida</a></li>
+</ol>
+<h2><span id="start-by-understanding-android-app-development">Start by Understanding Android App Development</span></h2><p>I think that if you want to reverse engineer an Android app, it is helpful to have a rough understanding of how the app is developed, so that you can quickly understand what each part is doing after decompiling the app.</p>
+<p>Therefore, I highly recommend that you find a tutorial for an Android app, install Android Studio, write a very simple app, and run it, even packaging it into an APK file. This will strengthen your understanding of the entire process.</p>
+<p>Next, I will briefly show you how an app is developed.</p>
+<p>First of all, an app is composed of three components:</p>
+<ol>
+<li>AndroidManifest.xml, which can be thought of as the app’s configuration file, containing various app-related information.</li>
+<li>Resources, including layout, strings that appear in the program, images, and all other information.</li>
+<li>Code</li>
+</ol>
+<p>Below is a screenshot of a simple project. On the left is the file structure, and on the right is the contents of <code>AndroidManifest.xml</code>:</p>
+<p><img src="/img/android-apk-decompile-intro/p1-manifest.png"></p>
+<p>To ensure that the image is clear, the contents of the XML are shown below:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token prolog">&lt;?xml version="1.0" encoding="utf-8"?></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>manifest</span> <span class="token attr-name"><span class="token namespace">xmlns:</span>android</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>http://schemas.android.com/apk/res/android<span class="token punctuation">"</span></span>
+    <span class="token attr-name">package</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>com.example.myapplication<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>application</span>
+        <span class="token attr-name"><span class="token namespace">android:</span>allowBackup</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>true<span class="token punctuation">"</span></span>
+        <span class="token attr-name"><span class="token namespace">android:</span>icon</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>@mipmap/ic_launcher<span class="token punctuation">"</span></span>
+        <span class="token attr-name"><span class="token namespace">android:</span>label</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>@string/app_name<span class="token punctuation">"</span></span>
+        <span class="token attr-name"><span class="token namespace">android:</span>roundIcon</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>@mipmap/ic_launcher_round<span class="token punctuation">"</span></span>
+        <span class="token attr-name"><span class="token namespace">android:</span>supportsRtl</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>true<span class="token punctuation">"</span></span>
+        <span class="token attr-name"><span class="token namespace">android:</span>theme</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>@style/AppTheme<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>activity</span>
+            <span class="token attr-name"><span class="token namespace">android:</span>name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>.MainActivity<span class="token punctuation">"</span></span>
+            <span class="token attr-name"><span class="token namespace">android:</span>label</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>@string/app_name<span class="token punctuation">"</span></span>
+            <span class="token attr-name"><span class="token namespace">android:</span>theme</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>@style/AppTheme.NoActionBar<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>intent-filter</span><span class="token punctuation">></span></span>
+                <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>action</span> <span class="token attr-name"><span class="token namespace">android:</span>name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>android.intent.action.MAIN<span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span>
+
+                <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>category</span> <span class="token attr-name"><span class="token namespace">android:</span>name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>android.intent.category.LAUNCHER<span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span>
+            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>intent-filter</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>activity</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>application</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>manifest</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>From this file, we can learn several things, including:</p>
+<ol>
+<li>The package name of this app is <code>com.example.myapplication</code>.</li>
+<li>This app has an activity named <code>MainActivity</code>, which is the main activity.</li>
+</ol>
+<p>Each app has a unique package name, which can be thought of as the app’s ID and is written in the AndroidManifest. This is also related to the file structure of your code, as anyone who has written Java knows.</p>
+<p>If you go to the web version of Google Play, you will find that the URL contains the package name. For example, the URL of Facebook’s page looks like this: <a target="_blank" rel="noopener" href="https://play.google.com/store/apps/details?id=com.facebook.katana&hl=zh_TW&gl=US">https://play.google.com/store/apps/details?id=com.facebook.katana&amp;hl=zh_TW&amp;gl=US</a></p>
+<p>Therefore, <code>com.facebook.katana</code> is the package name of the Facebook app.</p>
+<p>Next, let’s look at the second point. What is an activity?</p>
+<p>You can think of an activity as a “screen.” Each screen is an activity. Therefore, if it is an app that requires registration to use, there may be the following screens:</p>
+<ol>
+<li>Welcome page</li>
+<li>Registration page</li>
+<li>Login page</li>
+<li>Main page (displayed after successful login)</li>
+</ol>
+<p>Each of these pages is an activity, and each activity may have a layout. In Android development, a layout is actually an XML file, which looks like this:</p>
+<p><img src="/img/android-apk-decompile-intro/p2-layout.png"></p>
+<p>The right side is what you see, and the left side is the XML file of the layout. This is similar to the relationship between the screen and HTML+CSS in web front-end development, except that in Android development, the layout is generated using XML instead of HTML+CSS.</p>
+<p>Layouts are a type of resource and are placed in the <code>res</code> folder.</p>
+<p>There are two things worth noting about the layout file above.</p>
+<p>The first is <code>android:id=&quot;@+id/textview_first&quot;</code>, which represents the component corresponding to an ID. Why do we need to correspond to an ID? Because this way we can access this component in the code, like this:</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token class-name">TextView</span> tv <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token class-name">TextView</span><span class="token punctuation">)</span> <span class="token function">findViewById</span><span class="token punctuation">(</span><span class="token class-name">R</span><span class="token punctuation">.</span>id<span class="token punctuation">.</span>textview_first<span class="token punctuation">)</span><span class="token punctuation">;</span>
+tv<span class="token punctuation">.</span><span class="token function">setText</span><span class="token punctuation">(</span><span class="token string">"hello"</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>We need to find this component using the ID before we can change its text.</p>
+<p>The second thing worth noting is <code>android:text=&quot;@string/hello_first_fragment&quot;</code>, which is actually the text that the component will display. If I write: <code>android:text=&quot;hello&quot;</code>, the screen will display hello.</p>
+<p>So why is the content above <code>@string/hello_first_fragment</code>? We can take a look at the file <code>res/values/strings.xml</code>:</p>
+<p><img src="/img/android-apk-decompile-intro/p3-strings.png"></p>
+<p>The content is:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>resources</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>app_name<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>My Application<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>action_settings<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>Settings<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">></span></span>
+    <span class="token comment">&lt;!-- Strings used for fragments for navigation --></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>first_fragment_label<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>First Fragment<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>second_fragment_label<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>Second Fragment<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>next<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>Next<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>previous<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>Previous<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">></span></span>
+
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hello_first_fragment<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>Hello first fragment<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hello_second_fragment<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>Hello second fragment. Arg: %1$s<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>resources</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>We can see that there is a string named <code>hello_first_fragment</code> inside, and the content is <code>Hello first fragment</code>.</p>
+<p>Using this method, we can avoid hard-coding strings directly in the layout and avoid writing strings directly. Why avoid hard-coding? Because we want to do multilingualism!</p>
+<p>If you want to make an English version, you can actually create a new file called <code>res/values/strings-en.xml</code> or something similar. When Android detects that the operating system is in English, it will automatically fetch the strings in this file. In this way, you only need to change the string file, without touching the code.</p>
+<p>The above is a basic introduction to Android apps, including:</p>
+<ol>
+<li>What is AndroidManifest for?</li>
+<li>What is an activity?</li>
+<li>What are the uses of various XML files?</li>
+</ol>
+<p>After understanding these, we can start to decompile the APK.</p>
+<p>I wrote a simple example app, the link is here: <a target="_blank" rel="noopener" href="https://github.com/aszx87410/demo/raw/master/android/demoapp.apk">https://github.com/aszx87410/demo/raw/master/android/demoapp.apk</a></p>
+<p>After running, it looks like this, small and cute:</p>
+<p><img src="/img/android-apk-decompile-intro/p4-scr.png"></p>
+<p>After clicking <code>Check root</code>, it will check whether the device has root and change the text on the screen.</p>
+<h2><span id="simple-apk-decompilation">Simple APK decompilation</span></h2><p>Actually, APK is a compressed file, so we can directly use the built-in command to unpack the APK:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">unzip</span> demoapp.apk <span class="token parameter variable">-d</span> demoapp<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>After unpacking, it looks like this:</p>
+<p><img src="/img/android-apk-decompile-intro/p5-apk.png"></p>
+<p>There are several folders and files:</p>
+<ul>
+<li>lib - used to store native code, will be discussed later</li>
+<li>META-INF - some signature-related information</li>
+<li>res - seen when writing the app</li>
+<li>AndroidManifest.xml - same as above</li>
+<li>classes.dex - the result of compiling the code into dex</li>
+<li>resources.arsc - index table related to resources</li>
+</ul>
+<p>Let’s talk about what <code>resources.arsc</code> is for. If you open any file under the res folder, you will find that the content is not pure text, but a bunch of hexadecimal things, like this:</p>
+<pre class="line-numbers language-none"><code class="language-none">0300 0800 8401 0000 0100 1c00 a800 0000
+0700 0000 0000 0000 0001 0000 3800 0000
+0000 0000 0000 0000 0f00 0000 1a00 0000
+2600 0000 3000 0000 3800 0000 4200 0000
+0c0c 696e 7465 7270 6f6c 6174 6f72 0008
+0864 7572 6174 696f 6e00 0909 6672 6f6d
+416c 7068 6100 0707 746f 416c 7068 6100
+0505 616c 7068 6100 0707 616e 6472 6f69
+6400 2a2a 6874 7470 3a2f 2f73 6368 656d<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This is because these XML files have been compiled and need to be combined with <code>resources.arsc</code> to restore them to text form.</p>
+<p><code>classes.dex</code> is also compiled and needs to be decompiled further to see its contents.</p>
+<p>From the above, we can see that although it is possible to manually unpack an APK using decompression, there is not much useful content to be seen. To further see the contents, we need other tools to do this.</p>
+<h2><span id="using-apktool-to-disassemble-apk">Using Apktool to disassemble APK</span></h2><p>The <code>unzip</code> used just now only simply unpacks the compressed file, and the website of <a target="_blank" rel="noopener" href="https://ibotpeaches.github.io/Apktool/">Apktool</a> writes explicitly: A tool for reverse engineering Android apk files, indicating that it is used to disassemble APK.</p>
+<p>I won’t write about the details of downloading and installing, you can refer to the official website: <a target="_blank" rel="noopener" href="https://ibotpeaches.github.io/Apktool/">https://ibotpeaches.github.io/Apktool/</a> or other resources on the Internet.</p>
+<p>Next, let’s use Apktool to disassemble the demoapp just now:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># d stands for decode</span>
+<span class="token comment"># -f stands for --force, delete demoapp folder first if exists</span>
+apktool d <span class="token parameter variable">-f</span> demoapp<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>After disassembling, you can see the file structure below:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">.</span>
+├── AndroidManifest.xml
+├── apktool.yml
+├── lib
+├── original
+├── res
+└── smali<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The difference between this and the one we unpacked with a compressed file is that there is no <code>resources.arsc</code>, and there is no <code>classes.dex</code>. The former is because the resources have been restored to text files, and the latter has been restored to files under the <code>smali</code> folder, which will be mentioned in the next article.</p>
+<p>Next, let’s change the text on the screen.</p>
+<p>Open <code>res/values/strings.xml</code> and search for: <code>Hello first fragment</code>, you will find this paragraph:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hello_first_fragment<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>Hello first fragment<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>We directly change the content to:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hello_first_fragment<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>Hacked!<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Next, just repackage the APK and install it, and you should be able to see the modified text.</p>
+<h2><span id="repackaging-apk">Repackaging APK</span></h2><p>In addition to disassembling APK, Apktool can also reassemble APK. The command is as follows:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">apktool b demoapp <span class="token parameter variable">-o</span> demoapp2.apk<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>If there is an error during packaging, you can use:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">apktool b --use-aapt2 demoapp <span class="token parameter variable">-o</span> demoapp2.apk<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>If there is no accident, you will see a <code>demoapp2.apk</code> file in the folder. But if you install this file directly, an error will occur:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">adb: failed to <span class="token function">install</span> demoapp2.apk: Failure <span class="token punctuation">[</span>INSTALL_PARSE_FAILED_NO_CERTIFICATES: Failed to collect certificates from /data/app/vmdl1575742168.tmp/base.apk: Attempt to get length of null array<span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>This is because after the APK file is packaged, it needs to go through two procedures: align and sign, before it can be installed on the phone.</p>
+<p>Align is for performance considerations, and sign is for security.</p>
+<p>When uploading a new APK on the Google Play backend, Google will check whether the signature used for signing the APK is the same as before. If it is different, you will not be allowed to upload it. In this way, even if the attacker obtains the victim’s account, he cannot upload a new APK because the signature does not match.</p>
+<p>Let’s first generate a new signature:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">keytool <span class="token parameter variable">-genkey</span> <span class="token parameter variable">-v</span> <span class="token parameter variable">-keystore</span> my-release-key.jks <span class="token parameter variable">-keyalg</span> RSA <span class="token parameter variable">-keysize</span> <span class="token number">2048</span> <span class="token parameter variable">-validity</span> <span class="token number">10000</span> <span class="token parameter variable">-alias</span> my-alias<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Enter 123456 when asked for a password, and you can leave other fields blank. After execution, you will see a <code>my-release-key.jks</code> file.</p>
+<p>Next, I wrote a simple script to automatically remove the old version + build + align + sign + install:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># compile.sh</span>
+
+<span class="token comment"># remove old app</span>
+adb uninstall com.cymetrics.demo
+
+<span class="token comment"># remove old apk</span>
+<span class="token function">rm</span> <span class="token parameter variable">-f</span> demoapp2.apk
+<span class="token function">rm</span> <span class="token parameter variable">-f</span> demoapp2-final.apk
+<span class="token function">rm</span> <span class="token parameter variable">-f</span> demoapp2-aligned.apk
+
+<span class="token comment"># build</span>
+apktool b --use-aapt2 demoapp <span class="token parameter variable">-o</span> demoapp2.apk
+
+<span class="token comment"># align</span>
+zipalign <span class="token parameter variable">-v</span> <span class="token parameter variable">-p</span> <span class="token number">4</span> demoapp2.apk demoapp2-aligned.apk
+
+<span class="token comment"># sign</span>
+apksigner sign <span class="token parameter variable">--ks</span> my-release-key.jks --ks-pass pass:123456 <span class="token parameter variable">--out</span> demoapp2-final.apk demoapp2-aligned.apk
+adb <span class="token function">install</span> demoapp2-final.apk<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>After running the script, open the app, and if there is no accident, you will see that the text has been changed by us:</p>
+<p><img src="/img/android-apk-decompile-intro/p6-apk2.png"></p>
+<p>Yes, modifying a simple app is that simple.</p>
+<h2><span id="summary">Summary</span></h2><p>In this article, we learned some basics of Android development, used Apktool to disassemble APK, saw the resources files inside, and re-packaged the modified APK file and installed it on the phone, making a modified version of the app.</p>
+<p>If you only need to change the text resources, it’s that easy, but if you need to modify the code, it’s relatively more complicated.</p>
+<p>In the next article, we will learn how to decompile smali into Java code and how to modify smali code.</p>
+<p>Series links:</p>
+<ol>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-1/">Introduction to Android App Reverse Engineering Part 1: Decompiling and Rebuilding APKs</a> - You are here</li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-2/">Introduction to Android App Reverse Engineering Part 2: Modifying Smali Code</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-3/">Introduction to Android App Reverse Engineering Part 3: Monitoring App Packets</a></li>
+<li><a href="/2023/04/27/en/android-apk-decompile-intro-4/">Introduction to Android App Reverse Engineering Part 4: Dynamic Analysis with Frida</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2023/04/27/en/android-apk-decompile-intro-2/">Android App Reverse Engineering Part 2: Modifying Smali Code</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2023/04/14/en/how-to-prepare-japan-fe-and-sg-exam/">Preparation Experience for Japan&#39;s FE and SG Exams for Zero-Day Japanese Beginners</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2023/04/27/android-apk-decompile-intro-1/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

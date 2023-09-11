@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>我知道你懂 hoisting，可是你了解到多深？ - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2018/11/10/en/javascript-hoisting-and-tdz/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2018/11/10/javascript-hoisting-and-tdz/">
+    
+
+
+
+
+
+    <meta name="description" content="前言2021-06-09 補充： 感謝讀者 blackr1234 留言，此文章為 2018 年 11 月發表，底下程式碼輸出結果大概是以 Node.js v8.17.0 為準，因此對於一些狀況的輸出可能會跟現在不太一樣。例如說存取宣告前的 let 變數，當初的結果為：ReferenceError: a is not defined，現在用 Node.js v14 的結果則是：ReferenceEr">
+<meta property="og:type" content="article">
+<meta property="og:title" content="我知道你懂 hoisting，可是你了解到多深？">
+<meta property="og:url" content="https://blog.huli.tw/2018/11/10/javascript-hoisting-and-tdz/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言2021-06-09 補充： 感謝讀者 blackr1234 留言，此文章為 2018 年 11 月發表，底下程式碼輸出結果大概是以 Node.js v8.17.0 為準，因此對於一些狀況的輸出可能會跟現在不太一樣。例如說存取宣告前的 let 變數，當初的結果為：ReferenceError: a is not defined，現在用 Node.js v14 的結果則是：ReferenceEr">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49352096-5d706b80-f6f1-11e8-82fe-8fbff9004184.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49352101-65301000-f6f1-11e8-87db-f0c99a22b7de.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49352109-71b46880-f6f1-11e8-864d-892a284e6650.png">
+<meta property="article:published_time" content="2018-11-10T14:10:00.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.484Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="JavaScript">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://user-images.githubusercontent.com/2755720/49352096-5d706b80-f6f1-11e8-82fe-8fbff9004184.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="我知道你懂 hoisting，可是你了解到多深？" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#什麼是-hoisting">2&nbsp;&nbsp;<b>什麼是 hoisting？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#let-跟-const-與-hoisting">3&nbsp;&nbsp;<b>let 跟 const 與 hoisting</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#為什麼我們需要-hoisting">4&nbsp;&nbsp;<b>為什麼我們需要 hoisting？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#hoisting-到底是怎麼運作的">5&nbsp;&nbsp;<b>hoisting 到底是怎麼運作的？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#編譯與直譯js-引擎到底怎麼運作的">6&nbsp;&nbsp;<b>編譯與直譯：JS 引擎到底怎麼運作的？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#js-引擎的運作">7&nbsp;&nbsp;<b>JS 引擎的運作</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#line-1var-foo-x3d-bar">7.1&nbsp;&nbsp;Line 1：var foo = “bar”</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#line-2var-a-x3d-1">7.2&nbsp;&nbsp;Line 2：var a = 1</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#line-10bar">7.3&nbsp;&nbsp;Line 10：bar()</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#line-4foo-x3d-inside-bar">7.4&nbsp;&nbsp;Line 4：foo = “inside bar”</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#line-5var-a-x3d-2">7.5&nbsp;&nbsp;Line 5：var a = 2</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#line-6c-x3d-3">7.6&nbsp;&nbsp;Line 6：c = 3</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#line-7consolelogc">7.7&nbsp;&nbsp;Line 7：console.log(c)</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#line-8consolelogd">7.8&nbsp;&nbsp;Line 8：console.log(d)</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#中場總結">8&nbsp;&nbsp;<b>中場總結</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#temporal-dead-zone">9&nbsp;&nbsp;<b>Temporal Dead Zone</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#byte-code-閱讀初體驗">10&nbsp;&nbsp;<b>Byte code 閱讀初體驗</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">11&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2018/11/10/en/javascript-hoisting-and-tdz/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            我知道你懂 hoisting，可是你了解到多深？
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2018-11-10T14:10:00.000Z" itemprop="datePublished">2018年11月10日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/JavaScript/">JavaScript</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h1><span id="前言">前言</span></h1><p>2021-06-09 補充：</p>
+<p>感謝讀者 blackr1234 留言，此文章為 2018 年 11 月發表，底下程式碼輸出結果大概是以 Node.js v8.17.0 為準，因此對於一些狀況的輸出可能會跟現在不太一樣。例如說存取宣告前的 let 變數，當初的結果為：<code>ReferenceError: a is not defined</code>，現在用 Node.js v14 的結果則是：<code>ReferenceError: Cannot access &#39;a&#39; before initialization</code>。 </p>
+<p>這陣子我在忙一些教學相關的東西，稍微準備一些資料之後教了學生們 JavaScript 裡面的 hoisting，也就是「提升」這個觀念，例如說以下程式碼：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span>
+<span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">10</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>會輸出<code>undefined</code>而不是<code>ReferenceError: a is not defined</code>，這種現象就叫做 <a target="_blank" rel="noopener" href="https://developer.mozilla.org/zh-TW/docs/Glossary/Hoisting">Hoisting</a>，變數的宣告被「提升」到最上面去了。</p>
+<p>如果你只想了解最基本的 hoisting，其實差不多就是這樣，但後來我還教了<code>let</code>跟<code>const</code>相關的一些知識，不過前一天剛教學完，隔天就立刻看到相關的技術文章還發現自己教錯，因此特別花了一點時間打算好好理解 hoisting 這個東西。</p>
+<p>很多東西沒有深入研究的時候你都會覺得沒什麼，真的跳下去深入去看才會發現自己其實還有一大堆概念沒有搞懂。</p>
+<p>有很多人都知道 hoisting，但是理解程度卻不盡相同，我列出了 10 個項目，如果有任何一點你剛好不知道的話，那恭喜，這篇文章應該可以為你帶來一些收穫。</p>
+<ol>
+<li>你知道什麼是 hoisting</li>
+<li>你知道 hoisting 只會提升宣告而非賦值</li>
+<li>你知道 function 宣告、function 的參數以及一般變數宣告同時出現時的提升優先順序</li>
+<li>你知道 let 跟 const 沒有 hoisting</li>
+<li>你知道第四點是錯的，其實有但只是表現形式不一樣</li>
+<li>你知道有關第五點，有個概念叫做 TDZ（Temporal Dead Zone）</li>
+<li>你看過 ES3 的規格書，知道裡面是怎麼描述的</li>
+<li>你看過 ES6 的規格書，知道裡面是怎麼描述的</li>
+<li>你知道 hoisting 背後的原理是什麼</li>
+<li>你看過 V8 編譯出來的程式碼</li>
+</ol>
+<p>你可能會問說：「我為什麼要知道的這麼深？有什麼用？」，其實我也覺得對 hoisting，只要知道基本的就行了。只要你有好好地宣告變數，就算不知道那些，對日常生活或是工作也不會有太大的影響。</p>
+<p>可是假如你像我一樣，想要有朝一日在自己的履歷上面放上「精通 JavaScript」的話，那對這些東西就不能逃避。同時你如果對底層的這些細節愈熟悉，會碰到的問題就愈少，也愈能理解為什麼會有 hoisting 的出現，當你想要在技術這條路上走得更遠爬得更高時，我覺得這些細節是很重要的。</p>
+<p>接下來，我們就一步步來看 hoisting 吧！</p>
+<span id="more"></span>
+
+<h1><span id="什麼是-hoisting">什麼是 hoisting？</span></h1><p>在 JavaScript 裡面，如果你試圖去對一個還沒宣告的變數取值，會發生以下錯誤：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span>
+<span class="token comment">// ReferenceError: a is not defined</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>會回傳一個<code>a is not defined</code>的錯誤，因為你還沒宣告這個變數，所以 JavaScript 也找不到這變數在哪，自然就會拋出錯誤。</p>
+<p>可是如果你這樣子寫，神奇的事情發生了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span> <span class="token comment">// undefined</span>
+<span class="token keyword">var</span> a<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>從以前學程式的時候我們就學到了一個觀念，「程式是一行一行跑的」，那既然是一行一行跑的，執行到第一行的時候不是還沒有宣告變數 a 嗎？那為什麼不是拋出<code>a is not defined</code>的錯誤，而是輸出了<code>undefined</code>？</p>
+<p>這種現象就叫做 hoisting，提升，在第二行的<code>var a</code>因為某種原因被「提升」到了最上面，所以上面的程式碼你可以「想像」成這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> a
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span> <span class="token comment">// undefined</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>我會特別強調「想像」，是因為程式碼的位置其實不會被移動，所以不要把提升想成是 JavaScript 引擎幫你把變數宣告都「移動」到最上面，這是有問題的。它背後的原理跟移動程式碼一點關係都沒有。</p>
+<p>再來還有一點要特別注意，那就是只有變數的宣告會提升，賦值不會，看看以下範例你就懂了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span> <span class="token comment">// undefined</span>
+<span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">5</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>上面的程式碼你可以「想像」成這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> a
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span> <span class="token comment">// undefined</span>
+a <span class="token operator">=</span> <span class="token number">5</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>你可以把<code>var a = 5</code>這句話分成兩個步驟，第一個階段是宣告變數：<code>var a</code>，第二個階段是賦值：<code>a = 5</code>，只有前面的變數宣告會被提升，賦值不會。</p>
+<p>到這邊你可能覺得還行，只是頭腦有一點點混亂，那恭喜你，等一下還有更多東西會讓你更亂，讓我們再把幾個東西加進來，看看能夠搞得多複雜。</p>
+<p>如果我們像下面這樣做，會輸出什麼？</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token parameter">v</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>v<span class="token punctuation">)</span>
+  <span class="token keyword">var</span> v <span class="token operator">=</span> <span class="token number">3</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">test</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>簡單嘛，根據剛剛學過的，把上面的程式碼變換成以下形式：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token parameter">v</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> v
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>v<span class="token punctuation">)</span>
+  v <span class="token operator">=</span> <span class="token number">3</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">test</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>答案是<code>undefined</code>！輕輕鬆鬆。</p>
+<p>可是瑞凡，答案是<code>10</code>而不是<code>undefined</code>。</p>
+<p>其實變換的過程對了，只是遺漏了一個因素：傳進來的參數。把這個因素加進去以後，可以看成是這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token parameter">v</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> v <span class="token operator">=</span> <span class="token number">10</span> <span class="token comment">// 因為下面呼叫 test(10)</span>
+  <span class="token keyword">var</span> v
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>v<span class="token punctuation">)</span>
+  v <span class="token operator">=</span> <span class="token number">3</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">test</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這時候你可能還是會問：「可是我在 log 以前不是重新宣告了一次變數並且沒有給值嗎？那它不是會被覆蓋成<code>undefiend</code>嗎？」</p>
+<p>我們再來看一個簡單的小例子：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> v <span class="token operator">=</span> <span class="token number">5</span>
+<span class="token keyword">var</span> v
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>v<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>答案會是<code>5</code>而不是<code>undefined</code>，想理解這個行為，你可以再回想一下前面把一個句子分成兩塊，宣告跟賦值，如果我們這樣切分再加上 hoisting 的話，其實上面程式碼可以想像成這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> v
+<span class="token keyword">var</span> v
+v <span class="token operator">=</span> <span class="token number">5</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>v<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這樣你就知道為什麼答案是 5 了。</p>
+<p>此時的你應該覺得頭腦有點快爆炸了，為什麼這麼多規則要記？別擔心，我們還有最後一個例子，保證讓你叫苦連天。</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span> <span class="token comment">//[Function: a]</span>
+<span class="token keyword">var</span> a
+<span class="token keyword">function</span> <span class="token function">a</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>除了變數宣告以外，function 的宣告也會提升而且優先權比較高，因此上面的程式碼會輸出<code>function</code>而不是<code>undefined</code>。</p>
+<p>好，基本的 hoisting 概念就到這邊結束了，幫你畫一下重點：</p>
+<ol>
+<li>變數宣告跟函式宣告都會提升</li>
+<li>只有宣告會提升，賦值不會提升</li>
+<li>別忘了函式裡面還有傳進來的參數</li>
+</ol>
+<p>別急，還有 ES6 新增的 let 跟 const 沒有講。</p>
+<h1><span id="let-跟-const-與-hoisting">let 跟 const 與 hoisting</span></h1><p>在 ES6 裡面我們有了新的兩個宣告變數的關鍵字，let 與 const，這兩個對 hoisting 的行為是差不多的，因此我下面只拿 let 來舉例，可以看一下以下程式碼：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span> <span class="token comment">// ReferenceError: a is not defined</span>
+<span class="token keyword">let</span> a<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>謝天謝地，終於沒有那麼多規則要記了！</p>
+<p>從以上程式碼看起來，let 與 const 應該是沒有變數提升吧，否則就不會拋出這個 Error 了。</p>
+<p>我之前也是很天真這樣想的，直到我看到以下範例：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">10</span>
+<span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span>
+  <span class="token keyword">let</span> a
+<span class="token punctuation">&#125;</span>
+<span class="token function">test</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果 let 真的沒有 hoisting 的話，答案應該會輸出<code>10</code>，因為 log 那一行會存取到外面的<code>var a = 10</code>的這個變數，可是！！！</p>
+<p>答案卻是：<code>ReferenceError: a is not defined</code>。</p>
+<p>意思就是，它的確提升了，只是提升後的行為跟 var 比較不一樣，所以乍看之下你會以為它沒有提升。</p>
+<p>這個觀念我們會在之後詳細講解，但在這之前我們先做個簡單的總結。</p>
+<p>有很多提到 hoisting 的文章，講到這邊就差不多了，就大概講一些 hoisting 的行為以及 let 與 const 的不同之處，但我覺得只講到這裡其實是很可惜的一件事情。</p>
+<p>因為如果你只理解到這個程度，就會以為 hoisting 不過就是一大堆複雜的規則要記，根本沒什麼，誰能夠記這麼多規則？不就是背書而已嗎？</p>
+<p>這是因為上面那些只讓你理解了「表面」，舉出幾個不同的例子跟你說會有這樣的行為發生，可是卻沒有跟你說「為什麼會這樣」，或者是「實際上是怎麼運作的」，若是你想真正了解 hoisting 是什麼，必須要找出以下兩個問題的答案，一但找出了，保證你任督二脈直接被打通：</p>
+<ol>
+<li>為什麼我們需要 hoisting？</li>
+<li>Hoisting 到底是怎麼運作的？</li>
+</ol>
+<h1><span id="為什麼我們需要-hoisting">為什麼我們需要 hoisting？</span></h1><p>在問這樣的一個問題時，其實你可以反過來想：「如果我們沒有 hoisting 會怎樣？」</p>
+<p>第一，我們一定要先宣告變數才可以使用。</p>
+<p>這點其實很不錯，畢竟這是一個好習慣。</p>
+<p>第二，我們一定要先宣告函式才可以使用。</p>
+<p>這一點就不太好了，很不方便，如果是這樣的話那可能在每個檔案你都必須把 function 宣告放到最上面去，才能保證你底下的程式碼都可以 call 到這些 function。</p>
+<p>第三，沒有辦法達成 function 互相呼叫。</p>
+<p>舉個例子：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">loop</span><span class="token punctuation">(</span><span class="token parameter">n</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>n<span class="token operator">></span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">logEvenOrOdd</span><span class="token punctuation">(</span><span class="token operator">--</span>n<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">function</span> <span class="token function">logEvenOrOdd</span><span class="token punctuation">(</span><span class="token parameter">n</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>n<span class="token punctuation">,</span> n <span class="token operator">%</span> <span class="token number">2</span> <span class="token operator">?</span> <span class="token string">'Odd'</span> <span class="token operator">:</span> <span class="token string">'Even'</span><span class="token punctuation">)</span>
+  <span class="token function">loop</span><span class="token punctuation">(</span>n<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token function">loop</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>我們在<code>loop</code>裡面呼叫<code>logEvenOrOdd</code>，在<code>logEvenOrOdd</code>裡面也呼叫<code>loop</code>，如果我們沒有 hoisting，那以上的程式碼就不可能達成，因為你不可能同時做到 A 在 B 上面而 B 又在 A 上面。</p>
+<p>所以為什麼我們需要 hoisting？就是為了要解決上面的問題。</p>
+<p>為了增添這一個說法的正確性，我引用一篇文章給大家看，在 <a target="_blank" rel="noopener" href="http://dmitrysoshnikov.com/notes/note-4-two-words-about-hoisting/">Note 4. Two words about “hoisting”.</a> 裡面有提到作者發了個 Twitter 問說 hoisting 的目的到底是什麼，然後 JavaScript 的作者有出來回應，以下是文章裡面附的原文跟回應：</p>
+<blockquote>
+<p>By the way, recently I raised this topic on Twitter and also mentioned as one of the reasons the mutual recursion. Brendan Eich also gave an acknowledgment that FDs hoisting is “for mutual recursion &amp; generally to avoid painful bottom-up ML-like order”.</p>
+</blockquote>
+<p>如果想看完整對話截圖，可以看這篇文章：<a target="_blank" rel="noopener" href="https://www.cnblogs.com/liuhe688/p/5891273.html">JavaScript系列文章：变量提升和函数提升</a>，最下面有附。</p>
+<h1><span id="hoisting-到底是怎麼運作的">hoisting 到底是怎麼運作的？</span></h1><p>現在我們知道了什麼是 hoisting，知道了為什麼需要 hoisting，接著就是欠缺的最後一塊拼圖了：到底 hoisting 是怎麼運作的？</p>
+<p>要回答這個問題，最好的方法就是去找 ECMAScript 的規格書來看，就像你今天想研究型別轉換的問題，解法一樣是去找規格書來看，理由很簡單，因為那些規則都清清楚楚寫在上面了。</p>
+<p>ECMAScript 有很多版本，越後面的版本規格越多，所以為了方便起見，我們底下用 ES3 當作範例。</p>
+<p>如果你看過 ES3 的規則，會發現用 hoisting 當關鍵字完全找不到東西，而與 hoisting 這現象有關的段落其實在第十章：Execution Contexts。</p>
+<p>這邊先非常簡單介紹一下什麼是 Execution Contexts（以下簡稱 EC），每當你進入一個 function 的時候，就會產生一個 EC，裡面儲存跟這個 function 有關的一些資訊，並且把這個 EC 放到 stack 裡面，當 function 執行完以後，就會把 EC 給 pop 出來。</p>
+<p>示意圖大概就像這樣，要記得除了 function 有 EC 以外，還有一個 global EC：</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/49352096-5d706b80-f6f1-11e8-82fe-8fbff9004184.png" alt="ec"><br>（來源：<a target="_blank" rel="noopener" href="https://medium.freecodecamp.org/lets-learn-javascript-closures-66feb44f6a44%EF%BC%89">https://medium.freecodecamp.org/lets-learn-javascript-closures-66feb44f6a44）</a></p>
+<p>簡而言之呢，所有 function 需要的資訊都會存在 EC，也就是執行環境裡面，你要什麼都去那邊拿就對了。</p>
+<p>ECMAScript 是這樣描述的：</p>
+<blockquote>
+<p>When control is transferred to ECMAScript executable code, control is entering an execution context. Active execution contexts logically form a stack. The top execution context on this logical stack is the running execution context.</p>
+</blockquote>
+<p>再來就是重點了，在<code>10.1.3 Variable Instantiation</code>的地方是這樣寫的：</p>
+<blockquote>
+<p>Every execution context has associated with it a variable object. Variables and functions declared in the source text are added as properties of the variable object. For function code, parameters are added as properties of the variable object.</p>
+</blockquote>
+<p>每個 EC 都會有相對應的 variable object（以下簡稱 VO），在裡面宣告的變數跟函式都會被加進 VO 裡面，如果是 function，那參數也會被加到 VO 裡。</p>
+<p>首先，你可以把 VO 想像成就是一個 JavaScript 的物件就好。</p>
+<p>再來，VO 什麼時候會用到？你在存取值的時候會用到，例如說 <code>var a = 10</code> 這一句，之前有講過可以分成左右兩塊：</p>
+<ol>
+<li><code>var a</code>：去 VO 裡面新增一個屬性叫做 a（如果沒有 a 這個屬性的話）並初始化成 undefined</li>
+<li><code>a = 10</code>：先在 VO 裡面找到叫做 a 的屬性，找到之後設定為 10</li>
+</ol>
+<p>（這邊如果 VO 裡面找不到怎麼辦？它會透過 scope chain 不斷往上尋找，如果每一層都找不到就會拋出錯誤。至於尋找跟建立 scope chain 的過程雖然與本文有關但可以講得太多了，額外再開一篇會比較適合，這邊就先不提了）</p>
+<p>接著來看下一段：</p>
+<blockquote>
+<p>Which object is used as the variable object and what attributes are used for the properties depends on the type of code, but the remainder of the behaviour is generic. On entering an execution context, the properties are bound to the variable object in the following order:</p>
+</blockquote>
+<p>最精華的只有這一句：「On entering an execution context, the properties are bound to the variable object in the following order」，在進入 EC 的時候，會按照以下順序把東西放到 VO 裡面：</p>
+<p>下面的段落有點長，我節錄一下：</p>
+<blockquote>
+<p>For function code: for each formal parameter, as defined in the FormalParameterList, create a property of the variable object whose name is the Identifier and whose attributes are determined by the type of code. The values of the parameters are supplied by the caller as arguments to [[Call]].</p>
+<p>If the caller supplies fewer parameter values than there are formal parameters, the extra formal parameters have value undefined</p>
+</blockquote>
+<p>簡單來說就是對於參數，它會直接被放到 VO 裡面去，如果有些參數沒有值的話，那它的值會被初始化成 undefined。</p>
+<p>舉例來說，假設我 function 長這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span> b<span class="token punctuation">,</span> c</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+<span class="token function">test</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>那我的 VO 就長這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">b</span><span class="token operator">:</span> <span class="token keyword">undefined</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">c</span><span class="token operator">:</span> <span class="token keyword">undefined</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>所以參數是第一個優先順序，再來我們看第二個：</p>
+<blockquote>
+<p>For each FunctionDeclaration in the code, in source text order, create a property of the variable object whose name is the Identifier in the FunctionDeclaration, whose value is the result returned by creating a Function object as described in 13, and whose attributes are determined by the type of code. </p>
+<p>If the variable object already has a property with this name, replace its value and attributes. Semantically, this step must follow the creation of FormalParameterList properties.</p>
+</blockquote>
+<p>對於 function 的宣告，一樣在 VO 裡面新增一個屬性，至於值的話就是建立 function 完之後回傳的東西（可以想成就是一個指向 function 的指標就好）。</p>
+<p>再來是重點：「如果 VO 裡面已經有同名的屬性，就把它覆蓋掉」，舉個小例子：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token parameter">a</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  <span class="token keyword">function</span> <span class="token function">a</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">test</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>VO 會長的像這樣，原本的參數<code>a</code>被覆蓋掉了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token function-variable function">a</span><span class="token operator">:</span> <span class="token keyword">function</span> a
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>最後來看對於變數的宣告該怎麼處理：</p>
+<blockquote>
+<p>For each VariableDeclaration or VariableDeclarationNoIn in the code, create a property of the variable object whose name is the Identifier in the VariableDeclaration or VariableDeclarationNoIn, whose value is undefined and whose attributes are determined by the type of code. If there is already a property of the variable object with the name of a declared variable, the value of the property and its attributes are not changed. </p>
+<p>Semantically, this step must follow the creation of the FormalParameterList and FunctionDeclaration properties. In particular, if a declared variable has the same name as a declared function or formal parameter, the variable declaration does not disturb the existing property.</p>
+</blockquote>
+<p>對於變數，在 VO 裡面新增一個屬性並且把值設為 undefined，再來是重點：「如果 VO 已經有這個屬性的話，值不會被改變」</p>
+<p>來重新整理一下，當我們在進入一個 EC 的時候（你可以把它想成就是在執行 function 後，但還沒開始跑 function 內部的程式碼以前），會按照順序做以下三件事：</p>
+<ol>
+<li>把參數放到 VO 裡面並設定好值，傳什麼進來就是什麼，沒有值的設成 undefined</li>
+<li>把 function 宣告放到 VO 裡，如果已經有同名的就覆蓋掉</li>
+<li>把變數宣告放到 VO 裡，如果已經有同名的則忽略</li>
+</ol>
+<p>在你看完規格並且稍微理解以後，你就可以用這個理論來解釋我們前面看過的程式碼了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token parameter">v</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>v<span class="token punctuation">)</span>
+  <span class="token keyword">var</span> v <span class="token operator">=</span> <span class="token number">3</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">test</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>每個 function 你都可以想成其實執行有兩個階段，第一個階段是進入 EC，第二個階段才是真的一行行執行程式。</p>
+<p>在進入 EC 的時候開始建立 VO，因為有傳參數進去，所以先把 v 放到 VO 並且值設定為 10，再來對於裡面的變數宣告，VO 裡面已經有 v 這個屬性了，所以忽略不管，因此 VO 就長這樣子：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">v</span><span class="token operator">:</span> <span class="token number">10</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>進入 EC 接著建立完 VO 以後，才開始一行行執行，這也是為什麼你在第二行時會印出 10 的緣故，因為在那個時間點 VO 裡面的 v 的確就是 10 沒錯。</p>
+<p>如果你把程式碼換成這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token parameter">v</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>v<span class="token punctuation">)</span>
+  <span class="token keyword">var</span> v <span class="token operator">=</span> <span class="token number">3</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>v<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">test</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>那第二個印出的 log 就會是 3，因為執行完第三行以後， VO 裡面的值被換成 3 了。</p>
+<p>以上就是 ES3 的規格書裡面提到的執行流程，你只要記得這個執行流程，碰到任何關於 hoisting 的題目都不用怕，你按照規格書的方法去跑絕對沒錯。</p>
+<p>當我知道了這一段執行流程以後，第一個感想是豁然開朗，覺得 hoisting 不再是什麼神秘的東西，你只要假裝自己是 JS 引擎，跟著跑就好。第二個感想是，JS 到底怎麼做到的？</p>
+<h1><span id="編譯與直譯js-引擎到底怎麼運作的">編譯與直譯：JS 引擎到底怎麼運作的？</span></h1><p>還記得我上面的時候有提過，以前學程式的時候一直有個概念，那就是「直譯」代表程式是一行行跑的，而 JS 作為一個直譯的語言，不是也該一行行跑嗎？</p>
+<p>可是如果真的一行行跑，那怎麼可能達成 hoisting 這個功能？你在執行第 n 行的時候根本不知道 n + 1 行是什麼，想提升是不可能的。</p>
+<p>針對這個疑惑我上網找了很久的資料，最後找到一篇的說法我覺得滿合理的：<a target="_blank" rel="noopener" href="http://rednaxelafx.iteye.com/blog/492667">虚拟机随谈（一）：解释器，树遍历解释器，基于栈与基于寄存器，大杂烩</a>。</p>
+<p>裡面提到了幾點我覺得寫得非常不錯，有破除了我滿多以前的迷思：</p>
+<p>第一，語言一般只會定義抽象語義，不會強制用某種方式實現，像是 C 我們會說它是編譯型語言，可是 C 也有直譯器。所以當我們在說某種程式語言是直譯或編譯型的時候，其實是在指涉「大多數」而不是全部。</p>
+<p>換言之，我們說 JavaScript 是直譯型語言，不代表 JavaScript 不能有編譯器，反之亦然。</p>
+<p>第二，直譯器跟編譯器最大的差別在於「執行」。</p>
+<p>編譯這個步驟就是把原始碼 A 編譯為目的碼 B，就這樣而已，但你要保證 A 跟 B 執行完的結果要相同。</p>
+<p>而直譯就是你輸入原始碼 A，輸出就直接是你程式碼裡面要執行的語義，裡面怎麼做的是一個黑箱子。</p>
+<p>原文裡面有一張圖畫得很不錯：</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/49352101-65301000-f6f1-11e8-87db-f0c99a22b7de.png" alt="compile"></p>
+<p>所以直譯器裡面也能有編譯，這是不衝突的，或是你也可以寫一個超簡單直譯器，就是你輸入原始碼以後幫你編譯完然後執行。</p>
+<p>事實上很多種直譯器內部的運作方式都是先把原始碼編譯成某種中間碼再去執行，所以編譯這個步驟還是很常見的，而 JS 也是這樣運作的。</p>
+<p>當你拋開以前那種「JS 就是要一行行執行」的舊觀念並擁抱「其實主流 JS 引擎都有編譯這個步驟」的想法後，你就不會覺得 hoisting 是無法達成的事情了。</p>
+<p>前面我們已經有看規格，知道在 ES3 裡面的運行模式並且知道 VO 這個東西，但規格裡面描述的也只是抽象的東西，它並沒有寫說「實際上」是在哪個地方做處理的，而這地方其實就是編譯階段。</p>
+<p>話說關於這個編譯直譯的問題其實我卡滿久的，因為以前觀念不正確的地方很多，現在慢慢把它修正過來，而對於 hoisting 其實我之前有點分不清楚規格跟實作的差別，後來還跑去問了You-Dont-Know-JS 的作者，也很幸運地得到回覆，有興趣的人可以看看：<a target="_blank" rel="noopener" href="https://github.com/getify/You-Dont-Know-JS/issues/1375">https://github.com/getify/You-Dont-Know-JS/issues/1375</a>。</p>
+<h1><span id="js-引擎的運作">JS 引擎的運作</span></h1><p>如同我上面所說的，其實現在主流 JS 引擎內部都會有編譯這個階段，而 hoisting 其實就是在編譯這個階段做處理的。引入了編譯階段以後，可以把 JS 分成編譯階段跟執行階段兩個步驟。</p>
+<p>在編譯階段的時候，會處理好所有的變數及函式宣告並且加入到 scope 裡面，在執行的時候就一樣可以去使用它。詳細情形這一篇寫得很好：<a target="_blank" rel="noopener" href="https://john-dugan.com/hoisting-in-javascript/">Hoisting in JavaScript
+</a>，我下面就直接改一下裡面的程式碼當做例子。</p>
+<p>舉例來說，我有這樣一段程式碼：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> foo <span class="token operator">=</span> <span class="token string">"bar"</span>
+<span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">1</span>
+<span class="token keyword">function</span> <span class="token function">bar</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    foo <span class="token operator">=</span> <span class="token string">"inside bar"</span>
+    <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">2</span>
+    c <span class="token operator">=</span> <span class="token number">3</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>c<span class="token punctuation">)</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>d<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">bar</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在編譯階段的時候會處理宣告的部分，所以會是這樣：</p>
+<pre class="line-numbers language-none"><code class="language-none">Line 1：global scope，我要宣告一個變數叫做 foo
+Line 2：global scope，我要宣告一個變數叫做 a
+Line 3：global scope，我要宣告一個函式叫做 bar
+Line 4：沒有任何變數宣告，不做事
+Line 5：bar scope，我要宣告一個變數叫做 a
+Line 6：沒有任何變數宣告，不做事
+Line 7：沒有任何變數宣告，不做事
+Line 8：沒有任何變數宣告，不做事<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>處理完後的東西差不多就長這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token literal-property property">globalScope</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">foo</span><span class="token operator">:</span> <span class="token keyword">undefined</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token keyword">undefined</span><span class="token punctuation">,</span>
+  <span class="token function-variable function">bar</span><span class="token operator">:</span> <span class="token keyword">function</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token literal-property property">barScope</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token keyword">undefined</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>再來進入到執行階段，這邊有兩個專有名詞先記一下，在介紹之前我先給一個範例會比較好理解：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">10</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>上面這兩行有個差異，第一行的時候我們只需要知道「a 的記憶體位置在哪裡」就好，我們不關心它的值是什麼。</p>
+<p>而第二行則是「我們只關心它的值是什麼，把值給我就好」，所以儘管兩行裡面都有<code>a</code>，但你可以看出來他們所要做的事情是不一樣的。</p>
+<p>而第一行的 a 我們叫它 LHS（Left hand side）引用，第二行叫它 RHS（Right hand side）引用，這邊的 left 跟 right 指的是相對於等號的左右邊，但用這種方式理解的話其實不夠精確，因此像下面這樣記就好：</p>
+<p>LHS：請幫我去查這個變數的位置在哪裡，因為我要對它賦值。<br>RHS：請幫我查詢這個變數的值是什麼，因為我要用這個值。</p>
+<p>有了這個概念以後，再看一次上面的範例程式碼，就可以一步一步來解釋：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> foo <span class="token operator">=</span> <span class="token string">"bar"</span>
+<span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">1</span>
+<span class="token keyword">function</span> <span class="token function">bar</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    foo <span class="token operator">=</span> <span class="token string">"inside bar"</span>
+    <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">2</span>
+    c <span class="token operator">=</span> <span class="token number">3</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>c<span class="token punctuation">)</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>d<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">bar</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="line-1var-foo-x3d-bar">Line 1：var foo &#x3D; “bar”</span></h3><p>JS 引擎：global scope，我這裡有個對 foo 的 LHS 引用，你有看過它嗎？<br>執行結果：scope 說有，所以成功找到 foo 並且賦值  </p>
+<p>這時候的 global scope：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">foo</span><span class="token operator">:</span> <span class="token string">"bar"</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token keyword">undefined</span><span class="token punctuation">,</span>
+  <span class="token function-variable function">bar</span><span class="token operator">:</span> <span class="token keyword">function</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="line-2var-a-x3d-1">Line 2：var a &#x3D; 1</span></h3><p>JS 引擎：global scope，我這裡有個對 a 的 LHS 引用，你有看過它嗎？<br>執行結果：scope 說有，所以成功找到 a 並且賦值</p>
+<p>這時候的 global scope：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">foo</span><span class="token operator">:</span> <span class="token string">"bar"</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token function-variable function">bar</span><span class="token operator">:</span> <span class="token keyword">function</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="line-10bar">Line 10：bar()</span></h3><p>JS 引擎：global scope，我這裡有個對 bar 的 RHS 引用，你有看過它嗎？<br>執行結果：scope 說有，所以成功返回 bar 的值並且呼叫 function</p>
+<h3><span id="line-4foo-x3d-inside-bar">Line 4：foo &#x3D; “inside bar”</span></h3><p>JS 引擎：bar scope，我這裡有個對 foo 的 LHS 引用，你有看過它嗎？<br>執行結果：bar scope 說沒有，所以去問上一層的 global scope<br>JS 引擎：global scope，我這裡有個對 foo 的 LHS 引用，你有看過它嗎？<br>執行結果：有，所以成功找到 foo 並且賦值</p>
+<p>這時候的 global scope：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">foo</span><span class="token operator">:</span> <span class="token string">"inside bar"</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token function-variable function">bar</span><span class="token operator">:</span> <span class="token keyword">function</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="line-5var-a-x3d-2">Line 5：var a &#x3D; 2</span></h3><p>JS 引擎：bar scope，我這裡有個對 a 的 LHS 引用，你有看過它嗎？<br>執行結果：bar scope 說有，所以成功找到 a 並且賦值</p>
+<p>此時的 bar scope：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">2</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="line-6c-x3d-3">Line 6：c &#x3D; 3</span></h3><p>JS 引擎：bar scope，我這裡有個對 c 的 LHS 引用，你有看過它嗎？<br>執行結果：bar scope 說沒有，所以去問上一層的 global scope<br>JS 引擎：global scope，我這裡有個對 c 的 LHS 引用，你有看過它嗎？<br>執行結果：沒有。</p>
+<p>這時候有幾種結果，如果你是處在嚴格模式底下（use strict），會返回 <code>ReferenceError: c is not defined</code> 錯誤，如果你不是在嚴格模式，那 global scope 就會把 c 加上去並且設定成 3，這邊先假設我們不是在嚴格模式。</p>
+<p>此時的 global scope：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">foo</span><span class="token operator">:</span> <span class="token string">"inside bar"</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">a</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token function-variable function">bar</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">c</span><span class="token operator">:</span> <span class="token number">3</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="line-7consolelogc">Line 7：console.log(c)</span></h3><p>JS 引擎：bar scope，我這裡有個對 c 的 RHS 引用，你有看過它嗎？<br>執行結果：bar scope 說沒有，所以去問上一層的 global scope<br>JS 引擎：global scope，我這裡有個對 c 的 RHS 引用，你有看過它嗎？<br>執行結果：global scope 說有，所以成功返回 c 的值並且呼叫 console.log</p>
+<h3><span id="line-8consolelogd">Line 8：console.log(d)</span></h3><p>JS 引擎：bar scope，我這裡有個對 d 的 RHS 引用，你有看過它嗎？<br>執行結果：bar scope 說沒有，所以去問上一層的 global scope<br>JS 引擎：global scope，我這裡有個對 d 的 RHS 引用，你有看過它嗎？<br>執行結果：global scope 說沒有，所以返回錯誤 <code>ReferenceError: d is not defined</code></p>
+<p>以上就是 JS 引擎的運作流程，想更詳細了解的話可參考：<a target="_blank" rel="noopener" href="https://github.com/getify/You-Dont-Know-JS/tree/2nd-ed/scope-closures">You Don’t Know JS: Scope &amp; Closures</a>、<a target="_blank" rel="noopener" href="https://github.com/getify/You-Dont-Know-JS/blob/2nd-ed/scope-closures/ch5.md">Chapter 4: Hoisting</a>、<a target="_blank" rel="noopener" href="https://john-dugan.com/hoisting-in-javascript/">Hoisting in JavaScript</a>。</p>
+<h1><span id="中場總結">中場總結</span></h1><p>再次回顧一下我們開場放的那十個項目：</p>
+<ol>
+<li>你知道什麼是 hoisting</li>
+<li>你知道 hoisting 只會提升宣告而非賦值</li>
+<li>你知道 function 宣告、function 的參數以及一般變數宣告同時出現時的提升優先順序</li>
+<li>你知道 let 跟 const 沒有 hoisting</li>
+<li>你知道第四點是錯的，其實有但只是表現形式不一樣</li>
+<li>你知道有關第五點，有個概念叫做 TDZ（Temporal Dead Zone）</li>
+<li>你看過 ES3 的規格書，知道裡面是怎麼描述的</li>
+<li>你看過 ES6 的規格書，知道裡面是怎麼描述的</li>
+<li>你知道 hoisting 背後的原理是什麼</li>
+<li>你看過 V8 編譯出來的程式碼</li>
+</ol>
+<p>我們用了許多篇幅把其中的七點都講完了，剩下的是：</p>
+<ol>
+<li>你知道有關第六點，有個概念叫做 TDZ（Temporal Dead Zone）</li>
+<li>你看過 ES6 的規格書，知道裡面是怎麼描述的</li>
+<li>你看過 V8 編譯出來的程式碼</li>
+</ol>
+<p>關於 ES6 的規格那點我不打算詳細講（而且我也還沒詳細看完），因為變化還滿多的但基本上原理不變，就是多了一些專有名詞而已，想知道的可以參考這篇經典好文：<a target="_blank" rel="noopener" href="http://dmitrysoshnikov.com/ecmascript/es5-chapter-3-2-lexical-environments-ecmascript-implementation/">ECMA-262-5 in detail. Chapter 3.2. Lexical environments: ECMAScript implementation.</a>。</p>
+<p>上面我們已經講了很多東西，所有跟 hoisting 有關的運作機制全部都講完了，但我相信依然需要一點時間吸收，但我相信吸收完以後你會覺得神清氣爽，想說 hoisting 不過如此而已。</p>
+<p>接著呢，我們就要進入到這篇文章最後的部分了，也就是 TDZ 以及 V8。</p>
+<h1><span id="temporal-dead-zone">Temporal Dead Zone</span></h1><p>還記得我們說過 let 與 const 其實有 hoisting 嗎？並且舉了一個小範例來驗證這件事情。</p>
+<p>let 與 const 確實有 hoisting，與 var 的差別在於提升之後，var 宣告的變數會被初始化為 undefined，而 let 與 const 的宣告不會被初始化為 undefined，而且如果你在「賦值之前」就存取它，就會拋出錯誤。</p>
+<p>在「提升之後」以及「賦值之前」這段「期間」，如果你存取它就會拋出錯誤，而這段期間就稱做是 TDZ，它是一個為了解釋 let 與 const 的 hoisting 行為所提出的一個名詞。</p>
+<p>我們用下面的程式碼當做例子：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span> <span class="token comment">// c 的 TDZ 開始</span>
+    <span class="token keyword">var</span> b <span class="token operator">=</span> <span class="token number">2</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>c<span class="token punctuation">)</span> <span class="token comment">// 錯誤</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>a <span class="token operator">></span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">let</span> c <span class="token operator">=</span> <span class="token number">10</span> <span class="token comment">// c 的 TDZ 結束</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">test</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>當你在第八行執行以前試圖存取 c 的話，就會拋出錯誤。要注意的是 TDZ 並不是一個空間上的概念，而是時間，例如說以下程式碼：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">yo</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment">// c 的 TDZ 開始</span>
+    <span class="token keyword">let</span> c <span class="token operator">=</span> <span class="token number">10</span> <span class="token comment">// c 的 TDZ 結束</span>
+    <span class="token keyword">function</span> <span class="token function">yo</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>c<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">test</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在你進入 test 這個 function 的時候，就已經是 c 的 TDZ 了，所以當你執行 yo 並且執行到<code>console.log(c)</code>時，都還在 TDZ 裡面，要一直等到<code>let c = 10</code>被執行 TDZ 才會結束。</p>
+<p>所以並不是說我把<code>console.log(c)</code>放在<code>let c = 10</code>下面就沒問題了，而是在「執行順序」上要在後面。</p>
+<p>或是你也可以拋開這些名詞，用一句話總結：</p>
+<blockquote>
+<p>let 與 const 也有 hoisting 但沒有初始化為 undefined，而且在賦值之前試圖取值會發生錯誤。</p>
+</blockquote>
+<h1><span id="byte-code-閱讀初體驗">Byte code 閱讀初體驗</span></h1><p>上面既然談到了 JS 引擎，如果沒有談到 V8 那就有點可惜，在我研究 hoisting 的時候我一直很想知道一件事情：V8 編譯出來的程式碼到底長怎樣？</p>
+<p>感謝 <a target="_blank" rel="noopener" href="https://medium.com/dailyjs/understanding-v8s-bytecode-317d46c94775">Understanding V8’s Bytecode</a> 這一篇精彩的文章，可以讓我們試著用 node.js 把程式碼編譯成 byte code 並且試圖解讀。</p>
+<p>在看之前先來介紹什麼是 byte code，它就是一種介於高階語言與機器碼中間的語言，沒有高階語言好懂可是卻比機器碼好懂許多，而執行起來的效率也比較高。</p>
+<p>下面這張圖就是文章裡面附的，很清楚地解釋了之間的關係：</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/49352109-71b46880-f6f1-11e8-864d-892a284e6650.png" alt="byte"></p>
+<p>接著我們用這一個簡單的 function 當作範例，來看編譯過後會長怎樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">funcA</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">10</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">funcA</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>雖然只有一個 function，但是用 node.js 跑還是會出現一大堆東西，所以我們把結果先放到檔案裡面：<code>node --print-bytecode test.js &gt; byte_code.txt</code></p>
+<p>編譯出來的結果長這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">[</span>generating bytecode <span class="token keyword">for</span> <span class="token keyword">function</span><span class="token operator">:</span> funcA<span class="token punctuation">]</span>
+Parameter count <span class="token number">1</span>
+Frame size <span class="token number">24</span>
+   <span class="token number">76</span> <span class="token constant">E</span><span class="token operator">></span> <span class="token number">0xeefa4feb062</span> @    <span class="token number">0</span> <span class="token operator">:</span> <span class="token number">91</span>                StackCheck 
+   <span class="token number">93</span> <span class="token constant">S</span><span class="token operator">></span> <span class="token number">0xeefa4feb063</span> @    <span class="token number">1</span> <span class="token operator">:</span> <span class="token number">03</span> 0a             LdaSmi <span class="token punctuation">[</span><span class="token number">10</span><span class="token punctuation">]</span>
+         <span class="token number">0xeefa4feb065</span> @    <span class="token number">3</span> <span class="token operator">:</span> 1e fb             Star r0
+  <span class="token number">100</span> <span class="token constant">S</span><span class="token operator">></span> <span class="token number">0xeefa4feb067</span> @    <span class="token number">5</span> <span class="token operator">:</span> 0a <span class="token number">00</span> <span class="token number">02</span>          LdaGlobal <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
+         <span class="token number">0xeefa4feb06a</span> @    <span class="token number">8</span> <span class="token operator">:</span> 1e f9             Star r2
+  <span class="token number">108</span> <span class="token constant">E</span><span class="token operator">></span> <span class="token number">0xeefa4feb06c</span> @   <span class="token number">10</span> <span class="token operator">:</span> <span class="token number">20</span> f9 <span class="token number">01</span> <span class="token number">04</span>       LdaNamedProperty r2<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">4</span><span class="token punctuation">]</span>
+         <span class="token number">0xeefa4feb070</span> @   <span class="token number">14</span> <span class="token operator">:</span> 1e fa             Star r1
+  <span class="token number">108</span> <span class="token constant">E</span><span class="token operator">></span> <span class="token number">0xeefa4feb072</span> @   <span class="token number">16</span> <span class="token operator">:</span> 4c fa f9 fb <span class="token number">00</span>    CallProperty1 r1<span class="token punctuation">,</span> r2<span class="token punctuation">,</span> r0<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+         <span class="token number">0xeefa4feb077</span> @   <span class="token number">21</span> <span class="token operator">:</span> <span class="token number">04</span>                LdaUndefined 
+  <span class="token number">115</span> <span class="token constant">S</span><span class="token operator">></span> <span class="token number">0xeefa4feb078</span> @   <span class="token number">22</span> <span class="token operator">:</span> <span class="token number">95</span>                Return 
+Constant <span class="token function">pool</span> <span class="token punctuation">(</span>size <span class="token operator">=</span> <span class="token number">2</span><span class="token punctuation">)</span>
+Handler <span class="token function">Table</span> <span class="token punctuation">(</span>size <span class="token operator">=</span> <span class="token number">16</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>我們把前面一些資訊清空並加上註解，好讓大家知道上面程式碼是什麼意思（我其實也沒有真的很懂，這方面資料好像滿少的，如果有錯請糾正）：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">StackCheck 
+LdaSmi <span class="token punctuation">[</span><span class="token number">10</span><span class="token punctuation">]</span>                    <span class="token comment">// 把 10 放到 accumulator 裡面</span>
+Star r0                        <span class="token comment">// 把 accumulator 的值放到 r0 裡，所以 r0 = 10</span>
+LdaGlobal <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>             <span class="token comment">// 載入一個 Global 的東西到 acc 裡</span>
+Star r2                        <span class="token comment">// 把它存到 r2，根據後見之明，r2 應該就是 console</span>
+LdaNamedProperty r2<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">4</span><span class="token punctuation">]</span>  <span class="token comment">// 載入一個 r2 的 Property（應該就是 log）</span>
+Star r1                        <span class="token comment">// 把它存到 r1，也就是 r1 = console.log</span>
+CallProperty1 r1<span class="token punctuation">,</span> r2<span class="token punctuation">,</span> r0<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>  <span class="token comment">// console.log.call(console, 10)</span>
+LdaUndefined                   <span class="token comment">// 把 undefined 放到 acc</span>
+Return                         <span class="token comment">// return undefined</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>再來我們把順序顛倒，變成這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">funcA</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span>
+    <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">10</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">funcA</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>來看看輸出的 byte code 會變什麼樣子，看解釋之前你可以先對照一下上面的，看看差別在哪：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">StackCheck
+LdaGlobal <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>             <span class="token comment">// 載入一個 Global 的東西到 acc 裡</span>
+Star r2                        <span class="token comment">// 把它存到 r2，根據後見之明，r2 應該就是 console</span>
+LdaNamedProperty r2<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">4</span><span class="token punctuation">]</span>  <span class="token comment">// 載入一個 r2 的 Property（應該就是 log）</span>
+Star r1                        <span class="token comment">// 把它存到 r1，也就是 r1 = console.log</span>
+CallProperty1 r1<span class="token punctuation">,</span> r2<span class="token punctuation">,</span> r0<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>  <span class="token comment">// console.log.call(console, undefined)</span>
+LdaSmi <span class="token punctuation">[</span><span class="token number">10</span><span class="token punctuation">]</span>                    <span class="token comment">// 把 10 放到 accumulator 裡面</span>
+Star r0                        <span class="token comment">// 把 accumulator 的值放到 r0 裡，所以 r0 = 10</span>
+LdaUndefined                   <span class="token comment">// 把 undefined 放到 acc</span>
+Return                         <span class="token comment">// return undefined </span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>其實只是順序調換了一下，在輸出的地方直接 log 了 r0，這邊我不確定的是 r0 原本就是 undefined，還是在其他地方被初始化成 undefined。</p>
+<p>再來我們看看如果試圖印出一個未宣告的變數會發生什麼事：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">funcA</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>b<span class="token punctuation">)</span>
+    <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">10</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">funcA</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>因為大部分程式碼都跟前面重複我就不再註解了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">StackCheck 
+LdaGlobal <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
+Star r2
+LdaNamedProperty r2<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">4</span><span class="token punctuation">]</span>
+Star r1
+LdaGlobal <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">6</span><span class="token punctuation">]</span>  <span class="token comment">// 試圖載入 b 的值，出錯</span>
+Star r3
+CallProperty1 r1<span class="token punctuation">,</span> r2<span class="token punctuation">,</span> r3<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+LdaSmi <span class="token punctuation">[</span><span class="token number">10</span><span class="token punctuation">]</span>
+Star r0
+LdaUndefined 
+Return     <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>整段的重點只有<code>LdaGlobal</code>那行，看起來應該是去載入 b 的值，在執行的時候應該也就是這行出錯，因為在 global 裡面找不到 b。</p>
+<p>看完了基本的之後，我們來看看 let 會編譯成什麼樣子：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">funcA</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span>
+    <span class="token keyword">let</span> a <span class="token operator">=</span> <span class="token number">10</span>
+<span class="token punctuation">&#125;</span>
+<span class="token function">funcA</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>編譯後的結果：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">LdaTheHole                    <span class="token comment">// 把 hole 載入到 acc 去</span>
+Star r0                       <span class="token comment">// r0 = hole</span>
+StackCheck 
+LdaGlobal <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>            
+Star r2                       <span class="token comment">// r2 = console</span>
+LdaNamedProperty r2<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">4</span><span class="token punctuation">]</span>
+Star r1                       <span class="token comment">// r1 = console.log</span>
+Ldar r0                       <span class="token comment">// 載入 r0</span>
+ThrowReferenceErrorIfHole <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token comment">// 拋出錯誤</span>
+CallProperty1 r1<span class="token punctuation">,</span> r2<span class="token punctuation">,</span> r0<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token comment">// console.log.call(console, r0)</span>
+LdaSmi <span class="token punctuation">[</span><span class="token number">10</span><span class="token punctuation">]</span>
+Star r0
+LdaUndefined 
+Return<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>你會看到多了一個神秘的東西叫做 hole，這個其實就是我們所說的 TDZ，所以才會有 ThrowReferenceErrorIfHole 那一行，就代表說在 TDZ 結束之前我們如果試圖去存取這個 hole 的值都會拋出錯誤。</p>
+<p>至此，也解釋了 TDZ 實際上在編譯階段是如何運作的，就是透過 hole 這個特別的東西。</p>
+<h1><span id="總結">總結</span></h1><p>最近開始補齊自己對 JavaScript 的一些基礎知識，不補還好，一補下去發現自己懂的東西比自己想像中還少，我要先感謝兩篇文章：<a target="_blank" rel="noopener" href="http://www.cnblogs.com/leoo2sk/archive/2010/12/19/ecmascript-scope.htm">解读ECMAScript[1]——执行环境、作用域及闭包</a>、<a target="_blank" rel="noopener" href="https://github.com/nightn/front-end-plan/blob/master/js/js-scope.md">JS 作用域</a>，這兩篇是我的啟蒙導師，如果沒看到這兩篇，大概也不會有這篇文章的出現。</p>
+<p>JavaScript 常考的幾個點大家都耳熟能詳：this、prototype、clousre 跟 hoisting，而這幾個看似不相關的東西，其實只要你能理解 JavaScript 背後的運作模型，都能夠多少串得起來，成為一個完整的理論。</p>
+<p>我在文中也有提到，上面講述執行環境的那段過程，其實補充得更完整以後就可以拿來解釋 clousre，就會發現很多東西其實都能融會貫通。日後有機會的話我會把個變成一系列，一一擊破 JavaScript 裡面那些你以為很難但其實沒有的概念。</p>
+<p>寫這篇以前我大概醞釀了一個月，不斷找資料以後消化並且轉化為自己的理解，也很感謝上面那篇 JS 作用域的作者以及 YDKJS 的作者耐心解惑。</p>
+<p>最後，也希望這篇文章對你們有幫助，有任何錯誤都可以跟我反映，感謝。</p>
+<p>參考資料：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://developer.mozilla.org/zh-TW/docs/Glossary/Hoisting">MDN: Hoisting</a></li>
+<li><a target="_blank" rel="noopener" href="http://dmitrysoshnikov.com/ecmascript/chapter-2-variable-object/#phases-of-processing-the-context-code">ECMA-262-3 in detail. Chapter 2. Variable object.</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/nightn/front-end-plan/blob/master/js/js-scope.md">JS 作用域</a></li>
+<li><a target="_blank" rel="noopener" href="http://benediktmeurer.de/2017/06/29/javascript-optimization-patterns-part2/">JavaScript Optimization Patterns (Part 2)</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/danbev/learning-v8">danbev&#x2F;learning-v8</a></li>
+<li><a target="_blank" rel="noopener" href="http://2ality.com/2015/10/why-tdz.html">Why is there a “temporal dead zone” in ES6?</a></li>
+<li><a target="_blank" rel="noopener" href="http://exploringjs.com/es6/ch_variables.html#_the-temporal-dead-zone">exploringjs: Variables and scoping #</a></li>
+<li><a target="_blank" rel="noopener" href="https://juejin.cn/post/6844903461511774221">由阮一峰老师的一条微博引发的 TDZ 思考</a></li>
+<li><a target="_blank" rel="noopener" href="https://segmentfault.com/a/1190000008213835">理解ES6中的暂时死区(TDZ)</a></li>
+<li><a target="_blank" rel="noopener" href="http://jsrocks.org/2015/01/temporal-dead-zone-tdz-demystified">TEMPORAL DEAD ZONE (TDZ) DEMYSTIFIED</a></li>
+<li><a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/let#Another_example_of_temporal_dead_zone_combined_with_lexical_scoping">MDN: let</a></li>
+<li><a target="_blank" rel="noopener" href="https://mrale.ph/blog/2012/09/23/grokking-v8-closures-for-fun.html">Grokking V8 closures for fun (and profit?)</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.cnblogs.com/leoo2sk/archive/2010/12/19/ecmascript-scope.htm">解读ECMAScript[1]——执行环境、作用域及闭包</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/JavaScript/">#JavaScript</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2018/12/08/javascript-closure/">所有的函式都是閉包：談 JS 中的作用域與 Closure </a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2018/10/13/pwa-in-action/">PWA 實戰經驗分享</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2018/11/10/en/javascript-hoisting-and-tdz/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

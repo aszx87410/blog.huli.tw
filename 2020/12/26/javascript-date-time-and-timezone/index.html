@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>淺談 JavaScript 中的時間與時區處理 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2020/12/26/en/javascript-date-time-and-timezone/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2020/12/26/javascript-date-time-and-timezone/">
+    
+
+
+
+
+
+    <meta name="description" content="前言部落格需要顯示發佈時間，餐廳網站要顯示訂位時間，拍賣網站則是要顯示訂單的各種時間，無論你做什麼，都會碰到「顯示時間」這個很常見的需求。 這問題看似簡單，不就是顯示個時間嗎？但如果牽扯上「時區」的話，問題就會變得再更複雜一些。以時區來說，通常會有這幾個需求：  網站上的時間需要在某個固定時區顯示，我在美國跟在台灣要在網站上看到同樣的時間 網站上的時間會根據使用者的瀏覽器設置不同，我在美國跟在台灣">
+<meta property="og:type" content="article">
+<meta property="og:title" content="淺談 JavaScript 中的時間與時區處理">
+<meta property="og:url" content="https://blog.huli.tw/2020/12/26/javascript-date-time-and-timezone/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言部落格需要顯示發佈時間，餐廳網站要顯示訂位時間，拍賣網站則是要顯示訂單的各種時間，無論你做什麼，都會碰到「顯示時間」這個很常見的需求。 這問題看似簡單，不就是顯示個時間嗎？但如果牽扯上「時區」的話，問題就會變得再更複雜一些。以時區來說，通常會有這幾個需求：  網站上的時間需要在某個固定時區顯示，我在美國跟在台灣要在網站上看到同樣的時間 網站上的時間會根據使用者的瀏覽器設置不同，我在美國跟在台灣">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/date-time/rfc3339.png">
+<meta property="og:image" content="https://blog.huli.tw/img/date-time/es.png">
+<meta property="og:image" content="https://blog.huli.tw/img/date-time/ad.png">
+<meta property="og:image" content="https://blog.huli.tw/img/date-time/gethours.png">
+<meta property="og:image" content="https://blog.huli.tw/img/date-time/parsedate.png">
+<meta property="og:image" content="https://blog.huli.tw/img/date-time/utc.png">
+<meta property="article:published_time" content="2020-12-26T12:54:01.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.484Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="JavaScript">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/date-time/rfc3339.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="淺談 JavaScript 中的時間與時區處理" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#先從-timestamp-開始談起">2&nbsp;&nbsp;<b>先從 timestamp 開始談起</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#儲存時間的標準格式">3&nbsp;&nbsp;<b>儲存時間的標準格式</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#javascript-中的時間處理">4&nbsp;&nbsp;<b>JavaScript 中的時間處理</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#getyear">4.1&nbsp;&nbsp;getYear</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#getmonth">4.2&nbsp;&nbsp;getMonth</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#gethours">4.3&nbsp;&nbsp;getHours</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#日期時間需注意的地方">5&nbsp;&nbsp;<b>日期時間需注意的地方</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#最後來談時區的顯示">6&nbsp;&nbsp;<b>最後來談時區的顯示</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#送時間到後端去">7&nbsp;&nbsp;<b>送時間到後端去</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">8&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2020/12/26/en/javascript-date-time-and-timezone/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            淺談 JavaScript 中的時間與時區處理
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2020-12-26T12:54:01.000Z" itemprop="datePublished">2020年12月26日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/JavaScript/">JavaScript</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="前言">前言</span></h2><p>部落格需要顯示發佈時間，餐廳網站要顯示訂位時間，拍賣網站則是要顯示訂單的各種時間，無論你做什麼，都會碰到「顯示時間」這個很常見的需求。</p>
+<p>這問題看似簡單，不就是顯示個時間嗎？但如果牽扯上「時區」的話，問題就會變得再更複雜一些。以時區來說，通常會有這幾個需求：</p>
+<ol>
+<li>網站上的時間需要在某個固定時區顯示，我在美國跟在台灣要在網站上看到同樣的時間</li>
+<li>網站上的時間會根據使用者的瀏覽器設置不同，我在美國跟在台灣看到的時間會不一樣</li>
+<li>PM 根本沒想過這問題，只考慮到當地的使用者，所以暫時不用擔心這個</li>
+</ol>
+<p>而這還只是顯示的部分而已，還有另外一個部分是與後端的溝通，這個我們可以待會再提，但總之呢，要正確處理時間跟時區並不是一件簡單的事。</p>
+<p>在最近這一兩份工作剛好都有碰過相關的問題，因此對這一塊有點小小心得，就寫了這一篇來跟大家分享一下。</p>
+<span id="more"></span>
+
+<h2><span id="先從-timestamp-開始談起">先從 timestamp 開始談起</span></h2><p>要談時間，我比較喜歡從 timestamp 開始談起，或講得更精確一點是 Unix timestamp。</p>
+<p>什麼是 timestamp 呢？你打開 devtool 的 console 然後輸入：<code>console.log(new Date().getTime())</code>，出來的東西就是我們所謂的 timestamp。</p>
+<p>而這個 timestamp 指的是：「從 UTC+0 時區的 1970 年 1 月 1 號 0 時 0 分 0 秒開始，總共過了多少毫秒」，而我寫這篇文章的時候得出來的值是 1608905630674。</p>
+<p>ECMAScript 的 spec 是這樣寫的：</p>
+<blockquote>
+<p> 20.4.1.1 Time Values and Time Range</p>
+<p>Time measurement in ECMAScript is analogous to time measurement in POSIX, in particular sharing definition in terms of the proleptic Gregorian calendar, an epoch of midnight at the beginning of 01 January, 1970 UTC, and an accounting of every day as comprising exactly 86,400 seconds (each of which is 1000 milliseconds long).</p>
+</blockquote>
+<p>在 Unix 系統中的時間就是這樣表示的，而許多程式語言得到的 timestamp 也都是類似的表示方法，但有些可能只能精確到「秒」，有些可以精確到「毫秒」，如果你發現程式碼中有些地方需要除以 1000 或是乘以 1000，就很有可能是在做秒跟毫秒的轉換。</p>
+<p>上面我們有提到「UTC +0」這東西，這其實就是 +0 時區的意思。</p>
+<p>舉例來說，臺灣的時區是 +8，或如果要講得更標準一點，就是 GMT +8 或是 UTC +8，這兩者的區別可以參考：<a target="_blank" rel="noopener" href="https://pansci.asia/archives/84978">到底是 GMT+8 還是 UTC+8 ?</a>，現在的標準基本上都是 UTC 了，所以這篇文章接下來都只會用 UTC。</p>
+<h2><span id="儲存時間的標準格式">儲存時間的標準格式</span></h2><p>有了一些基本概念之後，可以來談該如何儲存時間。其中一種儲存方式就是存上面所說的 timestamp，但缺點是無法用肉眼直接看出時間是什麼，一定要經過轉換。</p>
+<p>而另外一種儲存時間的標準叫做 <a target="_blank" rel="noopener" href="https://www.iso.org/iso-8601-date-and-time-format.html">ISO 8601</a>，在許多地方你都可以發現它的蹤影。</p>
+<p>例如說 <a target="_blank" rel="noopener" href="https://swagger.io/docs/specification/data-models/data-types/">OpenAPI</a> 裡面有定義了一個格式叫做 <code>date-time</code>，它的敘述是這樣寫的：</p>
+<blockquote>
+<p>the date-time notation as defined by RFC 3339, section 5.6, for example, 2017-07-21T17:32:28Z</p>
+</blockquote>
+<p>如果你直接去看 <a target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc3339">RFC 3339</a> 的話，開頭的摘要就已經寫明了：</p>
+<blockquote>
+<p>This document defines a date and time format for use in Internet protocols that is a profile of the ISO 8601 standard for representation of dates and times using the Gregorian calendar.</p>
+</blockquote>
+<p>那這到底是個什麼樣的格式呢？其實就是像 <code>2020-12-26T12:38:00Z</code> 這種格式，用字串表現一個帶有時區的時間。</p>
+<p>更詳細的規則可以看 <a target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc3339#section-5.6">RFC</a>：</p>
+<p><img src="/img/date-time/rfc3339.png"></p>
+<p>RFC 的規則會定義的比較完整，但總而言之就是我上面說的那種形式，然後最後面如果是 Z 就代表 UTC +0，如果要其他時區可以這樣寫：<code>2020-12-26T12:38:00+08:00</code>，代表 +8 時區的 12 月 26 號 12 點 38 分 0 秒。</p>
+<p>在 JavaScript 裡面則是基於一個 ISO 8601 的延伸格式，在 ECMAScript spec 中的 20.4.1.15 Date Time String Format 有提到 ：</p>
+<p><img src="/img/date-time/es.png"></p>
+<p>其中比較有趣的是年份的部分，除了大家所熟知的四位數 0000~9999 之外，居然還可以有一個六位數的，而且可以有負數，可以表示西元前的年份：</p>
+<p><img src="/img/date-time/ad.png"></p>
+<p>理解了表示時間的標準格式以後，有個重要的觀念要先銘記在心，那就是時間的相對性。</p>
+<p>舉例來說，1593163158 這個 timestamp 代表的是：<br>「UTC +0 時區的 2020-06-26 09:19:00」，同時也代表著<br>「UTC +8 時區的 2020-06-26 17:19:00」，這兩個時間是一樣的，都是同一個時間。</p>
+<p>所以當你拿到一個 timestamp 以後，你無法從 timestamp 本身知道你應該要顯示成什麼時區的時間。</p>
+<p>談完了這些概念之後，我們來聊聊 JS 中怎麼處理這些時間。</p>
+<h2><span id="javascript-中的時間處理">JavaScript 中的時間處理</span></h2><p>在 JS 裡面你可以用 <code>Date</code> 來處理時間相關的需求，例如說 <code>new Date()</code> 可以產生出現在的時間，然後 <code>new Date().toISOString()</code> 就可以產生 ISO 8601 格式的字串，像是：<code>2020-12-26T04:52:26.255Z</code>。</p>
+<p>在 <code>new Date()</code> 裡面放上參數的話則是會幫你 parse 時間，例如說 <code>new Date(1593163158000)</code> 或是 <code>new Date(&#39;2020-12-26T04:52:26.255Z&#39;)</code>。</p>
+<p>除此之外還有許多 function 可以幫你拿到時間的各個部分，以上面那個字串 <code>2020-12-26T04:52:26.255Z</code> 為例，我們用 <code>new Date(&#39;2020-12-26T04:52:26.255Z&#39;)</code> 搭配底下的各個 function：</p>
+<ol>
+<li>getYear &#x3D;&gt; 120</li>
+<li>getMonth &#x3D;&gt; 11</li>
+<li>getDate &#x3D;&gt; 26</li>
+<li>getHours &#x3D;&gt; 12</li>
+<li>getMinutes &#x3D;&gt; 52</li>
+<li>getSeconds &#x3D;&gt; 26</li>
+<li>getMilliseconds &#x3D;&gt; 255</li>
+</ol>
+<p>有幾個部分看起來完全沒問題，但有些部分看起來很怪，我們挑那些怪異的部分來講解。</p>
+<h3><span id="getyear">getYear</span></h3><p>你可能預期會拿到 2020 但卻拿到了 120，因為 getYear 會是年份 - 1900 之後的結果，如果你想拿到 2020 要用 <code>getFullYear</code>。</p>
+<h3><span id="getmonth">getMonth</span></h3><p>你會預期拿到 12，但卻拿到了 11，這是因為這邊拿到的數字會從 0 開始，所以如果是 1 月會拿到 0，因此 12 月拿到了 11。</p>
+<h3><span id="gethours">getHours</span></h3><p>傳進去的時間是 4，所以你預期會拿到 4，但卻拿到了 12。這是因為 JS 在進行這些操作之前，都有一個步驟是把時間轉成「Local Time」：</p>
+<p><img src="/img/date-time/gethours.png"></p>
+<p>因此 UTC +0 的 4 點，轉成 UTC +8 就變成 12 點了，因此拿到的就會是 12。</p>
+<p>先不論最後那個轉成 local time 的特性，一定有很多人疑惑說為什麼月份要 - 1，然後 getYear 不好好回傳年份就好了。這些設計其實並不是 JS 獨創的，而是直接從 Java 1.0 抄過來的。</p>
+<p>雖然說 JavaScript 跟 Java 現在確實沒什麼關係，但在 JavaScript 剛誕生的時候它跟 Java 的淵源其實很深（不然怎麼會取叫這個名字），本來就希望能夠在語法上看起來像是 Java，吸引 Java 的開發者，所以會直接從 Java 1.0 把 java.util.Date 整個抄過來好像也是件能理解的事情。</p>
+<p>不過這些設計其實在 JDK 1.1 之後就被 deprecated 了，只是 JavaScript 礙於向下相容的關係只能繼續使用。現在依然可以在 Java 的文件中找到 <a target="_blank" rel="noopener" href="https://docs.oracle.com/javase/10/docs/api/java/util/Date.html#getMonth%28%29">getMonth</a> 以及 <a target="_blank" rel="noopener" href="https://docs.oracle.com/javase/10/docs/api/java/util/Date.html#getYear%28%29">getYear</a> 的說明。</p>
+<p>而 getYear 會回傳 -1900 之後的結果在當時應該也是一件正常的事，因為那時候在儲存年份時好像習慣儲存兩位數，例如說 1987 就存 87 而已。這也導致了後來的千禧蟲危機，Year 2000 Problem（簡稱 Y2K），在 2000 年的時候年份會變成 00。</p>
+<p>上面這些歷史在 <a target="_blank" rel="noopener" href="https://dl.acm.org/doi/abs/10.1145/3386327">JavaScript: the first 20 years</a> 裡面都有提到，Java date 那一段在第 19 頁。</p>
+<h2><span id="日期時間需注意的地方">日期時間需注意的地方</span></h2><p>用 <code>new Date(string)</code> 就等於 <code>Date.parse(string)</code>，可以讓 JS 來幫你解析一個字串並轉換成時間。如果你給的字串符合標準格式的話那沒有問題，但如果不符合標準的話，就會根據實作的不同而有不同的結果：</p>
+<p><img src="/img/date-time/parsedate.png"></p>
+<p>這就是需要小心的地方了，比如說這兩個字串：</p>
+<pre class="line-numbers language-none"><code class="language-none">new Date(&#39;2020-02-10&#39;)
+new Date(&#39;2020&#x2F;02&#x2F;10&#39;)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>不都是 2020 年 2 月 10 號嗎？</p>
+<p>但如果你在 Chrome devtool 上面執行，會發現些微的不同：</p>
+<p><img src="/img/date-time/utc.png"></p>
+<p>根據 spec 的說法：</p>
+<blockquote>
+<p>When the UTC offset representation is absent, date-only forms are interpreted as a UTC time and date-time forms are interpreted as a local time.</p>
+</blockquote>
+<p>前者是符合 ISO 8601 格式的，所以被解析成為 UTC +0 的 2 月 10 號 0 點 0 分，所以我們看到的結果才會是 +8 時區的 8 點。</p>
+<p>而後者並不符合 ISO 8601 格式，所以會根據實作不同而產生不同的結果，而看起來第二種格式 V8 會當作是 local time，V8 的 date parser 在這裡：<a target="_blank" rel="noopener" href="https://github.com/v8/v8/blob/dc712da548c7fb433caed56af9a021d964952728/src/date/dateparser-inl.h">src&#x2F;date&#x2F;dateparser-inl.h</a>（不過我也還沒找到是哪一段造成這個結果就是了）。</p>
+<p>還有另外一個常見的非標準格式是這樣：<code>2020-02-02 13:00:00</code></p>
+<p>這個格式少了一個 T，在 Safari 上面會直接回給你一個 Invalid Date，而在 Chrome 上面則可以正常解析。這我其實覺得滿合理的，你丟一個非標準格式的東西，本來就是 invalid。瀏覽器可以正常解析是額外幫你多做事，但不能正常解析你也不能怪它。</p>
+<p>補充：感謝 othree 的留言補充以及討論，這邊其實有一個小細節在</p>
+<p>前面有提到 ISO 8601 跟 RFC3339，這兩個其實有一點細微的差異。</p>
+<p>在 ISO 8601 裡面寫著：</p>
+<blockquote>
+<p>The character [T] shall be used as time designator to indicate the start of the representation of the time of day component in these expressions.</p>
+</blockquote>
+<blockquote>
+<p>NOTE By mutual agreement of the partners in information interchange, the character [T] may be omitted in applications where there is no risk of confusing a date and time of day representation with others defined in this International Standard.</p>
+</blockquote>
+<p>也就是說在 ISO 8601 的標準裡面，T 這個字元在溝通的雙方都同意之下是可以省略的，會變成像是：2020-02-0213:00:00 這樣，但並沒有寫說可以用空白來取代。</p>
+<p>而在 RFC3339 裡面則是寫著：</p>
+<blockquote>
+<p>NOTE: ISO 8601 defines date and time separated by “T”. Applications using this syntax may choose, for the sake of readability, to specify a full-date and full-time separated by (say) a space character.</p>
+</blockquote>
+<p>所以 RFC3339 為了可讀性，是可以用空白取代 T 的。因此用空白來分隔的字串，遵守 RFC3339 但不遵守 ISO 8601。</p>
+<p>那 ECMAScript 是哪一種呢？根據 spec 上的說明，看起來 T 也是必須要有的，所以在 ECMAScript 裡面一個正確的 date time 需要用 T 來分隔，不能用空白取代。</p>
+<p>但有趣的事情來了，那就是在 ES5 之前，其實 ECMAScript 的規格裡對於 date time 的格式是沒有說明的，也就是說並沒有講什麼才是標準的格式，所以少了一個 T 也可以解析可以當作是為了支援以前的實作而保留的行為。</p>
+<p>（參考資料：<a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/9531524/in-an-iso-8601-date-is-the-t-character-mandatory">In an ISO 8601 date, is the T character mandatory?</a>、<a target="_blank" rel="noopener" href="https://github.com/toml-lang/toml/issues/424">Allow space to seperate date and time as per RFC3339</a>）</p>
+<p>總之呢，加上 T 之後就沒問題了，加上去之後會變成少了時區的 date time：<code>2020-02-02T13:00:00</code>。</p>
+<p>丟到 Chrome 之後是：<code>Sun Feb 02 2020 13:00:00 GMT+0800</code><br>丟到 Safari 之後是：<code>Sun Feb 02 2020 21:00:00 GMT+0800</code></p>
+<p>根據我們上面貼的 spec 節錄，如果缺少了時區而且是 date time format 的話，應該要當作是 local time 才對，所以 Chrome 的做法是正確的，但 Safari 卻把這個時間當成是 UTC +0 的時間，所以差了八個小時。</p>
+<p>我認為這是一個 bug 啦，但是去 webkit 的 bugtracker 沒找到有人回報，或許會這樣做也是有什麼特殊的理由。</p>
+<p>以上這些問題也可以參考<a target="_blank" rel="noopener" href="https://blog.miniasp.com/post/2016/09/25/JavaScript-Date-usage-in-details">前端工程研究：關於 JavaScript 中 Date 型別的常見地雷與建議作法</a>，裡面提到了更多瀏覽器上的測試。</p>
+<p>但總之只要把握一個原則就對了，就是用標準的格式來溝通，就不會有這些問題了。</p>
+<h2><span id="最後來談時區的顯示">最後來談時區的顯示</span></h2><p>前面講了這麼多，終於可以來談開頭講的時區的問題了。在處理時間這一塊，比較多人應該都是挑一個順眼的 library 來用，例如說 moment、date-fns、dayjs 或是 luxon 之類的，這些 library 如果沒有正確使用的話，會跟你想像的結果不同。</p>
+<p>例如說，請問底下的輸出結果會是什麼？</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">luxon<span class="token punctuation">.</span>DateTime
+  <span class="token punctuation">.</span><span class="token function">fromISO</span><span class="token punctuation">(</span><span class="token string">'2020-02-02T13:00:00+03:00'</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">toFormat</span><span class="token punctuation">(</span><span class="token string">'HH:mm:ss'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>..<br>..<br>..<br>防雷<br>..<br>..<br>..<br>.. </p>
+<p>有許多人都會誤以為如果你的 date time 有帶 timezone 的話，format 出來的結果就會依照那個 timezone。但不是這樣的，最後 format 還是會以 local time 為主。</p>
+<p>所以上面的例子中，由於我的電腦是臺灣 +8 時區，所以結果會是 18:00:00 而不是 13:00:00。</p>
+<p>這點大家一定要記住，無論是 dayjs 或是 moment 也都一樣，如果沒有在 format 之前特別指定時區，format 出來的結果都會依照使用者當前的時區。所以同一段程式碼，在不同使用者的電腦可能會有不同的輸出。</p>
+<p>因此 Server 端給你什麼都不重要，給你 <code>2020-02-02T13:00:00+03:00</code> 或是 <code>2020-02-02T10:00:00Z</code> 或 <code>2020-02-02T18:00:00+08:00</code>，對前端來說都是一樣的，都代表著同一個時間，用 format 也都會產生出一樣的結果。</p>
+<p>如果你想要用 date time 裡的時區為主的話，可以這樣使用：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">luxon<span class="token punctuation">.</span>DateTime
+  <span class="token punctuation">.</span><span class="token function">fromISO</span><span class="token punctuation">(</span><span class="token string">'2020-02-02T13:00:00+03:00'</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span> 
+    <span class="token literal-property property">setZone</span><span class="token operator">:</span> <span class="token boolean">true</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">toFormat</span><span class="token punctuation">(</span><span class="token string">'HH:mm:ss'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>但是大部分情形下會建議的做法都是由前端自行決定要顯示成哪個時區的時間，而不是由後端給的 date time 來決定。</p>
+<p>那要怎麼決定顯示成哪個時區呢？以 luxon 來說會是這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">luxon<span class="token punctuation">.</span>DateTime
+  <span class="token punctuation">.</span><span class="token function">fromISO</span><span class="token punctuation">(</span><span class="token string">'2020-02-02T13:00:00+03:00'</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">setZone</span><span class="token punctuation">(</span><span class="token string">'Asia/Tokyo'</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">toFormat</span><span class="token punctuation">(</span><span class="token string">'HH:mm:ss'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>moment 則是這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function">moment</span><span class="token punctuation">(</span><span class="token string">'2020-02-02T13:00:00+03:00'</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">tz</span><span class="token punctuation">(</span><span class="token string">'Asia/Tokyo'</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">format</span><span class="token punctuation">(</span><span class="token string">'HH:mm:ss'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>dayjs 也類似：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function">dayjs</span><span class="token punctuation">(</span><span class="token string">'2020-02-02T13:00:00+03:00'</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">tz</span><span class="token punctuation">(</span><span class="token string">'Asia/Tokyo'</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">format</span><span class="token punctuation">(</span><span class="token string">'HH:mm:ss'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>透過這樣的方式，我們就可以保證輸出的時間一定是固定在同一個時區。什麼時候會需要這樣做呢？例如說我之前待過的一間公司是餐廳訂位的網站，後端會傳給我們餐廳可以訂位的時段，像是下午一點，下午兩點之類的，這邊後端會用標準格式給我們，例如說：<code>2020-02-02T13:00:00+08:00</code>，代表 2020 年 2 月 2 號的下午 1 點可以訂位。</p>
+<p>在前端顯示的時候，如果只是用 <code>moment(&#39;2020-02-02T13:00:00+08:00&#39;).format(&#39;HH:mm&#39;)</code> 的話，在我的電腦上看會是正確的，結果會是 <code>13:00</code>，這往往也是 bug 的開端，因為自己看是正確的就覺得是正確的。</p>
+<p>若是換了一個時區，假設換到日本好了，那同一段程式碼所產生出的結果就是 <code>12:00</code>，就是預期外的結果了。因為要訂的是臺灣的餐廳，所以訂位時間應該都要顯示台灣時間才對，而不是使用者電腦時區的時間。</p>
+<p>這時候就要按照上面所說的，用：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function">moment</span><span class="token punctuation">(</span><span class="token string">'2020-02-02T13:00:00+03:00'</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">tz</span><span class="token punctuation">(</span><span class="token string">'Asia/Taipei'</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">format</span><span class="token punctuation">(</span><span class="token string">'HH:mm:ss'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>就能夠保證在日本或在其他地方的使用者，看到的都是用臺灣時區顯示的結果。</p>
+<h2><span id="送時間到後端去">送時間到後端去</span></h2><p>前面講的是後端給你一個時間然後你要正確顯示出來，解法就是上面所說的，加上正確的 method，才能確保是以固定的時區顯示時間。</p>
+<p>還有另外一種需要注意的則是相反過來，那就是前端要產生一個 date time 送到後端去。</p>
+<p>舉例來說，延續之前餐廳訂位網站的例子好了，假設今天有一個聯絡客服的頁面要填去餐廳的日期，格式是：<code>2020-12-26</code> 這樣子，但你送到後端去的資料會是 date time，所以你要把它變成 ISO 8601 的標準格式。</p>
+<p>這時候你會怎麼做呢？</p>
+<p>有些人會想說，這不就很簡單嗎？原生的方法就是 <code>new Date(&#39;2020-12-26&#39;).toISOString()</code>，如果用其他 library 可能就是：<code>moment(&#39;2020-12-26&#39;).format()</code>。</p>
+<p>但其實這是不對的。</p>
+<p>假設去的餐廳是在台灣的餐廳，那這個 2020-12-26 就應該是台灣時間，正確的輸出應該要是：<code>2020-12-26T00:00:00+08:00</code> 或是 <code>2020-12-25T16:00:00Z</code> 之類的，簡單來說就是台灣時間的 12 月 26 號 0 點 0 分。</p>
+<p>而上面的程式碼，你有可能產生的是「UTC +0 時區的 0 點 0 分」或者是「使用者電腦時區的 0 點 0 分」，這時候產生出來的 date time 就會是錯誤的，就有了時差。</p>
+<p>正確的使用方式跟剛剛差不多，你需要去呼叫 timezone 相關的 method，像是這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// moment</span>
+moment<span class="token punctuation">.</span><span class="token function">tz</span><span class="token punctuation">(</span><span class="token string">'2020-12-26'</span><span class="token punctuation">,</span> <span class="token string">'Asia/Taipei'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">format</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token comment">// dayjs</span>
+dayjs<span class="token punctuation">.</span><span class="token function">tz</span><span class="token punctuation">(</span><span class="token string">'2020-12-26'</span><span class="token punctuation">,</span> <span class="token string">'Asia/Taipei'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">format</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>才能正確告訴 library 說：「我的這個日期是在台北的日期，而不是在 UTC 也不是在使用者時區」。</p>
+<h2><span id="總結">總結</span></h2><p>在處理時間的時候，最常碰到的就是多一天或是少一天的問題，明明就應該顯示 12&#x2F;26，怎麼使用者看到的是 12&#x2F;25？而會有這些問題，往往都跟時區有關，沒有正確處理好時區的話就會產生這些問題。</p>
+<p>在處理時區上面只要能謹記幾個原則，就可以避免掉這些基本的問題：</p>
+<ol>
+<li>前後端都用標準格式的字串溝通</li>
+<li>由前端來決定用什麼時區顯示</li>
+<li>前端產生 date time 時記得想一下要不要指定時區</li>
+</ol>
+<p>不過除了這些之外，我也有想到有些問題滿有趣的，例如說生日，生日感覺就應該直接存成一個字串而不是 date time string。</p>
+<p>假設現在有一個大型的跨國網站，然後有個會員系統，註冊的時候要填生日，假設我生日是 2020-12-26 好了，那如果要存成 date time，就會是：<code>2020-12-26T00:00:00+08:00</code>。</p>
+<p>好，這邊看起來沒什麼問題。</p>
+<p>但顯示的話呢？要用什麼時區來顯示？看起來固定用台灣時區來顯示才不會出錯，可是這樣的話，系統也得知道我是台灣人，才能知道要用什麼時區來顯示。但是系統不一定會有這個資訊。</p>
+<p>那看起來解法就是兩個，一個是系統直接存 <code>2020-12-26</code>，不存 date time 了，前端顯示也直接顯示字串，不要當作時間來解析。另一個則是「儲存跟顯示都用 UTC +0 時區來做」，這樣應該也不會有問題。</p>
+<p>處理時間真的不容易，而且在時間上我們常會有許多錯誤的假設，可以參考 <a target="_blank" rel="noopener" href="https://yourcalendricalfallacyis.com/">Your Calendrical Fallacy Is…</a> 跟 <a target="_blank" rel="noopener" href="https://www.zainrizvi.io/blog/falsehoods-programmers-believe-about-time-zones/">Falsehoods programmers believe about time zones</a>，裡面都提到了許多錯誤的認知。</p>
+<p>從文章中也可以看出原生的 date 其實已經沒有辦法負荷日常使用了，因此只要是處理時間，基本上大家一定都會找一個 library 來用。目前有一個值得關注的提案叫做 <a target="_blank" rel="noopener" href="https://github.com/tc39/proposal-temporal">Temporal</a>，目前處於 stage2，希望能成為未來 JS 處理日期時間相關的標準。更詳細的介紹可以參考這一篇：<a target="_blank" rel="noopener" href="https://dev.to/romulocintra/temporal-date-time-in-javascript-today-23cb">Temporal - Date &amp; Time in JavaScript today!</a> 或是這個簡報：<a target="_blank" rel="noopener" href="https://docs.google.com/presentation/d/1xP3_UaXlS4-SilVpFu6UFOL8QQw0Dr_VsaR8mSSEATI/edit#slide=id.p">Temporal walkthrough</a></p>
+<p>最後，如果你有用 jest 寫測試，可以在 config 裡面加上 <code>process.env.TZ = &#39;Asia/Taipei&#39;;</code> 來指定測試要跑的時區，也可以直接用環境變數帶進去。</p>
+<p>我自己習慣的做法是在兩個不同的時區都跑跑看，測試都有過才代表你是真的有寫對，而不只是誤打誤撞才寫對。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/JavaScript/">#JavaScript</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2021/01/23/dom-clobbering/">淺談 DOM Clobbering 的原理及應用</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2020/12/01/write-conosle-log-1-without-alphanumeric/">如何不用英文字母與數字寫出 console.log(1)？</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2020/12/26/en/javascript-date-time-and-timezone/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

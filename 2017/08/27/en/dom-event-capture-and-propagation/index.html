@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>DOM Event Propagation: Capturing and Bubbling - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2017/08/27/dom-event-capture-and-propagation/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2017/08/27/en/dom-event-capture-and-propagation/">
+    
+
+
+
+
+
+    <meta name="description" content="Introduction(Supplement: Thanks to the guidance of senior othree, it is pointed out that this is actually talking about the order of event propagation in the DOM, so the title and content are revised.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="DOM Event Propagation: Capturing and Bubbling">
+<meta property="og:url" content="https://blog.huli.tw/2017/08/27/en/dom-event-capture-and-propagation/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="Introduction(Supplement: Thanks to the guidance of senior othree, it is pointed out that this is actually talking about the order of event propagation in the DOM, so the title and content are revised.">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://blog.techbridge.cc/img/huli/event/event_p1.png">
+<meta property="og:image" content="http://blog.techbridge.cc/img/huli/event/eventflow.png">
+<meta property="article:published_time" content="2017-08-27T14:18:00.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:10:49.051Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="DOM">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="http://blog.techbridge.cc/img/huli/event/event_p1.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="DOM Event Propagation: Capturing and Bubbling" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#introduction">1&nbsp;&nbsp;<b>Introduction</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#simple-example">2&nbsp;&nbsp;<b>Simple Example</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#three-phases-of-events">3&nbsp;&nbsp;<b>Three Phases of Events</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#practice">4&nbsp;&nbsp;<b>Practice</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#a-small-trap-of-capturing-and-bubbling">5&nbsp;&nbsp;<b>A small trap of capturing and bubbling</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#cancel-event-propagation">6&nbsp;&nbsp;<b>Cancel event propagation</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#preventing-default-behavior">6.1&nbsp;&nbsp;Preventing Default Behavior</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#practical-applications">7&nbsp;&nbsp;<b>Practical Applications</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">8&nbsp;&nbsp;<b>Conclusion</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2017/08/27/dom-event-capture-and-propagation/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            DOM Event Propagation: Capturing and Bubbling
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2017-08-27T14:18:00.000Z" itemprop="datePublished">27 August 2017</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Front-end/">Front-end</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h1><span id="introduction">Introduction</span></h1><p>(Supplement: Thanks to the guidance of senior othree, it is pointed out that this is actually talking about the order of event propagation in the DOM, so the title and content are revised. The original title is: JavaScript Event Propagation: Capturing and Bubbling)</p>
+<p>Today, we bring you the event propagation mechanism in the DOM, and the code related to these events, I believe everyone should be familiar with, that is <code>addEventListener</code>, <code>preventDefault</code> and <code>stopPropagation</code>.</p>
+<p>Simply put, it is the order in which events are propagated in the DOM, and what you can do with these events.</p>
+<p>Why is there the term “propagation order”? Suppose you have a <code>ul</code> element with many <code>li</code> elements underneath, representing different items. When you click on any <code>li</code>, you actually click on <code>ul</code> because <code>ul</code> wraps all <code>li</code>.</p>
+<p>If I add <code>eventListener</code> to two elements, which one will be executed first? At this time, it is important to know the execution order of events.</p>
+<p>In addition, because the mechanism of some browsers (yes, I am talking about IE) is different, I will not mention those things at all. Those who are interested can study the reference materials attached at the end of the article.</p>
+<span id="more"></span>
+
+<h1><span id="simple-example">Simple Example</span></h1><p>To facilitate later explanation, we first write a very simple example:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>ul</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>list<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>li</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>list_item<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+      <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>list_item_link<span class="token punctuation">"</span></span> <span class="token attr-name">target</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>_blank<span class="token punctuation">"</span></span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>http://google.com<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+        google.com
+      <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>li</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>ul</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In this example, there is an outermost <code>ul</code>, followed by <code>li</code>, and finally a hyperlink. For ease of identification, the naming of the id is also related to the hierarchical structure.</p>
+<p>The DOM diagram looks like this:</p>
+<p><img src="http://blog.techbridge.cc/img/huli/event/event_p1.png"></p>
+<p>With this simple HTML structure, we can clearly explain the event propagation mechanism in the DOM.</p>
+<h1><span id="three-phases-of-events">Three Phases of Events</span></h1><p>To add a click event to a DOM, you would write:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> $list <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span><span class="token string">'list'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+$list<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'click!'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The <code>e</code> here contains many related parameters of this event, one of which is called <code>eventPhase</code>, which is a number indicating which phase the event is triggered in.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> $list <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span><span class="token string">'list'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+$list<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The definition of <code>eventPhase</code> can be found in the <a target="_blank" rel="noopener" href="https://www.w3.org/TR/DOM-Level-2-Events/events.html#Events-interface">DOM specification</a>:</p>
+<pre class="line-numbers language-C" data-language="C"><code class="language-C">&#x2F;&#x2F; PhaseType
+const unsigned short      CAPTURING_PHASE                &#x3D; 1;
+const unsigned short      AT_TARGET                      &#x3D; 2;
+const unsigned short      BUBBLING_PHASE                 &#x3D; 3;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>These three stages are the focus of our discussion today.</p>
+<p>When the DOM event propagates, it starts from the root node and goes down to the <code>target</code>. If you add an event here, it will be in the <code>CAPTURING_PHASE</code>, the capturing phase.</p>
+<p><code>target</code> is the target you clicked on. At this time, the <code>eventListenr</code> added to <code>target</code> will be <code>AT_TARGET</code> phase.</p>
+<p>Finally, the event is propagated back up from the child node to the root node, and this is called the <code>BUBBLING_PHASE</code>, which is also the more familiar bubbling phase.</p>
+<p>You may find it confusing to understand the text, so I’ll directly quote a <a target="_blank" rel="noopener" href="https://www.w3.org/TR/DOM-Level-3-Events/#event-flow">w3c diagram about event flow</a>, which should make it clear for everyone.</p>
+<p><img src="http://blog.techbridge.cc/img/huli/event/eventflow.png"></p>
+<p>When you click on a <code>td</code>, the click event will start from the <code>window</code> and propagate down to the <code>td</code>, which is called the <code>CAPTURING_PHASE</code>. </p>
+<p>Then the event is dispatched to the <code>td</code> itself, which is called the <code>AT_TARGET</code>.</p>
+<p>Finally, the event bubbles up from the <code>td</code> to the <code>window</code>, which is called the <code>BUBBLING_PHASE</code>.</p>
+<p>Therefore, when reading articles about event mechanisms, you will often see a slogan:</p>
+<blockquote>
+<p>Capture first, bubble later.</p>
+</blockquote>
+<p>That’s how it works.</p>
+<p>But how do I decide whether to listen to this event in the capturing phase or the bubbling phase?</p>
+<p>Actually, we still use the familiar <code>addEventListener</code>, but this function actually has a third parameter. <code>true</code> means adding this listener to the capturing phase, <code>false</code> or not passing it means adding this listener to the bubbling phase.</p>
+<h1><span id="practice">Practice</span></h1><p>After understanding the event propagation mechanism, let’s take the simple example we wrote above to demonstrate it. First, let’s attach the event to each element in each phase and see if the result is the same as expected:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token function-variable function">get</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">id</span><span class="token punctuation">)</span> <span class="token operator">=></span> document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> $list <span class="token operator">=</span> <span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'list'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> $list_item <span class="token operator">=</span> <span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'list_item'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> $list_item_link <span class="token operator">=</span> <span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'list_item_link'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+<span class="token comment">// list capturing</span>
+$list<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list capturing'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// list bubbling</span>
+$list<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list bubbling'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// list_item capturing</span>
+$list_item<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list_item capturing'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// list_item bubbling</span>
+$list_item<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list_item bubbling'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// list_item_link capturing</span>
+$list_item_link<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list_item_link capturing'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// list_item_link bubbling</span>
+$list_item_link<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list_item_link bubbling'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Click on the hyperlink and the console will output the following results:</p>
+<pre class="line-numbers language-none"><code class="language-none">list capturing
+1
+list_item capturing
+1
+list_item_link capturing
+2
+list_item_link bubbling
+2
+list_item bubbling
+3
+list bubbling
+3<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>1 is <code>CAPTURING_PHASE</code>, 2 is <code>AT_TARGET</code>, and 3 is <code>BUBBLING_PHASE</code>.</p>
+<p>From here, it is clear that the event does propagate from the top to the target, and during this propagation process, we use the third parameter of <code>addEventListenr</code> to add the listener to the <code>CAPTURING_PHASE</code>.</p>
+<p>Then the event is passed to the hyperlink (<code>a#list_item_link</code>) that we clicked on. Here, regardless of whether you use the third parameter of <code>addEventListener</code> as <code>true</code> or <code>false</code>, <code>e.eventPhase</code> will become <code>AT_TARGET</code>. </p>
+<p>Finally, it bubbles back from the target, first to the parent <code>#list_item</code>, then to the grandparent <code>#list</code>.</p>
+<h1><span id="a-small-trap-of-capturing-and-bubbling">A small trap of capturing and bubbling</span></h1><p>Since it is capturing first and then bubbling, it means that no matter how the order of <code>addEventListener</code> changes, the output should still be the same. Let’s switch the order of capturing and bubbling and see if the output is still the same.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token function-variable function">get</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">id</span><span class="token punctuation">)</span> <span class="token operator">=></span> document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> $list <span class="token operator">=</span> <span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'list'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> $list_item <span class="token operator">=</span> <span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'list_item'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> $list_item_link <span class="token operator">=</span> <span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'list_item_link'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+<span class="token comment">// list bubbling</span>
+$list<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list bubbling'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// list capturing</span>
+$list<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list capturing'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// list_item bubbling</span>
+$list_item<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list_item bubbling'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// list_item capturing</span>
+$list_item<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list_item capturing'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// list_item_link bubbling</span>
+$list_item_link<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list_item_link bubbling'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// list_item_link capturing</span>
+$list_item_link<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list_item_link capturing'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Clicking on the hyperlink will output:</p>
+<pre class="line-numbers language-none"><code class="language-none">list capturing
+1
+list_item capturing
+1
+list_item_link bubbling
+2
+list_item_link capturing
+2
+list_item bubbling
+3
+list bubbling
+3<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It can be seen that something magical happened, which is that the listener added in the bubbling phase was executed before the listener added in the capturing phase.</p>
+<p>Why is this?</p>
+<p>In fact, as mentioned earlier, when the event is passed to the actual target, which is <code>e.target</code>, regardless of whether you use the third parameter of <code>addEventListener</code> as <code>true</code> or <code>false</code>, <code>e.eventPhase</code> will become <code>AT_TARGET</code>.</p>
+<p>Since it has become <code>AT_TARGET</code> here, there is no distinction between capturing and bubbling, so the execution order will be determined by the order in which you added the <code>addEventListener</code>, with the first added being executed first and the last added being executed last.</p>
+<p>Therefore, this is why when we switched the order of capturing and bubbling, <code>list_item_link bubbling</code> appeared first.</p>
+<p>Regarding the order of event propagation, just remember two principles:</p>
+<ol>
+<li>Capturing first, then bubbling</li>
+<li>When the event is passed to the target itself, there is no distinction between capturing and bubbling</li>
+</ol>
+<p><a target="_blank" rel="noopener" href="https://jsbin.com/mogujivera/edit?html,js,console,output">jsbin example code</a></p>
+<h1><span id="cancel-event-propagation">Cancel event propagation</span></h1><p>Next, what we are going to talk about is that since this event chain is so long, there must be a way to interrupt this chain and stop the event propagation from continuing. And this method should be familiar to everyone, which is: <code>e.stopPropagation</code>.</p>
+<p>Wherever you add it, the event propagation will stop there and will not continue to propagate downward.</p>
+<p>For example, using the example above, if I add a capture phase to <code>#list</code>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// list 的捕獲</span>
+$list<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list capturing'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  e<span class="token punctuation">.</span><span class="token function">stopPropagation</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Then, the console will only output:</p>
+<pre class="line-numbers language-none"><code class="language-none">list capturing
+1<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>Because the event propagation is stopped, the remaining listeners will not receive any more events.</p>
+<p>However, there is still one thing to note here.</p>
+<p>The “event propagation is stopped” here means that the event will not be passed to the “next node”, but if you have more than one listener on the same node, they will still be executed.</p>
+<p>For example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// list 的捕獲</span>
+$list<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list capturing'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  e<span class="token punctuation">.</span><span class="token function">stopPropagation</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// list 的捕獲 2</span>
+$list<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list capturing2'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The output is:</p>
+<pre class="line-numbers language-none"><code class="language-none">list capturing
+list capturing2<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>Even though <code>e.stopPropagation</code> has been used, the remaining listeners on the same level will still be executed.</p>
+<p>If you want to prevent other listeners on the same level from being executed, you can use <code>e.stopImmediatePropagation();</code> instead.</p>
+<p>For example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// list 的捕獲</span>
+$list<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list capturing'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  e<span class="token punctuation">.</span><span class="token function">stopImmediatePropagation</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+  
+<span class="token comment">// list 的捕獲 2</span>
+$list<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list capturing2'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The output is:</p>
+<pre class="line-numbers language-none"><code class="language-none">list capturing<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h2><span id="preventing-default-behavior">Preventing Default Behavior</span></h2><p>People often confuse <code>e.stopPropagation</code> and <code>e.preventDefault</code>. The former we just explained, which is to stop the event from propagating, while the latter is to prevent the default behavior of the browser.</p>
+<p>The most common practice is to prevent hyperlinks, for example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// list_item_link 的冒泡</span>
+$list_item_link<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  e<span class="token punctuation">.</span><span class="token function">preventDefault</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This way, when you click on a hyperlink, the original default behavior (opening a new tab or redirecting) will not be executed, and nothing will happen. This is the function of <code>preventDefault</code>.</p>
+<p>Therefore, <code>preventDefault</code> has “nothing to do with” JavaScript’s event propagation. Even if you add this line, the event will still propagate.</p>
+<p>One thing worth noting is that W3C’s documentation states:</p>
+<blockquote>
+<p>Once preventDefault has been called it will remain in effect throughout the remainder of the event’s propagation.</p>
+</blockquote>
+<p>This means that once <code>preventDefault</code> is called, it will remain effective in the events that follow.</p>
+<p>Let’s look at an example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// list 的捕獲</span>
+$list<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'list capturing'</span><span class="token punctuation">,</span> e<span class="token punctuation">.</span>eventPhase<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  e<span class="token punctuation">.</span><span class="token function">preventDefault</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>We have already written <code>e.preventDefault()</code> in the capture event of <code>#list</code>, and according to the documentation, this effect will continue in the events that follow.</p>
+<p>Therefore, when the event is passed to <code>#list_item_link</code>, you will find that clicking on the hyperlink still has no response.</p>
+<h1><span id="practical-applications">Practical Applications</span></h1><p>Now that we know the event propagation mechanism, how to stop the propagation of events, and how to prevent default behavior, what are their practical applications in actual development?</p>
+<p>The most common usage is actually event delegation. For example, if you have a <code>ul</code> with 1000 <code>li</code> elements, if you add an event listener to each <code>li</code>, you will create 1000 new functions. However, as we just learned, any click event on an <code>li</code> will actually be passed to the <code>ul</code>, so we can just add a listener to the <code>ul</code>. </p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>ul</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>list<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>li</span> <span class="token attr-name">data-index</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>1<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>li</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>li</span> <span class="token attr-name">data-index</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>2<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>li</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>li</span> <span class="token attr-name">data-index</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>3<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>3<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>li</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>ul</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span><span class="token string">'list'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>target<span class="token punctuation">.</span><span class="token function">getAttribute</span><span class="token punctuation">(</span><span class="token string">'data-index'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>The advantage of this is that when you add or delete an <code>li</code>, you don’t have to deal with the listener related to that element, because your listener is on the <code>ul</code>. This way of handling events through parent nodes is called event delegation.</p>
+<p>In addition, I have thought of several interesting applications that you can refer to. For example, the <code>e.preventDefault()</code> we just mentioned. Since we know the principle and usage skills, we can use it like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">window<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  e<span class="token punctuation">.</span><span class="token function">preventDefault</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  e<span class="token punctuation">.</span><span class="token function">stopPropagation</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>With just this code, you can disable all elements on the page, and clicking on them will have no response, such as clicking on an <code>&lt;a&gt;</code> tag will not jump to the hyperlink, and clicking on a <code>&lt;form&gt;</code> submit button will not work. And because the event propagation is prevented, other <code>onClick</code> events will not be executed either.</p>
+<p>Or, you can use it like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">window<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'click'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>target<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Using the characteristics of event propagation, using capture on the <code>window</code> can ensure that it is the first event to be executed. You can detect the click of every element on the page in this function and return it for data statistics and analysis.</p>
+<h1><span id="conclusion">Conclusion</span></h1><p>The event propagation mechanism of the DOM is relatively simple among the many classic JavaScript interview questions, as long as you can grasp the principles and order of event propagation, it is almost the same. </p>
+<p>The difference between <code>e.preventDefault</code> and <code>e.stopPropagation</code> can also be understood roughly after knowing the order of event propagation. The former only cancels the default behavior and has nothing to do with event propagation, while the latter prevents the event from propagating downward.</p>
+<p>I hope this article can help you understand the event propagation mechanism of the DOM. If there is anything wrong, please feel free to point it out. Thank you.</p>
+<p>Reference materials (the latter original materials are more recommended):</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="http://www.cnblogs.com/bfgis/p/5460191.html">JavaScript 详说事件机制之冒泡、捕获、传播、委托</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/zhukejin1223/blogs/blob/master/JAVASCRIPT/Javascript-event.md">Javascript 事件冒泡和捕获的一些探讨</a></li>
+<li><a target="_blank" rel="noopener" href="http://wiki.jikexueyuan.com/project/brief-talk-js/event-cancellation-and-prevent-bubbles.html">浅谈 javascript 事件取消和阻止冒泡</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.sitepoint.com/event-bubbling-javascript/">What Is Event Bubbling in JavaScript? Event Propagation Explained</a></li>
+<li><a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/4616694/what-is-event-bubbling-and-capturing">What is event bubbling and capturing?</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.quirksmode.org/js/events_order.html">Event order</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.w3.org/TR/DOM-Level-2-Events/events.html#Events-flow-capture">Document Object Model Events</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/DOM/">#DOM</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2017/08/27/en/review-the-classical-sort-algorithm-with-javascript/">Reviewing Classic Sorting Algorithms with JavaScript</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2017/08/27/en/http-cache/">Understanding HTTP Cache Mechanism Gradually</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2017/08/27/dom-event-capture-and-propagation/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

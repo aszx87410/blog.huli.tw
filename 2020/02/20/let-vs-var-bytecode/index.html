@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>從 V8 bytecode 探討 let 與 var 的效能問題 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2020/02/20/en/let-vs-var-bytecode/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2020/02/20/let-vs-var-bytecode/">
+    
+
+
+
+
+
+    <meta name="description" content="前言在我以前寫過的兩篇文章：我知道你懂 hoisting，可是你了解到多深？以及所有的函式都是閉包：談 JS 中的作用域與 Closure 裡面，都談到了 let 與 var 作用域的不同。 let 的作用域是 block，而 var 則是 fucntion，像這個就是經典案例： for(var i&#x3D;1; i&lt;&#x3D;10; i++) &amp;#123;   setTimeout(function()">
+<meta property="og:type" content="article">
+<meta property="og:title" content="從 V8 bytecode 探討 let 與 var 的效能問題">
+<meta property="og:url" content="https://blog.huli.tw/2020/02/20/let-vs-var-bytecode/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前言在我以前寫過的兩篇文章：我知道你懂 hoisting，可是你了解到多深？以及所有的函式都是閉包：談 JS 中的作用域與 Closure 裡面，都談到了 let 與 var 作用域的不同。 let 的作用域是 block，而 var 則是 fucntion，像這個就是經典案例： for(var i&#x3D;1; i&lt;&#x3D;10; i++) &amp;#123;   setTimeout(function()">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/bytecode/bytecode.png">
+<meta property="article:published_time" content="2020-02-20T14:49:59.000Z">
+<meta property="article:modified_time" content="2023-06-20T02:09:50.181Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="JavaScript">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/bytecode/bytecode.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="從 V8 bytecode 探討 let 與 var 的效能問題" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#前言">1&nbsp;&nbsp;<b>前言</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#javascript-bytecode">2&nbsp;&nbsp;<b>JavaScript Bytecode</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#var-與-letround-1">3&nbsp;&nbsp;<b>var 與 let：Round 1</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#var-與-letround-2">4&nbsp;&nbsp;<b>var 與 let：Round 2</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">5&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2020/02/20/en/let-vs-var-bytecode/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            從 V8 bytecode 探討 let 與 var 的效能問題
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2020-02-20T14:49:59.000Z" itemprop="datePublished">2020年2月20日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/JavaScript/">JavaScript</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="前言">前言</span></h2><p>在我以前寫過的兩篇文章：<a href="https://blog.huli.tw/2018/11/10/javascript-hoisting-and-tdz/">我知道你懂 hoisting，可是你了解到多深？</a>以及<a href="https://blog.huli.tw/2018/12/08/javascript-closure/">所有的函式都是閉包：談 JS 中的作用域與 Closure</a> 裡面，都談到了 let 與 var 作用域的不同。</p>
+<p>let 的作用域是 block，而 var 則是 fucntion，像這個就是經典案例：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">var</span> i<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">;</span> i<span class="token operator">&lt;=</span><span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>原本預期會依序輸出 1~10，沒想到卻輸出了 10 個 11。背後原因就是因為第三行那個 i 永遠都只有一個，就是 for 迴圈宣告的那個 <code>var i</code>，從頭到尾都是同一個變數。</p>
+<p>而經典解法也很簡單，把 var 改成 let 就搞定了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">;</span> i<span class="token operator">&lt;=</span><span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>搞定的原因是，可以把上面程式碼看作是下面這種形式：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+ <span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">1</span>
+ <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token punctuation">&#123;</span>
+ <span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">2</span>
+ <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token operator">...</span>
+
+<span class="token punctuation">&#123;</span>
+ <span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">10</span>
+ <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>由於 let 的作用域是 block，所以在每一圈迴圈裡面，其實都是一個新的 i，因此迴圈跑 10 圈就有了 10 個不同的 i，最後當然是輸出 10 個不同的數字。</p>
+<p>因此 var 跟 let 在這個範例最大的區別就在於變數的數量，前者只有 1 個，後者卻有了 10 個。</p>
+<p>好，既然知道了 let 與 var 的差別以後，就可以來看看這篇最主要想討論的問題。</p>
+<p>其實這問題是來自於 <a target="_blank" rel="noopener" href="https://github.com/getify/You-Dont-Know-JS">YDKJS（You Dont Know JS，中譯本翻做：你不知道的JavaScript）</a> 的作者 <a target="_blank" rel="noopener" href="https://github.com/getify">@getify</a> 在他的<a target="_blank" rel="noopener" href="https://twitter.com/getify/status/1227371214148165632">推特</a>上所提出的：</p>
+<blockquote>
+<p>question for JS engines devs…<br>is there an optimization in place for this kind of code?</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// no closure</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<p>IOW, where the behavior of creating a new <code>i</code> per iteration is <em>not</em> needed nor observable… does JS skip doing it?</p>
+</blockquote>
+<p>若是沒有看得很懂，可以繼續看延伸的<a target="_blank" rel="noopener" href="https://twitter.com/getify/status/1227379557872828418">另外一則推</a>：</p>
+<blockquote>
+<p>here’s a variation on the question… will JS engines exhibit much performance difference between these two loops?</p>
+</blockquote>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">var</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">100000000</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+   <span class="token comment">// do some stuff, but not closure</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">100000000</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+   <span class="token comment">// do the same stuff (no closure)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>簡單來說呢，平常用 let 搭配迴圈的時候，不是如我們上面所說的，每一圈都會有一個新的<code>i</code>嗎？既然是這樣的話，那 var 與 let 應該就會有效能上的差異，因為 let 必須每一圈都 new 一個新的變數出來，所以 let 會比較慢。</p>
+<p>那如果迴圈裡面並不需要每一圈都有新的 i，JS 引擎會做優化嗎？這個問題就是這樣，主要是想探討 JS 引擎會不會針對這種行為去做優化。</p>
+<p>那要怎麼知道呢？要嘛你是 JS 引擎的開發者，要嘛你去看 JS 引擎的原始碼，但這兩種難度都有點太高。不過別擔心，還有第三種：看 JS bytecode。</p>
+<span id="more"></span>
+
+<h2><span id="javascript-bytecode">JavaScript Bytecode</span></h2><p>若是不知道 bytecode 是什麼，可以參考這一篇很經典的文章：<a target="_blank" rel="noopener" href="https://medium.com/dailyjs/understanding-v8s-bytecode-317d46c94775">Understanding V8’s Bytecode</a>，中譯版：<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/28590489">理解 V8 的字节码</a>。</p>
+<p>先來看文章裡面解釋得最清楚的一張圖片：</p>
+<p><img src="/img/bytecode/bytecode.png"></p>
+<p>在執行 JavaScript 的時候，V8 會先把程式碼編譯成 bytecode，然後再把 bytecode 編譯成 machine code，最後才執行。</p>
+<p>舉個現實生活中的範例好了，若是你想把一篇英文文章翻譯成文言文，通常會先把英文文章翻譯成白話文，再從白話文翻譯成文言文。因為直接從英文翻譯成文言文難度過高，先翻成白話文會比較好翻譯；同時，在翻譯成白話文的時候也可以先做一些優化，這樣會比較好翻成文言文。</p>
+<p>在這個比喻中，白話文就是我們這篇的主角：bytecode。</p>
+<p>在以前寫 C&#x2F;C++ 的時候，若是想知道編譯器會不會針對某一段程式碼做優化，最直接的方法就是輸出編譯過後的 assembly code，從組合語言裡面反推回原本的程式碼，就可以知道編譯器有沒有做事。</p>
+<p>而 bytecode 也是一樣的，可以從產生出來的 bytecode 往回推，就知道 V8 有沒有做事情了。</p>
+<p>那要怎麼看 V8 產生出來的 bytecode 呢？最簡單的方式就是使用 Node.js 的指令：<code>node --print-bytecode a.js</code>，只要加上<code>--print-bytecode</code>這個 flag 就行了。</p>
+<p>但如果你真的去試了，會發現輸出了一大堆東西，這很正常。因為除了你寫的程式碼以外，本來就還有一大堆內建的東西，所以我們可以用<code>--print-bytecode-filter</code>去過濾 function 的名稱。</p>
+<h2><span id="var-與-letround-1">var 與 let：Round 1</span></h2><p>我準備的測試程式碼如下：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">find_me_let_for</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">function</span> <span class="token function">find_me_var_for</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">var</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">find_me_let_for</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token function">find_me_var_for</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>接著就可以用指令：<code>node --print-bytecode --print-bytecode-filter=&quot;find_me*&quot; a.js &gt; byte_code.txt</code>，把結果存到 <code>byte_code.txt</code> 裡面，內容如下：</p>
+<pre class="line-numbers language-none"><code class="language-none">[generated bytecode for function: find_me_let_for]
+Parameter count 1
+Frame size 24
+   86 E&gt; 0x77191b56622 @    0 : a0                StackCheck 
+  105 S&gt; 0x77191b56623 @    1 : 0b                LdaZero 
+         0x77191b56624 @    2 : 26 fb             Star r0
+  110 S&gt; 0x77191b56626 @    4 : 0c 0a             LdaSmi [10]
+  110 E&gt; 0x77191b56628 @    6 : 66 fb 00          TestLessThan r0, [0]
+         0x77191b5662b @    9 : 94 1c             JumpIfFalse [28] (0x77191b56647 @ 37)
+   92 E&gt; 0x77191b5662d @   11 : a0                StackCheck 
+  127 S&gt; 0x77191b5662e @   12 : 13 00 01          LdaGlobal [0], [1]
+         0x77191b56631 @   15 : 26 f9             Star r2
+  135 E&gt; 0x77191b56633 @   17 : 28 f9 01 03       LdaNamedProperty r2, [1], [3]
+         0x77191b56637 @   21 : 26 fa             Star r1
+  135 E&gt; 0x77191b56639 @   23 : 57 fa f9 fb 05    CallProperty1 r1, r2, r0, [5]
+  117 S&gt; 0x77191b5663e @   28 : 25 fb             Ldar r0
+         0x77191b56640 @   30 : 4a 07             Inc [7]
+         0x77191b56642 @   32 : 26 fb             Star r0
+         0x77191b56644 @   34 : 85 1e 00          JumpLoop [30], [0] (0x77191b56626 @ 4)
+         0x77191b56647 @   37 : 0d                LdaUndefined 
+  146 S&gt; 0x77191b56648 @   38 : a4                Return 
+Constant pool (size &#x3D; 2)
+Handler Table (size &#x3D; 0)
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+[generated bytecode for function: find_me_var_for]
+Parameter count 1
+Frame size 24
+  173 E&gt; 0x77191b60d0a @    0 : a0                StackCheck 
+  193 S&gt; 0x77191b60d0b @    1 : 0b                LdaZero 
+         0x77191b60d0c @    2 : 26 fb             Star r0
+  198 S&gt; 0x77191b60d0e @    4 : 0c 0a             LdaSmi [10]
+  198 E&gt; 0x77191b60d10 @    6 : 66 fb 00          TestLessThan r0, [0]
+         0x77191b60d13 @    9 : 94 1c             JumpIfFalse [28] (0x77191b60d2f @ 37)
+  180 E&gt; 0x77191b60d15 @   11 : a0                StackCheck 
+  215 S&gt; 0x77191b60d16 @   12 : 13 00 01          LdaGlobal [0], [1]
+         0x77191b60d19 @   15 : 26 f9             Star r2
+  223 E&gt; 0x77191b60d1b @   17 : 28 f9 01 03       LdaNamedProperty r2, [1], [3]
+         0x77191b60d1f @   21 : 26 fa             Star r1
+  223 E&gt; 0x77191b60d21 @   23 : 57 fa f9 fb 05    CallProperty1 r1, r2, r0, [5]
+  205 S&gt; 0x77191b60d26 @   28 : 25 fb             Ldar r0
+         0x77191b60d28 @   30 : 4a 07             Inc [7]
+         0x77191b60d2a @   32 : 26 fb             Star r0
+         0x77191b60d2c @   34 : 85 1e 00          JumpLoop [30], [0] (0x77191b60d0e @ 4)
+         0x77191b60d2f @   37 : 0d                LdaUndefined 
+  234 S&gt; 0x77191b60d30 @   38 : a4                Return 
+Constant pool (size &#x3D; 2)
+Handler Table (size &#x3D; 0)
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>第一行都有標明是哪一個 function，方便我們做辨識：<code>[generated bytecode for function: find_me_let_for]</code>，再來就是實際的 bytecode 了。</p>
+<p>在看 bytecode 以前有一個預備知識非常重要，那就是在 bytecode 執行的環境底下，有一個叫做 accumulator 的暫存器。通常指令裡面如果有 <code>a</code> 這個字，就是 accumulator 的簡寫（以下簡稱 acc）。</p>
+<p>例如說 bytecode 的第二三行：<code>LdaZero</code>與<code>Star r0</code>，前者就是：<code>LoaD Accumulator Zero</code>，設置 acc register 為 0，接著下一行 <code>Star r0</code> 就是 <code>Store Accumulator to register r0</code>，就是 <code>r0=acc</code>，所以 r0 會變成 0。</p>
+<p>我把上面的<code>find_me_let_for</code> 翻成了白話文：</p>
+<pre class="line-numbers language-none"><code class="language-none">StackCheck                    &#x2F;&#x2F; 檢查 stack
+LdaZero                       &#x2F;&#x2F; acc &#x3D; 0
+Star r0                       &#x2F;&#x2F; r0 &#x3D; acc
+LdaSmi [10]                   &#x2F;&#x2F; acc &#x3D; 10
+TestLessThan r0, [0]          &#x2F;&#x2F; test if r0 &lt; 10
+JumpIfFalse [28]              &#x2F;&#x2F; if false, jump to line 17
+StackCheck                    &#x2F;&#x2F; 檢查 stack
+LdaGlobal [0], [1]            &#x2F;&#x2F; acc &#x3D; console
+Star r2                       &#x2F;&#x2F; r2 &#x3D; acc
+LdaNamedProperty r2, [1], [3] &#x2F;&#x2F; acc &#x3D; r2.log
+Star r1                       &#x2F;&#x2F; r1 &#x3D; acc (也就是 console.log)
+CallProperty1 r1, r2, r0, [5] &#x2F;&#x2F; console.log(r0)
+Ldar r0                       &#x2F;&#x2F; acc &#x3D; r0
+Inc [7]                       &#x2F;&#x2F; acc++
+Star r0                       &#x2F;&#x2F; r0 &#x3D; acc
+JumpLoop [30], [0]            &#x2F;&#x2F; 跳到 line 4
+LdaUndefined                  &#x2F;&#x2F; acc &#x3D; undefined
+Return                        &#x2F;&#x2F; return acc<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+<p>若是看不習慣這種形式的人，可能是沒有看過組合語言（實際上組合語言比這個難多了就是了…），多看幾次就可以習慣了。</p>
+<p>總之呢，上面的程式碼就是一個會一直 log r0 的迴圈，直到 r0&gt;&#x3D;10 為止。而這個 r0 就是我們程式碼裡面的 i。</p>
+<p>仔細看的話，會發現 let 跟 var 的版本產生出來的 bytecode 是一模一樣的，從頭到尾都只有一個變數 r0。因此呢，就可以推測出 V8 的確會對這種情形做優化，不會真的每一圈迴圈都新建一個 i，用 let 的時候不需要擔心跟 var 會有效能上的差異。</p>
+<h2><span id="var-與-letround-2">var 與 let：Round 2</span></h2><p>再來我們可以試試看「一定需要每一圈新建一個 i」的場合，那就是當裡面有 closure 需要存取 i 的時候。這邊準備的範例程式碼如下：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">find_me_let_timeout</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span> <span class="token function">find_me_let_timeout_inner</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">function</span> <span class="token function">find_me_var_timeout</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">var</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span> <span class="token function">find_me_var_timeout_inner</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">find_me_let_timeout</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token function">find_me_var_timeout</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>用跟剛剛同樣的指令，一樣可以看到產生出來的 bytecode，我們先來看一下那兩個 inner function 有沒有差別：</p>
+<pre class="line-numbers language-none"><code class="language-none">[generated bytecode for function: find_me_let_timeout_inner]
+Parameter count 1
+Frame size 24
+  177 E&gt; 0x25d2f37dbb2a @    0 : a0                StackCheck 
+  188 S&gt; 0x25d2f37dbb2b @    1 : 13 00 00          LdaGlobal [0], [0]
+         0x25d2f37dbb2e @    4 : 26 fa             Star r1
+  196 E&gt; 0x25d2f37dbb30 @    6 : 28 fa 01 02       LdaNamedProperty r1, [1], [2]
+         0x25d2f37dbb34 @   10 : 26 fb             Star r0
+         0x25d2f37dbb36 @   12 : 1a 04             LdaCurrentContextSlot [4]
+  200 E&gt; 0x25d2f37dbb38 @   14 : a5 02             ThrowReferenceErrorIfHole [2]
+         0x25d2f37dbb3a @   16 : 26 f9             Star r2
+  196 E&gt; 0x25d2f37dbb3c @   18 : 57 fb fa f9 04    CallProperty1 r0, r1, r2, [4]
+         0x25d2f37dbb41 @   23 : 0d                LdaUndefined 
+  207 S&gt; 0x25d2f37dbb42 @   24 : a4                Return 
+Constant pool (size &#x3D; 3)
+Handler Table (size &#x3D; 0)
+
+[generated bytecode for function: find_me_var_timeout_inner]
+Parameter count 1
+Frame size 24
+  332 E&gt; 0x25d2f37e6cf2 @    0 : a0                StackCheck 
+  343 S&gt; 0x25d2f37e6cf3 @    1 : 13 00 00          LdaGlobal [0], [0]
+         0x25d2f37e6cf6 @    4 : 26 fa             Star r1
+  351 E&gt; 0x25d2f37e6cf8 @    6 : 28 fa 01 02       LdaNamedProperty r1, [1], [2]
+         0x25d2f37e6cfc @   10 : 26 fb             Star r0
+         0x25d2f37e6cfe @   12 : 1a 04             LdaCurrentContextSlot [4]
+         0x25d2f37e6d00 @   14 : 26 f9             Star r2
+  351 E&gt; 0x25d2f37e6d02 @   16 : 57 fb fa f9 04    CallProperty1 r0, r1, r2, [4]
+         0x25d2f37e6d07 @   21 : 0d                LdaUndefined 
+  362 S&gt; 0x25d2f37e6d08 @   22 : a4                Return 
+Constant pool (size &#x3D; 2)
+Handler Table (size &#x3D; 0)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>可以看到唯一的差別是 let 的版本多了一個：<code>ThrowReferenceErrorIfHole</code>，這一個在<a href="https://blog.huli.tw/2018/11/10/javascript-hoisting-and-tdz/">我知道你懂 hoisting，可是你了解到多深？</a>裡面有提過，其實就是 TDZ（Temporal Dead Zone）在 V8 上的實作。</p>
+<p>最後就是我們的主菜了，先從 var 開始看吧：</p>
+<pre class="line-numbers language-none"><code class="language-none">[generated bytecode for function: find_me_var_timeout]
+Parameter count 1
+Frame size 24
+         0x25d2f37d8d22 @    0 : 7f 00 01          CreateFunctionContext [0], [1]
+         0x25d2f37d8d25 @    3 : 16 fb             PushContext r0
+  245 E&gt; 0x25d2f37d8d27 @    5 : a0                StackCheck 
+  265 S&gt; 0x25d2f37d8d28 @    6 : 0b                LdaZero 
+  265 E&gt; 0x25d2f37d8d29 @    7 : 1d 04             StaCurrentContextSlot [4]
+  270 S&gt; 0x25d2f37d8d2b @    9 : 1a 04             LdaCurrentContextSlot [4]
+         0x25d2f37d8d2d @   11 : 26 fa             Star r1
+         0x25d2f37d8d2f @   13 : 0c 0a             LdaSmi [10]
+  270 E&gt; 0x25d2f37d8d31 @   15 : 66 fa 00          TestLessThan r1, [0]
+         0x25d2f37d8d34 @   18 : 94 1b             JumpIfFalse [27] (0x25d2f37d8d4f @ 45)
+  252 E&gt; 0x25d2f37d8d36 @   20 : a0                StackCheck 
+  287 S&gt; 0x25d2f37d8d37 @   21 : 13 01 01          LdaGlobal [1], [1]
+         0x25d2f37d8d3a @   24 : 26 fa             Star r1
+         0x25d2f37d8d3c @   26 : 7c 02 03 02       CreateClosure [2], [3], #2
+         0x25d2f37d8d40 @   30 : 26 f9             Star r2
+  287 E&gt; 0x25d2f37d8d42 @   32 : 5b fa f9 04       CallUndefinedReceiver1 r1, r2, [4]
+  277 S&gt; 0x25d2f37d8d46 @   36 : 1a 04             LdaCurrentContextSlot [4]
+         0x25d2f37d8d48 @   38 : 4a 06             Inc [6]
+  277 E&gt; 0x25d2f37d8d4a @   40 : 1d 04             StaCurrentContextSlot [4]
+         0x25d2f37d8d4c @   42 : 85 21 00          JumpLoop [33], [0] (0x25d2f37d8d2b @ 9)
+         0x25d2f37d8d4f @   45 : 0d                LdaUndefined 
+  369 S&gt; 0x25d2f37d8d50 @   46 : a4                Return 
+Constant pool (size &#x3D; 3)
+Handler Table (size &#x3D; 0)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在開頭的時候就先用<code>CreateFunctionContext</code>新建了一個 function context，接著可以看到存取變數的方式也與之前單純用暫存器不同，這邊用的是：<code>StaCurrentContextSlot</code>跟<code>LdaCurrentContextSlot</code>，碰到看不懂的指令都可以去 <a target="_blank" rel="noopener" href="https://github.com/v8/v8/blob/d84e9496d23cf1dc776ae32199d81accfabaafb5/src/interpreter/interpreter-generator.cc">&#x2F;src&#x2F;interpreter&#x2F;interpreter-generator.cc</a> 查一下定義：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token comment">// StaCurrentContextSlot &lt;slot_index></span>
+<span class="token comment">//</span>
+<span class="token comment">// Stores the object in the accumulator into |slot_index| of the current</span>
+<span class="token comment">// context.</span>
+<span class="token function">IGNITION_HANDLER</span><span class="token punctuation">(</span>StaCurrentContextSlot<span class="token punctuation">,</span> InterpreterAssembler<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Node<span class="token operator">*</span> value <span class="token operator">=</span> <span class="token function">GetAccumulator</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  Node<span class="token operator">*</span> slot_index <span class="token operator">=</span> <span class="token function">BytecodeOperandIdx</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  Node<span class="token operator">*</span> slot_context <span class="token operator">=</span> <span class="token function">GetContext</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">StoreContextElement</span><span class="token punctuation">(</span>slot_context<span class="token punctuation">,</span> slot_index<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">Dispatch</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// LdaCurrentContextSlot &lt;slot_index></span>
+<span class="token comment">//</span>
+<span class="token comment">// Load the object in |slot_index| of the current context into the accumulator.</span>
+<span class="token function">IGNITION_HANDLER</span><span class="token punctuation">(</span>LdaCurrentContextSlot<span class="token punctuation">,</span> InterpreterAssembler<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Node<span class="token operator">*</span> slot_index <span class="token operator">=</span> <span class="token function">BytecodeOperandIdx</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  Node<span class="token operator">*</span> slot_context <span class="token operator">=</span> <span class="token function">GetContext</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  Node<span class="token operator">*</span> result <span class="token operator">=</span> <span class="token function">LoadContextElement</span><span class="token punctuation">(</span>slot_context<span class="token punctuation">,</span> slot_index<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">SetAccumulator</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">Dispatch</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>簡單來說呢，StaCurrentContextSlot 就是把 acc 的東西存到現在的 context 的某個 slot_index，而 LdaCurrentContextSlot 則是相反，把東西取出來放到 acc 去。</p>
+<p>因此可以先看開頭這幾行：</p>
+<pre class="line-numbers language-none"><code class="language-none">LdaZero 
+StaCurrentContextSlot [4]
+LdaCurrentContextSlot [4]
+Star r1
+LdaSmi [10]
+TestLessThan r1, [0]
+JumpIfFalse [27] (0x25d2f37d8d4f @ 45)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>就是把 0 放到 current context 的 slot_index 4 裡面去，接著再拿去放到 r1，然後再去跟 10 比較。這一段其實就是 for 迴圈裡面的 <code>i&lt;10</code>。</p>
+<p>而後半段的：</p>
+<pre class="line-numbers language-none"><code class="language-none">LdaCurrentContextSlot [4]
+Inc [6]
+StaCurrentContextSlot [4]<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>其實就是 i++。</p>
+<p>所以 i 會存在 current context slot 的 index 為 4 的位置。再來我們回顧一下前面所說的 inner function：</p>
+<pre class="line-numbers language-none"><code class="language-none">[generated bytecode for function: find_me_var_timeout_inner]
+Parameter count 1
+Frame size 24
+  332 E&gt; 0x25d2f37e6cf2 @    0 : a0                StackCheck 
+  343 S&gt; 0x25d2f37e6cf3 @    1 : 13 00 00          LdaGlobal [0], [0]
+         0x25d2f37e6cf6 @    4 : 26 fa             Star r1
+  351 E&gt; 0x25d2f37e6cf8 @    6 : 28 fa 01 02       LdaNamedProperty r1, [1], [2]
+         0x25d2f37e6cfc @   10 : 26 fb             Star r0
+         0x25d2f37e6cfe @   12 : 1a 04             LdaCurrentContextSlot [4]
+         0x25d2f37e6d00 @   14 : 26 f9             Star r2
+  351 E&gt; 0x25d2f37e6d02 @   16 : 57 fb fa f9 04    CallProperty1 r0, r1, r2, [4]
+         0x25d2f37e6d07 @   21 : 0d                LdaUndefined 
+  362 S&gt; 0x25d2f37e6d08 @   22 : a4                Return 
+Constant pool (size &#x3D; 2)
+Handler Table (size &#x3D; 0)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>有沒有注意到 <code>LdaCurrentContextSlot [4]</code> 這一行？這一行就呼應了我們上面所說的，在 inner function 用這一行把 i 給拿出來。</p>
+<p>所以在 var 的範例裡面，開頭就會先新增一個 function context，然後從頭到尾都只有這一個 context，會把 i 放在裡面 slot index 為 4 的位置，而 inner function 也會從這個位置把 i 拿出來。</p>
+<p>因此從頭到尾 i 都只有一個。</p>
+<p>最後來看看複雜許多的 let 的版本：</p>
+<pre class="line-numbers language-none"><code class="language-none">[generated bytecode for function: find_me_let_timeout]
+Parameter count 1
+Register count 7
+Frame size 56
+  179 E&gt; 0x2725c3d70daa @    0 : a5                StackCheck 
+  199 S&gt; 0x2725c3d70dab @    1 : 0b                LdaZero 
+         0x2725c3d70dac @    2 : 26 f8             Star r3
+         0x2725c3d70dae @    4 : 26 fb             Star r0
+         0x2725c3d70db0 @    6 : 0c 01             LdaSmi [1]
+         0x2725c3d70db2 @    8 : 26 fa             Star r1
+  293 E&gt; 0x2725c3d70db4 @   10 : a5                StackCheck 
+         0x2725c3d70db5 @   11 : 82 00             CreateBlockContext [0]
+         0x2725c3d70db7 @   13 : 16 f7             PushContext r4
+         0x2725c3d70db9 @   15 : 0f                LdaTheHole 
+         0x2725c3d70dba @   16 : 1d 04             StaCurrentContextSlot [4]
+         0x2725c3d70dbc @   18 : 25 fb             Ldar r0
+         0x2725c3d70dbe @   20 : 1d 04             StaCurrentContextSlot [4]
+         0x2725c3d70dc0 @   22 : 0c 01             LdaSmi [1]
+         0x2725c3d70dc2 @   24 : 67 fa 00          TestEqual r1, [0]
+         0x2725c3d70dc5 @   27 : 99 07             JumpIfFalse [7] (0x2725c3d70dcc @ 34)
+         0x2725c3d70dc7 @   29 : 0b                LdaZero 
+         0x2725c3d70dc8 @   30 : 26 fa             Star r1
+         0x2725c3d70dca @   32 : 8b 08             Jump [8] (0x2725c3d70dd2 @ 40)
+  211 S&gt; 0x2725c3d70dcc @   34 : 1a 04             LdaCurrentContextSlot [4]
+         0x2725c3d70dce @   36 : 4c 01             Inc [1]
+  211 E&gt; 0x2725c3d70dd0 @   38 : 1d 04             StaCurrentContextSlot [4]
+         0x2725c3d70dd2 @   40 : 0c 01             LdaSmi [1]
+         0x2725c3d70dd4 @   42 : 26 f9             Star r2
+  204 S&gt; 0x2725c3d70dd6 @   44 : 1a 04             LdaCurrentContextSlot [4]
+         0x2725c3d70dd8 @   46 : 26 f6             Star r5
+         0x2725c3d70dda @   48 : 0c 0a             LdaSmi [10]
+  204 E&gt; 0x2725c3d70ddc @   50 : 69 f6 02          TestLessThan r5, [2]
+         0x2725c3d70ddf @   53 : 99 04             JumpIfFalse [4] (0x2725c3d70de3 @ 57)
+         0x2725c3d70de1 @   55 : 8b 06             Jump [6] (0x2725c3d70de7 @ 61)
+         0x2725c3d70de3 @   57 : 17 f7             PopContext r4
+         0x2725c3d70de5 @   59 : 8b 33             Jump [51] (0x2725c3d70e18 @ 110)
+         0x2725c3d70de7 @   61 : 0c 01             LdaSmi [1]
+         0x2725c3d70de9 @   63 : 67 f9 03          TestEqual r2, [3]
+         0x2725c3d70dec @   66 : 99 1c             JumpIfFalse [28] (0x2725c3d70e08 @ 94)
+  186 E&gt; 0x2725c3d70dee @   68 : a5                StackCheck 
+  221 S&gt; 0x2725c3d70def @   69 : 13 01 04          LdaGlobal [1], [4]
+         0x2725c3d70df2 @   72 : 26 f6             Star r5
+         0x2725c3d70df4 @   74 : 81 02 06 02       CreateClosure [2], [6], #2
+         0x2725c3d70df8 @   78 : 26 f5             Star r6
+  221 E&gt; 0x2725c3d70dfa @   80 : 5d f6 f5 07       CallUndefinedReceiver1 r5, r6, [7]
+         0x2725c3d70dfe @   84 : 0b                LdaZero 
+         0x2725c3d70dff @   85 : 26 f9             Star r2
+         0x2725c3d70e01 @   87 : 1a 04             LdaCurrentContextSlot [4]
+         0x2725c3d70e03 @   89 : 26 fb             Star r0
+         0x2725c3d70e05 @   91 : 8a 1e 01          JumpLoop [30], [1] (0x2725c3d70de7 @ 61)
+         0x2725c3d70e08 @   94 : 0c 01             LdaSmi [1]
+  293 E&gt; 0x2725c3d70e0a @   96 : 67 f9 09          TestEqual r2, [9]
+         0x2725c3d70e0d @   99 : 99 06             JumpIfFalse [6] (0x2725c3d70e13 @ 105)
+         0x2725c3d70e0f @  101 : 17 f7             PopContext r4
+         0x2725c3d70e11 @  103 : 8b 07             Jump [7] (0x2725c3d70e18 @ 110)
+         0x2725c3d70e13 @  105 : 17 f7             PopContext r4
+         0x2725c3d70e15 @  107 : 8a 61 00          JumpLoop [97], [0] (0x2725c3d70db4 @ 10)
+         0x2725c3d70e18 @  110 : 0d                LdaUndefined 
+  295 S&gt; 0x2725c3d70e19 @  111 : a9                Return 
+Constant pool (size &#x3D; 3)
+Handler Table (size &#x3D; 0)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>因為這程式碼有點太長而且不容易閱讀，所以我刪改了一下，改寫了一個比較白話的版本：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">r1 <span class="token operator">=</span> <span class="token number">1</span>
+r0 <span class="token operator">=</span> <span class="token number">0</span>
+
+<span class="token literal-property property">loop</span><span class="token operator">:</span>
+r4<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">BlockContext</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+CurrentContextSlot <span class="token operator">=</span> r0
+<span class="token keyword">if</span> <span class="token punctuation">(</span>r1 <span class="token operator">===</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  r1 <span class="token operator">=</span> <span class="token number">0</span>
+<span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+  CurrentContextSlot<span class="token operator">++</span>
+<span class="token punctuation">&#125;</span>
+r2 <span class="token operator">=</span> <span class="token number">1</span>
+r5 <span class="token operator">=</span> CurrentContextSlot
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token punctuation">(</span>r5 <span class="token operator">&lt;</span> <span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span> <span class="token comment">// end loop</span>
+  PopContext r4
+  goto done
+<span class="token punctuation">&#125;</span>
+
+<span class="token literal-property property">loop2</span><span class="token operator">:</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>r2 <span class="token operator">===</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  r2 <span class="token operator">=</span> <span class="token number">0</span>
+  r0 <span class="token operator">=</span> CurrentContextSlot
+  goto loop2
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span>r2 <span class="token operator">===</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  PopContext r4
+  goto done
+<span class="token punctuation">&#125;</span>
+PopContext r4
+goto loop
+
+<span class="token literal-property property">done</span><span class="token operator">:</span>
+<span class="token keyword">return</span> <span class="token keyword">undefined</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>第一個重點是每一圈迴圈都會呼叫<code>CreateBlockContext</code>，新建一個 context，然後再迴圈結束前把 CurrentContextSlot（也就是 i）的值存到 r0，下一圈迴圈時再讓新的 block context slot 的值從 r0 讀取出來然後 +1，藉此來實作不同 context 值的累加。</p>
+<p>然後你可能會很好奇，那這個 block context 到底會用在哪裡？</p>
+<p>上面的 bytecode 裡面，呼叫 <code>setTimeout</code> 的是這一段：</p>
+<pre class="line-numbers language-none"><code class="language-none">LdaGlobal [1], [4]
+Star r5                    &#x2F;&#x2F; r5 &#x3D; setTimeout
+CreateClosure [2], [6], #2
+Star r6                    &#x2F;&#x2F; r6 &#x3D; new function(...)
+CallUndefinedReceiver1 r5, r6, [7] &#x2F;&#x2F; setTimeout(r6)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在我們呼叫<code>CreateClosure</code>把這個 closure 傳給 setTimeout 的時候，就一起傳進去了（非完整程式碼，只保留 context 的部分）：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token comment">// CreateClosure &lt;index> &lt;slot> &lt;tenured></span>
+<span class="token comment">//</span>
+<span class="token comment">// Creates a new closure for SharedFunctionInfo at position |index| in the</span>
+<span class="token comment">// constant pool and with the PretenureFlag &lt;tenured>.</span>
+<span class="token function">IGNITION_HANDLER</span><span class="token punctuation">(</span>CreateClosure<span class="token punctuation">,</span> InterpreterAssembler<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Node<span class="token operator">*</span> context <span class="token operator">=</span> <span class="token function">GetContext</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  Node<span class="token operator">*</span> result <span class="token operator">=</span>
+          <span class="token function">CallRuntime</span><span class="token punctuation">(</span>Runtime<span class="token operator">::</span>kNewClosure<span class="token punctuation">,</span> context<span class="token punctuation">,</span> shared<span class="token punctuation">,</span> feedback_cell<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token function">SetAccumulator</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token function">Dispatch</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>因此，在 inner function 裡面呼叫 <code>LdaCurrentContextSlot</code> 的時候，就會載入到正確的 context 以及正確的 i。</p>
+<p>結論：</p>
+<ol>
+<li>var 的版本是 CreateFunctionContext，從頭到尾就一個 context</li>
+<li>let 的版本每一圈迴圈都會 CreateBlockContext，總共會有 10 個 context</li>
+<li>在不需要 closure 的場合裡，let 與 var 在 V8 上並沒有差異</li>
+</ol>
+<h2><span id="總結">總結</span></h2><p>有些你以為答案「顯而易見」的問題，其實並不一定。</p>
+<p>例如說以下這個範例：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">v1</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">1</span>
+  <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">var</span> i<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">;</span>i<span class="token operator">&lt;</span><span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">1</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">function</span> <span class="token function">v2</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">1</span>
+  <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">var</span> i<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">;</span> i<span class="token operator">&lt;</span><span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    a <span class="token operator">=</span> <span class="token number">1</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>v1 跟 v2 哪一個比較快？</p>
+<p>「v1 裡面每一圈迴圈都會重新宣告一次 a 並且賦值，v2 只會在外面宣告一次，裡面迴圈只有賦值而已，所以 v1 比較快」</p>
+<p>答案是兩個一模一樣，因為如果你夠瞭解 JS，就會知道根本沒有什麼「重新宣告」這種事，宣告早在編譯階段就被處理掉了。</p>
+<p>就算效能真的有差，可是到底差多少？是值得我們投注心力在上面的差異嗎？</p>
+<p>例如說在寫 React 的時候，常常被教導要避免掉 inline function：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// Good</span>
+<span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+ <span class="token operator">&lt;</span>div onClick<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token keyword">this</span><span class="token punctuation">.</span>onClick<span class="token punctuation">&#125;</span> <span class="token operator">/</span><span class="token operator">></span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// Bad</span>
+<span class="token function">render</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token operator">&lt;</span>div onClick<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span> <span class="token comment">/* do something */</span> <span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span> <span class="token operator">/</span><span class="token operator">></span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>用頭腦想一想十分合理，下面那個每跑一次 render 就會產生一個新的 function，上面那個則是永遠都共用同一個。儘管他們的確有效能上的差異，但<a target="_blank" rel="noopener" href="https://www.matthewgerstman.com/tech/performance-testing-anonymous-functions/">這個差異或許比你想的還要小</a>。</p>
+<p>再舉最後一個例子：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// A</span>
+<span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token literal-property property">a</span><span class="token operator">:</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token literal-property property">b</span><span class="token operator">:</span><span class="token number">2</span><span class="token punctuation">,</span> <span class="token operator">...</span><span class="token punctuation">&#125;</span> <span class="token comment">// 非常大的 object</span>
+
+<span class="token comment">// B</span>
+<span class="token keyword">var</span> obj <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span><span class="token string">'&#123;"a": 1, "b": 2, ...&#125;'</span><span class="token punctuation">)</span> <span class="token comment">// JSON.parse 搭配很長的字串</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>若是 A 跟 B 都表示同一個很大的物件，哪一個會比較快？</p>
+<p>以直覺來看，顯然是 A，因為 B 看起來就是多此一舉，先把 object 變成字串然後再丟給 JSON.parse，多了一個步驟。但事實上，<a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=ff4fgQxPaO0">B 比較快，而且快了 1.5 倍以上</a>。</p>
+<p>很多東西以直覺來看是一回事，實際上又是另外一回事。因為直覺歸直覺，但是底層牽涉到了 compiler 或甚至是作業系統幫你做的優化，把這些考慮進來的話，很可能又是另外一回事。</p>
+<p>就如同這篇文章裡面在探討的題目，以直覺來看 let 是會比 var 還要慢的。但事實證明了在不需要用到 closure 的場合裡面，兩者並沒有差異。</p>
+<p>針對這些問題，你當然可以猜測，但你要知道的是這些僅僅只是猜測。想知道正確答案為何，必須要有更科學的方法，而不只是「我覺得」。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/JavaScript/">#JavaScript</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2020/03/23/build-your-own-online-judge-system/">自己架一個 Online Judge 系統</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2020/01/21/webpack-newbie-tutorial/">webpack 新手教學之淺談模組化與 snowpack</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2020/02/20/en/let-vs-var-bytecode/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

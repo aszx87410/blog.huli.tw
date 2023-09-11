@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>Android App 逆向入門之四：使用 Frida 進行動態分析 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2023/04/27/en/android-apk-decompile-intro-4/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2023/04/27/android-apk-decompile-intro-4/">
+    
+
+
+
+
+
+    <meta name="description" content="前面幾篇我們講的都是靜態分析的東西，也就是說我們並沒有把 app 跑起來，只是透過反編譯出來的程式碼研究 app 運作的邏輯，並且修改程式碼後重新打包執行。 而動態分析指的就是我們會把 app 跑起來，並透過一些方式讓我們可以 hook 各種方法，去監視某些 method 的輸入以及輸出，甚至是竄改。 這篇就讓我們來學習該怎麼樣使用 Frida 進行動態分析。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Android App 逆向入門之四：使用 Frida 進行動態分析">
+<meta property="og:url" content="https://blog.huli.tw/2023/04/27/android-apk-decompile-intro-4/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前面幾篇我們講的都是靜態分析的東西，也就是說我們並沒有把 app 跑起來，只是透過反編譯出來的程式碼研究 app 運作的邏輯，並且修改程式碼後重新打包執行。 而動態分析指的就是我們會把 app 跑起來，並透過一些方式讓我們可以 hook 各種方法，去監視某些 method 的輸入以及輸出，甚至是竄改。 這篇就讓我們來學習該怎麼樣使用 Frida 進行動態分析。">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/android-apk-decompile-intro/cover4.png">
+<meta property="article:published_time" content="2023-04-27T07:10:44.000Z">
+<meta property="article:modified_time" content="2023-06-07T09:23:15.872Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/android-apk-decompile-intro/cover4.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Android App 逆向入門之四：使用 Frida 進行動態分析" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#工具介紹frida">1&nbsp;&nbsp;<b>工具介紹：Frida</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#frida-基本使用">2&nbsp;&nbsp;<b>Frida 基本使用</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#使用-frida-繞過-root-檢測">3&nbsp;&nbsp;<b>使用 Frida 繞過 root 檢測</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#其他-frida-小技巧">4&nbsp;&nbsp;<b>其他 Frida 小技巧</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#印出-stack-trace">4.1&nbsp;&nbsp;印出 stack trace</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#hook-reflect-相關方法">4.2&nbsp;&nbsp;hook Reflect 相關方法</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#hook-字串操作">4.3&nbsp;&nbsp;hook 字串操作</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#hook-加解密相關操作">4.4&nbsp;&nbsp;hook 加解密相關操作</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#ssl-pinning">5&nbsp;&nbsp;<b>SSL Pinning</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#偵測-frida">6&nbsp;&nbsp;<b>偵測 Frida</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#結語">7&nbsp;&nbsp;<b>結語</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2023/04/27/en/android-apk-decompile-intro-4/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Android App 逆向入門之四：使用 Frida 進行動態分析
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2023-04-27T07:10:44.000Z" itemprop="datePublished">2023年4月27日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>前面幾篇我們講的都是靜態分析的東西，也就是說我們並沒有把 app 跑起來，只是透過反編譯出來的程式碼研究 app 運作的邏輯，並且修改程式碼後重新打包執行。</p>
+<p>而動態分析指的就是我們會把 app 跑起來，並透過一些方式讓我們可以 hook 各種方法，去監視某些 method 的輸入以及輸出，甚至是竄改。</p>
+<p>這篇就讓我們來學習該怎麼樣使用 Frida 進行動態分析。</p>
+<span id="more"></span>
+
+<p>系列文連結：</p>
+<ol>
+<li><a href="/2023/04/27/android-apk-decompile-intro-1/">Android App 逆向入門之一：拆開與重組 apk</a></li>
+<li><a href="/2023/04/27/android-apk-decompile-intro-2/">Android App 逆向入門之二：修改 smali 程式碼</a></li>
+<li><a href="/2023/04/27/android-apk-decompile-intro-3/">Android App 逆向入門之三：監聽 app 封包</a></li>
+<li><a href="/2023/04/27/android-apk-decompile-intro-4/">Android App 逆向入門之四：使用 Frida 進行動態分析</a></li>
+</ol>
+<h2><span id="工具介紹frida">工具介紹：Frida</span></h2><p>這次要來使用的動態分析工具為 <a target="_blank" rel="noopener" href="https://frida.re/">Frida</a>，官網的介紹為：「Dynamic instrumentation toolkit for developers, reverse-engineers, and security researchers.」，其實不只是 Android，其他平台也都可以使用 Frida 來做動態分析。</p>
+<p>有一套叫做 Objection 的工具是以 Frida 為基礎開發的，建議可以直接裝這個，因為會順便連 Frida 一起裝好，安裝教學可參考：<a target="_blank" rel="noopener" href="https://github.com/sensepost/objection/wiki/Installation">https://github.com/sensepost/objection/wiki/Installation</a></p>
+<p>要用 Frida 的話，除了手機上要安裝以外，電腦也要安裝，至於如何安裝可直接參考官方網站的指示：<a target="_blank" rel="noopener" href="https://frida.re/docs/installation/">https://frida.re/docs/installation/</a></p>
+<p>另外提醒一下，如果是手機裡面已經有了但是換一台電腦，要記得安裝的版本要一致，步驟是：</p>
+<ol>
+<li>先去手機裡面看 frida 版本：<code>frida-server --version</code>，假設是 15.1.14 好了</li>
+<li>到這邊找 frida-tools 的版本號 <a target="_blank" rel="noopener" href="https://github.com/frida/frida/releases/tag/15.1.14">https://github.com/frida/frida/releases/tag/15.1.14</a></li>
+<li>在電腦上安裝這兩個：</li>
+</ol>
+<pre class="line-numbers language-none"><code class="language-none">pip install frida&#x3D;&#x3D;15.1.14
+pip install frida-tools&#x3D;&#x3D;10.4.1<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>主要是版本號要對，不然會出現一堆錯誤。</p>
+<p>另外，雖然說 Frida 這種東西感覺就是要 root 才能使用，但其實它有兩種方法可以跑，一種確實需要 root，另外一種不需要 root</p>
+<p>需要 root 的要在手機上安裝 frida-server，詳情可參考官網：<a target="_blank" rel="noopener" href="https://frida.re/docs/android/">https://frida.re/docs/android/</a></p>
+<p>基本上就是丟個執行檔進去手機，然後用 root 的權限跑起來，檔案推進去要跑起來的時候如果不是預設 root，可以用 adb shell 進去改：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">adb shell
+
+<span class="token comment"># 先刪掉舊的</span>
+<span class="token function">ps</span> <span class="token parameter variable">-e</span> <span class="token operator">|</span> <span class="token function">grep</span> frida-server
+<span class="token function">kill</span> <span class="token parameter variable">-9</span> <span class="token punctuation">&#123;</span>your_process_id<span class="token punctuation">&#125;</span>
+
+<span class="token comment"># 確認用 root 跑</span>
+<span class="token function">su</span>
+/data/local/tmp/frida-server <span class="token operator">&amp;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>跑起來之後可以用 <code>frida-ps -U</code> 確認是否有跑起來</p>
+<p>第二種不需要 root 的方法要改 apk，原理是在 apk 裡面加一個 Frida 的 so 檔，並在入口點加一行 <code>System.loadLibrary()</code>，就可以使用 Frida，在 wiki 裡面有詳細說明：<a target="_blank" rel="noopener" href="https://github.com/sensepost/objection/wiki/Patching-Android-Applications">https://github.com/sensepost/objection/wiki/Patching-Android-Applications</a></p>
+<p>上面改 apk 的流程不需要自己執行，有現成的指令幫你做，如果打包不起來可以用這個指令：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">objection patchapk <span class="token parameter variable">--source</span> test.apk --skip-resources --ignore-nativelibs<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果還是不行，可以運用我們之前學到的知識自己動手改造，先用 <code>apktool d</code> 把包好的 apk 拆開，然後自己改裡面東西，例如說有時候會有 so 檔案 align 的問題，就可以把 <code>AndroidManifest.xml</code> 裡的 <code>android:extractNativeLibs</code> 改成 true，再包回去就好了。</p>
+<h2><span id="frida-基本使用">Frida 基本使用</span></h2><p>先講一下 Frida 是做什麼的，最普遍的用途是寫一些程式碼來 hook function，hook 指的就是你可以自己覆蓋任何一個 function 的實作，就可以觀察輸入以及輸出，也可以改變函式的回傳值。</p>
+<p>而這些程式碼會用 JavaScript 來寫，並在啟動 app 時注入進去，以我自己的經驗來說，其實只要看多一點範例之後，就能滿快上手的。</p>
+<p>講這麼多，不如動手來做做看，這次用的範例 app 跟第一篇一樣，就是個按下按鈕以後會檢測是否有 root 的 app：<a target="_blank" rel="noopener" href="https://github.com/aszx87410/demo/raw/master/android/demoapp.apk">https://github.com/aszx87410/demo/raw/master/android/demoapp.apk</a></p>
+<p>這個 app 開啟之後預設的 activity 會是 <code>com.cymetrics.demo/MainActivity</code>，我們先來 hook 這個 class 的 onCreate 方法看看。</p>
+<p>我們先新建一個檔案 <code>script.js</code>，內容為：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> MainActivity <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'com.cymetrics.demo.MainActivity'</span><span class="token punctuation">)</span>
+    MainActivity<span class="token punctuation">.</span>onCreate<span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'MainActivity onCreate'</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">setImmediate</span><span class="token punctuation">(</span>run<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>接著下指令：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">frida <span class="token parameter variable">-U</span> --no-pause <span class="token parameter variable">-l</span> script.js <span class="token parameter variable">-f</span> <span class="token string">"com.cymetrics.demo"</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果你沒有 root 的話，啟動方式會不太一樣，先照上面說的 patch app，接著在手機上安裝，然後在 terminal 輸入：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">frida <span class="token parameter variable">-U</span> Gadget <span class="token parameter variable">-l</span> script.js<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>接著你應該會看到你的 terminal 上面多了一行 log，內容就是 <code>MainActivity onCreate</code>，而手機上出現 app crash 的訊息，這是正常的。</p>
+<p>先來簡單講一下 Frida 腳本的基本結構，起手式就是：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// 程式碼放這邊</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">setImmediate</span><span class="token punctuation">(</span>run<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>接著就看你想要 hook 什麼樣的方法，以我們剛剛的程式碼來說，先用 <code>Java.use</code> 拿到想要 hook 的 class，再用 <code>MainActivity.onCreate.implementation</code> 把原本的實作換成我們自己定義的 function。</p>
+<p>那為什麼 hook 之後 app 就掛掉了呢？因為我們自己實作的 function 除了 log 以外什麼都沒做，也就是說原本的 onCreate 該做的事情都被拿掉了，所以 crash 也是合情合理，想知道 crash 的根本原因可以 <code>adb logcat | grep AndroidRuntime</code> 一下：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">android.util.SuperNotCalledException: Activity <span class="token punctuation">&#123;</span>com.cymetrics.demo/com.cymetrics.demo.MainActivity<span class="token punctuation">&#125;</span> did not call through to super.onCreate<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>那我們應該怎麼做呢？只要記得在最後面呼叫原本的實作即可，這樣寫：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> MainActivity <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'com.cymetrics.demo.MainActivity'</span><span class="token punctuation">)</span>
+    MainActivity<span class="token punctuation">.</span>onCreate<span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'MainActivity onCreate'</span><span class="token punctuation">)</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">onCreate</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">setImmediate</span><span class="token punctuation">(</span>run<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>this</code> 會是原本的 MainActivity，透過 <code>this.onCreate.call</code> 可以呼叫到原本的實作，而 call 這個方法第一個要傳入的參數就是 this，後面傳入參數。</p>
+<p>執行上面腳本之後，會出現另外一個錯誤：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">Error: onCreate<span class="token punctuation">(</span><span class="token punctuation">)</span>: argument types <span class="token keyword">do</span> not match any of:
+  .overload<span class="token punctuation">(</span><span class="token string">'android.os.Bundle'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>這是因為 onCreate 其實應該是有帶參數的，只是我們覆蓋的時候沒有接收參數，因此就出錯了。為了避免這個問題，我會建議在覆蓋實作的時候在前面加上 <code>.overload()</code>，像這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">MainActivity<span class="token punctuation">.</span>onCreate<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Frida 就會再次出現錯誤訊息提示你正確的參數應該是什麼，就可以照著做，最後會像這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> MainActivity <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'com.cymetrics.demo.MainActivity'</span><span class="token punctuation">)</span>
+    MainActivity<span class="token punctuation">.</span>onCreate<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">'android.os.Bundle'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">a</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'MainActivity onCreate'</span><span class="token punctuation">)</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">onCreate</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> a<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">setImmediate</span><span class="token punctuation">(</span>run<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如此一來，就能知道參數是什麼，在呼叫原本的實作時也能帶入參數，就不會出錯了。</p>
+<p>既然都可以插入程式碼了，我們可以做一大堆事情，像是直接在 UI 上面顯示一個新的訊息：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> MainActivity <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'com.cymetrics.demo.MainActivity'</span><span class="token punctuation">)</span>
+    MainActivity<span class="token punctuation">.</span>onCreate<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">'android.os.Bundle'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">a</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'MainActivity onCreate'</span><span class="token punctuation">)</span>
+      <span class="token comment">// Toast 一定要跑在 main thread(UI thread)</span>
+      Java<span class="token punctuation">.</span><span class="token function">scheduleOnMainThread</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">var</span> Toast <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">"android.widget.Toast"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">var</span> currentApplication <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'android.app.ActivityThread'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">currentApplication</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">// Toast 的第一個參數需要 context 才能執行</span>
+        <span class="token keyword">var</span> context <span class="token operator">=</span> currentApplication<span class="token punctuation">.</span><span class="token function">getApplicationContext</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        Toast<span class="token punctuation">.</span><span class="token function">makeText</span><span class="token punctuation">(</span>
+          context<span class="token punctuation">,</span>
+          <span class="token comment">// 這個參數的型態要正確，直接傳字串會出錯</span>
+          Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">"java.lang.String"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>$<span class="token keyword">new</span><span class="token punctuation">(</span><span class="token string">"Hello!"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+          Toast<span class="token punctuation">.</span><span class="token constant">LENGTH_SHORT</span><span class="token punctuation">.</span>value
+        <span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">show</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">onCreate</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> a<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">setImmediate</span><span class="token punctuation">(</span>run<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>程式碼來自：<a target="_blank" rel="noopener" href="https://gist.github.com/myzhan/ab13068463cd7f77b7f06ae561ea853a">makeToast.js</a>。</p>
+<h2><span id="使用-frida-繞過-root-檢測">使用 Frida 繞過 root 檢測</span></h2><p>我們在之前的文章中繞過 root 檢測時，是直接去改 smali 的程式碼，直接把檢測的 function 給 patch 掉，藉此來繞過。有了 Frida 以後，就不需要去改 smali 的程式碼了，可以直接 hook 檢測的 function 並且把實作替換掉即可，像是這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> RootBeer <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'com.scottyab.rootbeer.RootBeer'</span><span class="token punctuation">)</span>    
+    RootBeer<span class="token punctuation">.</span>isRooted<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'bypass rootbeer'</span><span class="token punctuation">)</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">setImmediate</span><span class="token punctuation">(</span>run<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>沒錯，就是這麼容易。</p>
+<p>那你可能會問說，我們是怎麼知道要 hook 這個 function 的？這部分還是需要靠靜態分析，從靜態分析中我們得知是這個 function 在做檢測，所以用 Frida 來 hook 這個 function。</p>
+<p>我自己的話通常是兩個搭配使用，先反組譯之後靜態分析，稍微看一下程式碼，接著再用 Frida 去 hook，看能不能做到想做的事情，如果可以的話，我會再去改 smali 相對應的地方，然後把 app 重新打包，這樣就可以在沒有 Frida 的手機上也執行我想要的流程。</p>
+<p>其實 Frida 的基礎使用就是這樣了，剩下的就是靠著對於程式碼以及 Android 開發的理解，決定要 hook 哪一個 function。</p>
+<h2><span id="其他-frida-小技巧">其他 Frida 小技巧</span></h2><p>底下列幾個我從網路上找到的 Frida 小技巧，都是實務上我有用到的，供大家參考。</p>
+<h3><span id="印出-stack-trace">印出 stack trace</span></h3><p>假設某個 app 有檢查機制，會偵測是不是有 root，然後原始碼經過混淆所以比較難追蹤，但是在檢查時會用 Log.d 輸出檢查相關資訊，這時候我們可以 hook Log.d，並且利用 <code>Log.getStackTraceString</code> 輸出 stack trace，就能知道是在哪邊呼叫這個 function：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> Log <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">"android.util.Log"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">var</span> Exception <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">"java.lang.Exception"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+Log<span class="token punctuation">.</span>d<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">"java.lang.String"</span><span class="token punctuation">,</span> <span class="token string">"java.lang.String"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span> b</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+   <span class="token comment">// 發現輸出 root 偵測資訊的時候</span>
+   <span class="token keyword">if</span> <span class="token punctuation">(</span>b<span class="token punctuation">.</span><span class="token function">indexOf</span><span class="token punctuation">(</span><span class="token string">'root'</span><span class="token punctuation">)</span> <span class="token operator">>=</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// 印出 stack trace 方便追蹤</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>Log<span class="token punctuation">.</span><span class="token function">getStackTraceString</span><span class="token punctuation">(</span> Exception<span class="token punctuation">.</span>$<span class="token keyword">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+   <span class="token punctuation">&#125;</span>
+   <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span>d<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">"java.lang.String"</span><span class="token punctuation">,</span> <span class="token string">"java.lang.String"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> a<span class="token punctuation">,</span> b<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="hook-reflect-相關方法">hook Reflect 相關方法</span></h3><p>在 Java 中除了直接呼叫方法以外，也可以透過反射（Reflect）的方式去呼叫，有些混淆的程式會大量運用這種技巧來加強靜態分析的難度，我們可以把每一個動態呼叫的方法都印出來，看看有沒有什麼蛛絲馬跡：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// hook Class.forName</span>
+<span class="token keyword">var</span> JavaClass <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'java.lang.Class'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+JavaClass<span class="token punctuation">.</span>forName<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">'java.lang.String'</span><span class="token punctuation">,</span> <span class="token string">'boolean'</span><span class="token punctuation">,</span> <span class="token string">'java.lang.ClassLoader'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">name<span class="token punctuation">,</span> b<span class="token punctuation">,</span> c</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'Class.forName'</span><span class="token punctuation">,</span> name<span class="token punctuation">)</span>
+  <span class="token comment">// 還可以印出特定 class 底下所有的方法</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>name<span class="token punctuation">.</span><span class="token function">indexOf</span><span class="token punctuation">(</span><span class="token string">'cymetrics'</span><span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> TargetClass <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span>name<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">var</span> methodsList <span class="token operator">=</span> TargetClass<span class="token punctuation">.</span>class<span class="token punctuation">.</span><span class="token function">getDeclaredMethods</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">var</span> k<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span> k<span class="token operator">&lt;</span>methodsList<span class="token punctuation">.</span>length<span class="token punctuation">;</span> k<span class="token operator">++</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>methodsList<span class="token punctuation">[</span>k<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>  
+  <span class="token punctuation">&#125;</span>
+  <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span>forName<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">'java.lang.String'</span><span class="token punctuation">,</span> <span class="token string">'boolean'</span><span class="token punctuation">,</span> <span class="token string">'java.lang.ClassLoader'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> name<span class="token punctuation">,</span> b<span class="token punctuation">,</span> c<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// hook Method.invoke，知道動態呼叫了哪些方法</span>
+<span class="token keyword">var</span> Method <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'java.lang.reflect.Method'</span><span class="token punctuation">)</span>
+Method<span class="token punctuation">.</span>invoke<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">'java.lang.Object'</span><span class="token punctuation">,</span> <span class="token string">'[Ljava.lang.Object;'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span>b</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'reflect'</span><span class="token punctuation">,</span> a<span class="token punctuation">,</span> b<span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">invoke</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span>a<span class="token punctuation">,</span>b<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="hook-字串操作">hook 字串操作</span></h3><p>有些混淆程式會把程式中寫死的字串全都透過各種步驟打亂，讓人不易搜尋，例如說把字串變成數字然後再還原之類的，而在還原的時候通常都會經過字串操作，這時候我們可以直接去 hook 字串操作，並搭配前面提過的 stack trace 去追蹤：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">[</span><span class="token string">'java.lang.StringBuilder'</span><span class="token punctuation">,</span> <span class="token string">'java.lang.StringBuffer'</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">forEach</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">clazz<span class="token punctuation">,</span> i</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span>clazz<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'toString'</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> ret <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'ret:'</span><span class="token punctuation">,</span> ret<span class="token punctuation">)</span>
+    <span class="token keyword">return</span> ret<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>   
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="hook-加解密相關操作">hook 加解密相關操作</span></h3><p>通常在 Android App 裡面要進行加解密的話，都會透過內建的 API 來進行，像是這樣（來源：<a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1647740">Android中的AES加密–上</a>）：</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token class-name">String</span> <span class="token constant">CODE_TYPE</span> <span class="token operator">=</span> <span class="token string">"UTF-8"</span><span class="token punctuation">;</span>
+<span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token class-name">String</span> <span class="token constant">AES_TYPE</span> <span class="token operator">=</span> <span class="token string">"AES/ECB/PKCS5Padding"</span><span class="token punctuation">;</span>
+<span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token class-name">String</span> <span class="token constant">AES_KEY</span><span class="token operator">=</span><span class="token string">"1111222233334444"</span><span class="token punctuation">;</span>
+
+<span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token class-name">String</span> <span class="token function">encrypt</span><span class="token punctuation">(</span><span class="token class-name">String</span> cleartext<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+        <span class="token class-name">SecretKeySpec</span> key <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">SecretKeySpec</span><span class="token punctuation">(</span><span class="token constant">AES_KEY</span><span class="token punctuation">.</span><span class="token function">getBytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">"AES"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token class-name">Cipher</span> cipher <span class="token operator">=</span> <span class="token class-name">Cipher</span><span class="token punctuation">.</span><span class="token function">getInstance</span><span class="token punctuation">(</span><span class="token constant">AES_TYPE</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        cipher<span class="token punctuation">.</span><span class="token function">init</span><span class="token punctuation">(</span><span class="token class-name">Cipher</span><span class="token punctuation">.</span><span class="token constant">ENCRYPT_MODE</span><span class="token punctuation">,</span> key<span class="token punctuation">)</span><span class="token punctuation">;</span> 
+        <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> encryptedData <span class="token operator">=</span> cipher<span class="token punctuation">.</span><span class="token function">doFinal</span><span class="token punctuation">(</span>cleartext<span class="token punctuation">.</span><span class="token function">getBytes</span><span class="token punctuation">(</span><span class="token constant">CODE_TYPE</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token class-name">Base64</span><span class="token punctuation">.</span><span class="token function">encodeToString</span><span class="token punctuation">(</span>encryptedData<span class="token punctuation">,</span><span class="token class-name">Base64</span><span class="token punctuation">.</span><span class="token constant">DEFAULT</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span><span class="token class-name">Exception</span> e<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        e<span class="token punctuation">.</span><span class="token function">printStackTrace</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token string">""</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>所以只要能 hook 像是 <code>SecretKeySpec</code> 或是 <code>doFinal</code> 這些方法，就能夠攔截到 key 跟加密前的明文。</p>
+<p>這篇文章值得一看：<a target="_blank" rel="noopener" href="https://labs.f-secure.com/blog/how-secure-is-your-android-keystore-authentication/">How Secure is your Android Keystore Authentication ?</a>，裡面有附了一堆加解密相關的 Frida 腳本，在這裡：<a target="_blank" rel="noopener" href="https://github.com/FSecureLABS/android-keystore-audit/blob/master/frida-scripts/tracer-cipher.js">https://github.com/FSecureLABS/android-keystore-audit/blob/master/frida-scripts/tracer-cipher.js</a></p>
+<p>話說腳本裡面沒有直接把 byte array 轉成字串，這邊提供一個比較方便的方式（來源：<a target="_blank" rel="noopener" href="https://lingwu111.github.io/frida%E5%B0%8F%E6%8A%80%E5%B7%A7%E4%B9%8Bstring%E4%B8%8Ebyte%E8%BD%AC%E5%8C%96.html">frida小技巧之string与byte转化</a>）：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">bytesToString</span><span class="token punctuation">(</span><span class="token parameter">bytes</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> javaString <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'java.lang.String'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> javaString<span class="token punctuation">.</span>$<span class="token keyword">new</span><span class="token punctuation">(</span>bytes<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">var</span> Base64 <span class="token operator">=</span> Java<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'android.util.Base64'</span><span class="token punctuation">)</span>
+Base64<span class="token punctuation">.</span>decode<span class="token punctuation">.</span><span class="token function">overload</span><span class="token punctuation">(</span><span class="token string">'[B'</span><span class="token punctuation">,</span> <span class="token string">'int'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function-variable function">implementation</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span> b</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token function">bytesToString</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">decode</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> a<span class="token punctuation">,</span> b<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2><span id="ssl-pinning">SSL Pinning</span></h2><p>之前看到一篇 <a target="_blank" rel="noopener" href="https://httptoolkit.tech/blog/frida-certificate-pinning/">Defeating Android Certificate Pinning with Frida</a> 裡面有附了一段很讚的腳本，自動去 hook 各種會做 SSL pinning 的 function，讓你繞過這個機制，存一份備份在這裡：<a target="_blank" rel="noopener" href="https://gist.github.com/aszx87410/f7ae60826d436d8e5bd17deb3e40c249">https://gist.github.com/aszx87410/f7ae60826d436d8e5bd17deb3e40c249</a></p>
+<p>存檔以後這樣跑起來：</p>
+<pre class="line-numbers language-none"><code class="language-none">frida -U --no-pause -l ssl.js -f &quot;com.example&quot;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h2><span id="偵測-frida">偵測 Frida</span></h2><p>既然 Frida 這麼強大，那有些 app 的安全機制自然而然想把它擋下來，一旦偵測到 Frida 的蹤跡，就直接退出 app 或是製造當機，可以參考底下這兩篇：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/f679cb404524">Android逆向 多种特征检测 Frida</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/zhangmiaoping23/article/details/109697329">多种特征检测 Frida</a></li>
+</ol>
+<p>而反偵測的方式有很多種，其中一種就是去 hook 上面文章提到的各種方法，畢竟我們有 root 權限又有 Frida hook 在前，所以只要我們知道是怎麼判斷的，就一定可以把檢查拿掉。如果找不出檢查的地方，可以利用上面提到的各種 hook 抽絲剝繭，慢慢找出來。</p>
+<h2><span id="結語">結語</span></h2><p>在這篇裡面我們介紹了 Frida 的基本使用，學習如何使用 Frida 來 hook 各種方法，藉此來得到各種我們想要的資訊。</p>
+<p>而前四篇我們涵蓋了一些基本的東西，包括：</p>
+<ol>
+<li>基本的 Android App 組成</li>
+<li>如何用 Apktool 把 apk 拆開並裝回去</li>
+<li>如何用 jadx 把 smali 還原成 java 檔</li>
+<li>熟悉一點點 smali 的語法，知道如何改 code 以及加 code</li>
+<li>如何透過電腦上的 proxy 攔截封包</li>
+<li>如何改造 apk，讓 proxy 能夠順利攔截</li>
+<li>如何使用 Frida 來 hook function</li>
+<li>各種 Frida 的小技巧</li>
+</ol>
+<p>再往後走的話，就要進入 native 的領域了。</p>
+<p>除了使用 Java 撰寫 Android App 以外，也可以使用 <a target="_blank" rel="noopener" href="https://developer.android.com/ndk">Android NDK</a>，就可以用 C&#x2F;C++ 撰寫程式碼，提供給 Android app 使用。</p>
+<p>什麼情況會需要用到呢？第一是比較耗效能的地方，例如說圖片辨識之類的，用 C++ 來寫會比 Java 來得快，所以通常會用 native 來做，第二則是一些比較隱密的操作，例如說加解密，如果放在 Java 層，很容易就能反編譯並且看出在做什麼，用 native 來寫的話會需要更多 binary 相關知識才能破解。</p>
+<p>除此之外，現實世界中的 app 並不像我們前面示範的 app 這麼簡單，可能經過加殼或是更強程度的混淆，就算 apk 拆得開，只要殼拆不掉，就看不到真正的邏輯。有些殼也具有反竄改跟反動態分析的機制，能夠把功力不足的攻擊者們阻擋在外，相關的介紹可以參考 <a target="_blank" rel="noopener" href="http://confapi.ithome.com.tw/session/4186">2019 台灣資安週</a>的議程：<a target="_blank" rel="noopener" href="https://s.itho.me/cybersec/2019/slides/321/I_%E4%B8%96%E8%B2%BF%E4%B8%89/0321I51610%E7%8E%8B%E7%BE%BF%E5%BB%B7.pdf">打造⼀一個安全與便利性兼具的 App 安全防護產品</a></p>
+<p>這個系列之所以叫做「入門」，就是因為完全沒有提到這些實戰上會接觸的東西，只專注於入門的基礎跟工具；話雖如此，對於沒有特殊混淆或是加殼的 app，這樣應該就足夠了。</p>
+<p>參考資料：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/hookmaster/frida-all-in-one">《FRIDA操作手册》</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.giantbranch.cn/2019/10/25/%E7%BF%BB%E8%AF%91%E2%80%94%E2%80%94N%E7%A7%8D%E8%84%B1%E5%A3%B3%E5%AE%89%E5%8D%93%E6%81%B6%E6%84%8F%E8%BD%AF%E4%BB%B6%E7%9A%84%E6%96%B9%E5%BC%8F/">翻译——N种脱壳安卓恶意软件的方式</a></li>
+<li><a target="_blank" rel="noopener" href="https://kevinspider.github.io/fridahookjava/">frida hook java</a></li>
+<li><a target="_blank" rel="noopener" href="https://juejin.cn/post/6847902219757420552#heading-39">这恐怕是学习Frida最详细的笔记了</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/iddoeldor/frida-snippets#class-description">frida-snippets</a></li>
+<li><a target="_blank" rel="noopener" href="https://book.hacktricks.xyz/mobile-apps-pentesting/android-app-pentesting/frida-tutorial">Frida Tutorial</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.anquanke.com/post/id/197657">实用FRIDA进阶：内存漫游、hook anywhere、抓包</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2023/06/12/redos-regular-expression-denial-of-service/">正規表達式沒寫好會怎樣？淺談 ReDoS：利用 regexp 的攻擊</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2023/04/27/android-apk-decompile-intro-3/">Android App 逆向入門之三：監聽 app 封包</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2023/04/27/en/android-apk-decompile-intro-4/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

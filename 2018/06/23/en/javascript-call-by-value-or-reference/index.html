@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>A Deep Dive into Parameter Passing in JavaScript: Call by Value or Reference? - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2018/06/23/javascript-call-by-value-or-reference/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2018/06/23/en/javascript-call-by-value-or-reference/">
+    
+
+
+
+
+
+    <meta name="description" content="IntroductionOriginally, I was planning to write about the differences and implementations of shallow and deep copying. However, while researching, I stumbled upon articles related to call by value and">
+<meta property="og:type" content="article">
+<meta property="og:title" content="A Deep Dive into Parameter Passing in JavaScript: Call by Value or Reference?">
+<meta property="og:url" content="https://blog.huli.tw/2018/06/23/en/javascript-call-by-value-or-reference/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="IntroductionOriginally, I was planning to write about the differences and implementations of shallow and deep copying. However, while researching, I stumbled upon articles related to call by value and">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49351722-bfc86c80-f6ef-11e8-97c5-efac22512139.gif">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49351736-c6ef7a80-f6ef-11e8-8c60-806ac95221f5.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49351744-cfe04c00-f6ef-11e8-8599-dd0bb4eecd95.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49351745-d373d300-f6ef-11e8-9978-cc13dc959ec5.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/2755720/49351752-d79ff080-f6ef-11e8-8dec-7c8395fd1988.png">
+<meta property="article:published_time" content="2018-06-23T14:10:00.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:10:49.062Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta property="article:tag" content="JavaScript">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://user-images.githubusercontent.com/2755720/49351722-bfc86c80-f6ef-11e8-97c5-efac22512139.gif">
+
+
+
+<link rel="alternative" href="/atom.xml" title="A Deep Dive into Parameter Passing in JavaScript: Call by Value or Reference?" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#introduction">1&nbsp;&nbsp;<b>Introduction</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#beautiful-mistakes">2&nbsp;&nbsp;<b>Beautiful Mistakes</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#parameter-passing-in-functions">3&nbsp;&nbsp;<b>Parameter Passing in Functions</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#javascript-only-has-call-by-value">4&nbsp;&nbsp;<b>JavaScript only has call by value</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#journey-to-explore-the-bible">5&nbsp;&nbsp;<b>Journey to explore the Bible</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#java-is-always-pass-by-value">6&nbsp;&nbsp;<b>Java is always pass-by-value</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">7&nbsp;&nbsp;<b>Conclusion</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">8&nbsp;&nbsp;<b>Conclusion</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#references">9&nbsp;&nbsp;<b>References</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2018/06/23/javascript-call-by-value-or-reference/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            A Deep Dive into Parameter Passing in JavaScript: Call by Value or Reference?
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2018-06-23T14:10:00.000Z" itemprop="datePublished">23 June 2018</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/JavaScript/">JavaScript</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h1><span id="introduction">Introduction</span></h1><p>Originally, I was planning to write about the differences and implementations of shallow and deep copying. However, while researching, I stumbled upon articles related to call by value and call by reference, and the more I delved into it, the more interesting it became. I thought I had understood this issue, but the more I read, the more confused I became.</p>
+<p>There are two ways to write this article. One is to record in detail my process of researching this issue, my doubts, and how I arrived at a solution, essentially writing in chronological order. The other is to organize my findings and express them in a simpler and more understandable way.</p>
+<p>In the past, I have mostly taken the second approach, reorganizing and summarizing my findings to write an article that is relatively easy to understand, leading readers step by step through my thought process to arrive at a solution.</p>
+<p>However, this time I want to try the first approach, taking readers through the materials I usually read when writing articles and explaining my thought process. This should be quite interesting.</p>
+<p>Let’s go!</p>
+<span id="more"></span>
+
+<h1><span id="beautiful-mistakes">Beautiful Mistakes</span></h1><p>As mentioned earlier, my decision to research parameter passing was a beautiful mistake. I was originally planning to write about shallow and deep copying.</p>
+<p>While researching, I came across this article: <a target="_blank" rel="noopener" href="http://larry850806.github.io/2016/09/20/shallow-vs-deep-copy/">[Javascript] 關於 JS 中的淺拷貝和深拷貝
+</a>. After reading it, I realized that if I wanted to talk about deep copying, I would have to first explain why we need deep copying, which would require discussing the differences between objects and other primitive types.</p>
+<p>At this point, I thought of an old question: Is JavaScript’s object passed by value or by reference?</p>
+<p>I vaguely remembered that the answer was the former, or neither, but rather a new term called pass by sharing.</p>
+<p>To verify that my memory was correct, I continued to search and finally found <a target="_blank" rel="noopener" href="https://pjchender.blogspot.com/2016/03/javascriptby-referenceby-value.html">[筆記] 談談JavaScript中by reference和by value的重要觀念</a> and <a target="_blank" rel="noopener" href="https://ithelp.ithome.com.tw/articles/10191057">重新認識 JavaScript: Day 05 JavaScript 是「傳值」或「傳址」？</a>. I remembered reading the latter and confirmed that my memory was correct.</p>
+<p>Okay, before we continue, I need to introduce these three terms and their differences, otherwise we won’t be able to proceed.</p>
+<h1><span id="parameter-passing-in-functions">Parameter Passing in Functions</span></h1><p>Let’s start with a simple example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">swap</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span> b</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> temp <span class="token operator">=</span> a<span class="token punctuation">;</span>
+  a <span class="token operator">=</span> b<span class="token punctuation">;</span>
+  b <span class="token operator">=</span> temp<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">var</span> x <span class="token operator">=</span> <span class="token number">10</span><span class="token punctuation">;</span>
+<span class="token keyword">var</span> y <span class="token operator">=</span> <span class="token number">20</span><span class="token punctuation">;</span>
+<span class="token function">swap</span><span class="token punctuation">(</span>x<span class="token punctuation">,</span> y<span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>x<span class="token punctuation">,</span> y<span class="token punctuation">)</span> <span class="token comment">// 10, 20</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>After executing <code>swap</code>, the values of <code>x</code> and <code>y</code> are not swapped. Why? Because what you passed in was not “the real x and y,” but rather “copies of the values of x and y.”</p>
+<p>In other words, <code>a</code> and <code>b</code> are actually two new variables that store the same values as <code>x</code> and <code>y</code>, but changing <code>a</code> will not change <code>x</code> because they are two different variables.</p>
+<p>You can refer to the beautiful animation below:</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/49351722-bfc86c80-f6ef-11e8-97c5-efac22512139.gif" alt="value 1"></p>
+<p>This method is called call by value (or pass by value), which copies the “value” when calling a function.</p>
+<p>Up to this point, it should be quite easy to understand. Now we will slowly move on to the more complex parts. There is another method called call by reference, which means “what you passed in is the real x and y, and a and b inside the function are just aliases, changing a will change x.”</p>
+<p>Obviously, for primitive types like numbers in JavaScript, there is no call by reference, because you can never change variables outside the function through arguments inside the function.</p>
+<p>What about objects?</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">add</span><span class="token punctuation">(</span><span class="token parameter">obj</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  obj<span class="token punctuation">.</span>number<span class="token operator">++</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">var</span> o <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token literal-property property">number</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">&#125;</span>
+<span class="token function">add</span><span class="token punctuation">(</span>o<span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>o<span class="token punctuation">.</span>number<span class="token punctuation">)</span> <span class="token comment">// 11</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>What! You actually successfully changed something outside the function inside the function! Is this call by reference?</p>
+<p>Don’t be hasty. At first glance, it seems like it, but there is an operation that exposes a flaw:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">add</span><span class="token punctuation">(</span><span class="token parameter">obj</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// 讓 obj 變成一個新的 object</span>
+  obj <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">number</span><span class="token operator">:</span> obj<span class="token punctuation">.</span>number <span class="token operator">+</span> <span class="token number">1</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+  
+<span class="token keyword">var</span> o <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token literal-property property">number</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">&#125;</span>
+<span class="token function">add</span><span class="token punctuation">(</span>o<span class="token punctuation">)</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>o<span class="token punctuation">.</span>number<span class="token punctuation">)</span> <span class="token comment">// 10</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>If it is really call by reference, then if you change the value of obj inside the function, the value of o outside will also be changed and become the new object. However, from the example above, it doesn’t seem to be the case, so this is not call by reference.</p>
+<p>Neither call by value nor call by reference, so what should we call it?</p>
+<p>Some people call this method call by sharing, which means that we let the obj inside the function “share” the same object as o outside, so you can modify the data of the “shared object” through the obj inside.</p>
+<p>Although it looks no different from call by reference, the biggest difference is that if you reassign obj inside the function, it means that you want this obj to point to a new object, so o outside still retains its original value.</p>
+<p>After introducing a new term, it seems that all the problems have been solved, and the conclusion is: “In JavaScript, primitive types are call by value, and objects are call by sharing.”</p>
+<p>However, all of this is just my naive idea. One day, I saw a sentence…</p>
+<h1><span id="javascript-only-has-call-by-value">JavaScript only has call by value</span></h1><p>At first glance, this sentence makes no sense. Didn’t we just say it’s call by sharing? How did it become call by value again?</p>
+<p>But actually, this sentence should be interpreted as follows:</p>
+<p>When you declare an object, in the underlying implementation, this object actually stores a memory location, or if you use C to explain it, the underlying of the object is a pointer.</p>
+<p>Let’s review pointers first. You can think of pointers as a type of variable, but the difference is that the value it stores is a “memory location”.</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/49351736-c6ef7a80-f6ef-11e8-8c60-806ac95221f5.png" alt="p1 2"></p>
+<blockquote>
+<p>What is the value of the variable o?</p>
+</blockquote>
+<p>The answer to this question is the key to understanding the sentence “JavaScript only has call by value”.</p>
+<p>From a higher level, the answer will naturally be “the value of o is {number: 10}”. But if you look at it from the underlying implementation, the answer will be “the value of o is 0x01”.</p>
+<p>Let’s continue with the second answer. Assuming the value of o is 0x01, then when you call the function, the value passed in is actually 0x01, so the variable inside the function can operate on the same thing through this memory location.</p>
+<p>It’s just like the picture we drew before, o and obj two variables will “point to” the same place. The underlying implementation principle is to pass the memory location of o to obj, otherwise how can they point to the same place.</p>
+<p>If you look at it from this perspective, call by sharing (passing memory location) is actually a kind of call by value, and the explanation is: it is actually passing a copy of the value, but this value is a memory location.</p>
+<p>At first glance, it makes sense, but there is one point that I can’t figure out no matter how I think:</p>
+<blockquote>
+<p>If you look at it from the underlying implementation, isn’t call by reference also a kind of call by value?</p>
+</blockquote>
+<p>Because from the underlying implementation, call by reference is also passing the memory location, so doesn’t that mean the whole world only has call by value?</p>
+<p>Later, I found an article with a similar idea: <a target="_blank" rel="noopener" href="https://www.ptt.cc/bbs/C_and_CPP/M.1245595402.A.2A1.html">Re: [問題] 請問傳參考到底是什麼?</a></p>
+<p>But after reading it, I still didn’t get an answer, only a vague concept. I think this may be a problem of naming conventions.</p>
+<p>With the spirit of exploring the root cause, I decided to see what ECMAScript says.</p>
+<h1><span id="journey-to-explore-the-bible">Journey to explore the Bible</span></h1><p>The ECMAScript spec is the Bible of JavaScript, where you can find deeper implementation details, and the content will never be wrong.</p>
+<p>Most of the related articles I can find now are sourced from here: <a target="_blank" rel="noopener" href="http://dmitrysoshnikov.com/ecmascript/chapter-8-evaluation-strategy/">ECMA-262-3 in detail. Chapter 8. Evaluation strategy.</a></p>
+<p>I originally thought this was an excerpt from ECMA-262-3, but after reading it, I found that it was not. It was just someone’s notes after reading ECMA-262-3.</p>
+<p>However, this article is actually well written. We can directly look at the conclusion part:</p>
+<blockquote>
+<p>It can be either “call by value”, with specifying that the special case of call by value is meant — when the value is the address copy. From this position it is possible to say that everything in ECMAScript are passed by value.</p>
+<p>Or, “call by sharing”, which makes this distinction from “by reference”, and “by value”. In this case it is possible to separate passing types: primitive values are passed by value and objects — by sharing.</p>
+<p>The statement “objects are passed by reference” formally is not related to ECMAScript and is incorrect.</p>
+</blockquote>
+<p>Unfortunately, it does not specify which part of ECMA-262 mentions these, and no article I searched for had any reference to ECMA-262.</p>
+<p>I had to find it myself.</p>
+<p>I downloaded <code>ECMA-262 edition 8</code> from <a target="_blank" rel="noopener" href="https://www.ecma-international.org/publications/standards/Ecma-262.htm">ecma international</a> and used a few keywords to search for:</p>
+<ol>
+<li>call by reference</li>
+<li>call by value</li>
+<li>pass by reference</li>
+<li>pass by value</li>
+</ol>
+<p>The result? I found nothing. I then narrowed down the keywords and searched for <code>reference</code>, <code>sharing</code>, and so on, and found <code>6.2.4 The Reference Specification Type</code>, which seemed relevant but did not contain the most crucial part.</p>
+<p>Searching through an 800-page document like this was exhausting, and I still had no results. I then thought, “Let me search for <code>arguments</code>,” and found two seemingly relevant sections (<code>9.4.4 ArgumentsExoticObjects</code> and <code>9.2 ECMAScript Function Objects</code>), but they did not provide detailed explanations.</p>
+<p>Since I couldn’t find anything using the previous keywords, I decided to try searching for the definition of the equal sign. If we want to compare two objects, we should find something about how to compare whether two objects are the same, which should mention related terms like <code>reference</code>!</p>
+<p>Finally, I found this section:</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/49351744-cfe04c00-f6ef-11e8-8599-dd0bb4eecd95.png" alt="ecma1"></p>
+<blockquote>
+<ol start="8">
+<li>If x and y are the same Object value, return true. Otherwise, return false.</li>
+</ol>
+</blockquote>
+<p>Okay, it’s as good as not saying anything. After searching for an hour or two and making little progress, I decided to give up on this nearly 900-page version.</p>
+<p>Later, I downloaded the first edition of ECMA-262, which is much shorter, with less than 200 pages. After searching for several keywords and finding no results, I decided to quickly scan the entire book.</p>
+<p>In conclusion, I still did not find anything related to call by value&#x2F;reference, but I found some interesting things. For example, the way to determine equality is written differently:</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/49351745-d373d300-f6ef-11e8-9978-cc13dc959ec5.png" alt="ecma2"></p>
+<blockquote>
+<p>11.9.3 The Abstract Equality Comparison Algorithm</p>
+<p>13.Return true if x and y refer to the same object or if they refer to objects joined to each other (see 13.1.2). Otherwise, return false.</p>
+</blockquote>
+<p>There is a mention of something called “joined objects”:</p>
+<p><img src="https://user-images.githubusercontent.com/2755720/49351752-d79ff080-f6ef-11e8-8dec-7c8395fd1988.png" alt="ecma3"></p>
+<p>However, it is still not quite what we are looking for.</p>
+<p>So, I gave up on the idea of finding the answer from ECMAScript.</p>
+<p>Feeling helpless, I remembered a programming language that also had a similar problem (whether it is call by value or call by reference): Java.</p>
+<h1><span id="java-is-always-pass-by-value">Java is always pass-by-value</span></h1><p>I have encountered this problem before when writing Java, and it is actually exactly the same as JavaScript. When you pass a normal value, it is passed by value, but when you pass an object, it behaves like call by reference. However, when assigning a value, it does not change the outside object.</p>
+<p>But it seems that it is a consensus that Java is always pass by value, which can be referred to in <a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/40480/is-java-pass-by-reference-or-pass-by-value">Is Java “pass-by-reference” or “pass-by-value”?</a>, <a target="_blank" rel="noopener" href="http://www.yoda.arachsys.com/java/passing.html">Parameter passing in Java - by reference or by value?</a>, and <a target="_blank" rel="noopener" href="http://www.javadude.com/articles/passbyvalue.htm">Java is Pass-by-Value, Dammit!</a>.</p>
+<p>The reason is actually the same as what we said at the beginning. Let me quote a sentence from Java is Pass-by-Value, Dammit!:</p>
+<blockquote>
+<p>However, Objects are not passed by reference. A correct statement would be Object references are passed by value.</p>
+</blockquote>
+<p>And a paragraph from Parameter passing in Java - by reference or by value?:</p>
+<blockquote>
+<p>Now that we have some definitions of terms we can return to the question. Does Java pass objects by reference or by value?</p>
+</blockquote>
+<blockquote>
+<p>The answer is NO! The fact is that Java has no facility whatsoever to pass an object to any function! The reason is that Java has no variables that contain objects.</p>
+</blockquote>
+<blockquote>
+<p>The reason there is so much confusion is people tend to blur the distinction between an object reference variable and an object instance. All object instances in Java are allocated on the heap and can only be accessed through object references. So if I have the following:</p>
+</blockquote>
+<blockquote>
+<p>StringBuffer g &#x3D; new StringBuffer( “Hello” );</p>
+<p>The variable g does not contain the string “Hello”, it contains a reference (or pointer) to an object instance that contains the string “Hello”.</p>
+</blockquote>
+<p>The value of the variable g is not the string “Hello”, but “a reference to the string Hello”, so when you call a function, you pass in this reference.</p>
+<blockquote>
+<p>I pass in a reference, but this is not called call by reference?</p>
+</blockquote>
+<p>It sounds super strange, but the root cause is actually “this reference is not that reference”. Let me quote a paragraph from Call by value?:</p>
+<p>In Java, Call by value refers to passing the value stored in a variable as a parameter, regardless of whether it is a primitive type or a class declaration type. Java does not allow the handling of memory addresses, so the term “reference” is used to explain the behavior of variables declared as class types. However, this “reference” is completely different from the “reference” in C++, and there is no Call by reference behavior in C++ for passing parameters by value, passing by reference, returning by value, or passing by reference.</p>
+<p>Although what we pass in is indeed a reference, it is not the same as the “call by reference” in C++, so it cannot be called “call by reference.”</p>
+<p>This paragraph is similar to what is mentioned in “11.2. By Value Versus by Reference” in the Rhino book:</p>
+<p>Before we leave the topic of manipulating objects and arrays by reference, we need to clear up a point of nomenclature.</p>
+<p>The phrase “pass by reference” can have several meanings. To some readers, the phrase refers to a function invocation technique that allows a function to assign new values to its arguments and to have those modified values visible outside the function.</p>
+<p>This is not the way the term is used in this book. Here, we mean simply that a reference to an object or array – not the object itself – is passed to a function. A function can use the reference to modify properties of the object or elements of the array. But if the function overwrites the reference with a reference to a new object or array, that modification is not visible outside of the function.</p>
+<p>Readers familiar with the other meaning of this term may prefer to say that objects and arrays are passed by value, but the value that is passed is actually a reference rather than the object itself.</p>
+<p>Now, let’s review C and C++ parameter passing. In C, there is only one type: call by value.</p>
+<p>As we mentioned earlier, this does not exchange the values of <code>x</code> and <code>y</code> because <code>a</code> and <code>b</code> only store the same values as <code>x</code> and <code>y</code>, respectively, and have no other relationship.</p>
+<p>However, in C, there is something called a “pointer” that can store memory locations. Through pointers, we can actually change the values of external variables inside a function.</p>
+<p>This is still called call by value. If you are still unsure why, you can refer to the following example. The difference from the previous example is that I first declare two pointers pointing to <code>x</code> and <code>y</code>:</p>
+<p>Do you remember the definition of call by value mentioned earlier? It is to copy the value of a variable and pass it in. The same applies here. We pass in two variables <code>ptr_x</code> and <code>ptr_y</code> that store the memory locations of <code>x</code> and <code>y</code>, respectively, and when we call the function, we copy these two “values” and pass them in. Therefore, the values printed out for <code>a</code> and <code>b</code> in the function will be the same as the values stored in <code>ptr_x</code> and <code>ptr_y</code>.</p>
+<p>In simple terms, previously when we used call by value, the “value” could be a number or a string. In the current example, the value is a “memory location,” which is also a type of data.</p>
+<p>However, some people also refer to this as call by pointer or call by address, but in principle, it is still a type of call by value.</p>
+<p>One thing to note here is that even though <code>a</code> and <code>ptr_x</code> have the same “value,” they are still different variables with different memory locations.</p>
+<p>Now let’s see how call by reference works in C++. Just add <code>&amp;</code> to the function’s argument to make it call by reference:</p>
+<pre class="line-numbers language-c++" data-language="c++"><code class="language-c++">#include &lt;stdio.h&gt;
+  
+&#x2F;&#x2F; 注意到這邊多了 &amp;，其他都跟 call by value 一模一樣
+void swap(int &amp;a, int &amp;b) &#123;
+  
+  &#x2F;&#x2F; 印出 a 跟 b 所存的值與記憶體位置
+  printf(&quot;%ld, %ld\n&quot;, a, b); &#x2F;&#x2F; 10, 20
+  printf(&quot;%ld, %ld\n&quot;, &amp;a, &amp;b); &#x2F;&#x2F; 0x44, 0x40
+  int temp &#x3D; b;
+  b &#x3D; a;
+  a &#x3D; temp;
+&#125;
+  
+int main()&#123;
+  int x &#x3D; 10;
+  int y &#x3D; 20;
+  
+  &#x2F;&#x2F; 印出 x 跟 y 的記憶體位置
+  printf(&quot;%ld %ld\n&quot;, &amp;x, &amp;y); &#x2F;&#x2F; 0x44, 0x40
+  swap(x, y); &#x2F;&#x2F; 傳記憶體位置進去
+  printf(&quot;%d %d\n&quot;, x, y); &#x2F;&#x2F; 20, 10
+&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Here, the memory locations of <code>a</code> and <code>b</code> are exactly the same as <code>x</code> and <code>y</code>, respectively. This means that when we operate on the variable <code>a</code> inside the function, we are actually operating on the variable <code>x</code>. They are identical, just with different names. When <code>a</code> is reassigned, the value of <code>x</code> outside the function is also changed.</p>
+<p>After seeing the differences between pass by value and pass by reference in C and C++, my initial question, “If you look at it from the perspective of low-level implementation, isn’t call by reference also a type of call by value?” has been answered.</p>
+<p>I think the biggest difference between these two is one thing: copying.</p>
+<p>Call by value will copy the value passed in (whether it’s a number or a memory location, it will be copied). Call by reference will also have similar behavior at the “lowest level of implementation,” but you won’t notice it.</p>
+<p>As in the example of call by reference above, the memory location of <code>x</code> is the same as that of <code>a</code>, and the memory location of <code>y</code> is the same as that of <code>b</code>. Therefore, you can say that they are “identical” things.</p>
+<p>However, in the case of call by value, even if you pass a pointer, the pointer itself still has a different memory location, even though the “value inside the pointer (i.e., the memory location it points to)” is the same.</p>
+<p>In other words, when we use call by value, we “create a new variable <code>a</code> and make it store the same value as the parameter passed in.” In call by reference, we only “make <code>a</code> an alias of <code>x</code>, and both are the same variable.” This is the biggest difference between the two in my opinion.</p>
+<h1><span id="conclusion">Conclusion</span></h1><p>We have seen the implementation of each programming language, but is there a clear definition that can distinguish between pass by value and pass by reference?</p>
+<p>I thought about it and realized that we can judge based on their behavior. Instead of looking at the definition, it’s better to distinguish them based on their behavior, as different types can achieve different behaviors. The first criterion is used to distinguish whether it is pass by value or pass by reference: “When the argument is reassigned inside the function, does the external variable change?”</p>
+<p>In JavaScript and Java, for example, when you reassign a variable inside a function, the external variable does not change, so it belongs to pass by value.</p>
+<p>If you want to distinguish them further, you can use the second criterion to distinguish whether this pass by value is true pass by value or a branch called pass by sharing: “Can you change the value of an external variable through an argument?” (The “value” we are referring to here is unrelated to the address or reference, purely referring to values like <code>&#123;numer:1&#125;</code>)</p>
+<p>In JavaScript and Java, you can change the value of an external variable through operations like <code>obj.number = 10</code> (where <code>obj.number</code> changes from 1 to 10), so it can also be called pass by sharing.</p>
+<p>According to the first criterion, some people may notice that if it’s a pointer in C, can’t it also achieve this? However, C only has call by value, so isn’t there a conflict?</p>
+<p>But in fact, in the example of pointers, the object we are reassigning is <code>*a</code> instead of <code>a</code> (meaning that we are making <code>*a=10</code> instead of <code>a=10</code>). The latter is called reassigning the argument (giving <code>a</code> a new address), while the former is “reassigning the memory location pointed to by the pointer.” So according to this definition, the example of pointers is still pass by value.</p>
+<p>Depending on the level of detail, the following statements are all correct:</p>
+<ol>
+<li>JavaScript only has pass by value</li>
+<li>Primitive types in JavaScript are pass by value, and objects are pass by sharing</li>
+</ol>
+<h1><span id="conclusion">Conclusion</span></h1><p>To be honest, after researching so much information, I found that everyone’s “definition” of call by reference and call by value is not exactly the same, and there is no authoritative source to guarantee that this definition is correct (maybe there is, but I didn’t find it. If you know, please tell me where it is, thank you). This has caused so much ambiguity.</p>
+<p>Regarding the explanation of technical terms, I like to quote this article: <a target="_blank" rel="noopener" href="https://www.ithome.com.tw/voice/94877">Technical term disputes are common</a>:</p>
+<blockquote>
+<p>In the world of software development, the creation of terms is often arbitrary. One of the frequently debated questions in Java is whether there is “Pass by reference” or not. Nowadays, the generally accepted answer is that there is not, Java only has Pass by value. However, some people still face confusion when the term “reference” appears frequently in Java documents.</p>
+</blockquote>
+<blockquote>
+<p>In essence, the definition of this term is different from the definition of “reference” in C++. Java just used the term “reference” for some reason. The point is not to clarify Pass by value, but to understand what behavior occurs when manipulating objects through parameters.</p>
+</blockquote>
+<p>We studied from JavaScript to Java, and then from Java to C and C++, just to understand the definition of “pass by reference”. However, ultimately, this misunderstanding is caused by different definitions of the term “reference”.</p>
+<p>If you understand “pass by reference” as defined in C++, then neither Java nor JavaScript will have pass by reference. But if you understand the “reference” in “pass by reference” as “reference to an object”, then passing an object in JavaScript is actually passing a “reference to the object”, which can be interpreted as pass by reference.</p>
+<p>The term “reference” is just too convenient, leading to different definitions in different places, which are often similar but not exactly the same.</p>
+<p>But don’t forget, the point is not in this, but to understand what behavior occurs when manipulating parameters. You need to know that when you pass an object into JavaScript, you can change the value of the original object, but reassigning it will not affect the external object. Once you understand this, I think the rest is not that important.</p>
+<p>This time I wrote a topic that is easy to provoke debate, but I also think it’s quite interesting. If you have a different opinion on this issue, or if you think I made a mistake somewhere, please feel free to correct me. Thank you.</p>
+<h1><span id="references">References</span></h1><ol>
+<li><a target="_blank" rel="noopener" href="http://larry850806.github.io/2016/09/20/shallow-vs-deep-copy/">[Javascript] About shallow copy and deep copy in JS</a></li>
+<li><a target="_blank" rel="noopener" href="https://pjchender.blogspot.com/2016/03/javascriptby-referenceby-value.html">[Note] Talking about the important concepts of by reference and by value in JavaScript</a></li>
+<li><a target="_blank" rel="noopener" href="https://ithelp.ithome.com.tw/articles/10191057">Reacquaint with JavaScript: Day 05 Is JavaScript “pass by value” or “pass by reference”?</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.ptt.cc/bbs/C_and_CPP/M.1245595402.A.2A1.html">Re: [Question] What is passing by reference?</a></li>
+<li><a target="_blank" rel="noopener" href="http://dmitrysoshnikov.com/ecmascript/chapter-8-evaluation-strategy/">ECMA-262-3 in detail. Chapter 8. Evaluation strategy.</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.slideshare.net/YiTaiLin/java-script-63031051">A simple introduction to JavaScript parameter passing</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/nodejh/nodejh.github.io/issues/32">Is JavaScript pass-by-value or pass-by-reference?</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/getify/You-Dont-Know-JS/issues/160">Values vs References semantics #160</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/getify/You-Dont-Know-JS/blob/master/types%20%26%20grammar/ch2.md#value-vs-reference">You Don’t Know JS: Types &amp; Grammar Chapter 2: Values</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.yoda.arachsys.com/java/passing.html">Parameter passing in Java - by reference or by value?</a></li>
+<li><a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/40480/is-java-pass-by-reference-or-pass-by-value">Is Java “pass-by-reference” or “pass-by-value”?</a></li>
+<li><a target="_blank" rel="noopener" href="https://openhome.cc/Gossip/Java/PassByValue.html">Pass by value</a></li>
+<li><a target="_blank" rel="noopener" href="https://openhome.cc/Gossip/JavaEssence/CallByValue.html">Call by value?</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/jiangnan2014/article/details/22944075">The classic problem in Java: pass by value or pass by reference</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.javadude.com/articles/passbyvalue.htm">Java is Pass-by-Value, Dammit!</a></li>
+<li><a target="_blank" rel="noopener" href="https://docstore.mik.ua/orelly/webprog/jscript/ch11_02.htm">11.2. By Value Versus by Reference</a></li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Front-end/">#Front-end</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/JavaScript/">#JavaScript</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2018/08/18/en/cors-is-hard/">CORS is not as simple as I thought</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2018/03/31/en/react-fiber-and-lifecycles/">A Brief Introduction to React Fiber and Its Impact on Lifecycles</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2018/06/23/javascript-call-by-value-or-reference/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

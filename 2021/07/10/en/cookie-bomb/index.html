@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>DoS Attack Using Cookie: Cookie Bomb - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2021/07/10/cookie-bomb/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2021/07/10/en/cookie-bomb/">
+    
+
+
+
+
+
+    <meta name="description" content="IntroductionWhen it comes to website-related attack methods, XSS, SQL injection, or CSRF are the most commonly seen methods. However, today we will introduce another type of attack that you may have h">
+<meta property="og:type" content="article">
+<meta property="og:title" content="DoS Attack Using Cookie: Cookie Bomb">
+<meta property="og:url" content="https://blog.huli.tw/2021/07/10/en/cookie-bomb/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="IntroductionWhen it comes to website-related attack methods, XSS, SQL injection, or CSRF are the most commonly seen methods. However, today we will introduce another type of attack that you may have h">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/cookie-bomb/cover-en.png">
+<meta property="article:published_time" content="2021-07-10T00:51:38.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:46:56.900Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/cookie-bomb/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="DoS Attack Using Cookie: Cookie Bomb" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#introduction">1&nbsp;&nbsp;<b>Introduction</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#what-is-a-cookie">2&nbsp;&nbsp;<b>What is a Cookie?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#what-is-a-cookie-bomb">3&nbsp;&nbsp;<b>What is a Cookie Bomb?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#attack-process">4&nbsp;&nbsp;<b>Attack Process</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#defense-methods">5&nbsp;&nbsp;<b>Defense Methods</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#expanding-the-attack-surface">6&nbsp;&nbsp;<b>Expanding the Attack Surface</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#finding-a-place-to-easily-set-cookies">7&nbsp;&nbsp;<b>Finding a place to easily set cookies</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#actual-testing">8&nbsp;&nbsp;<b>Actual testing</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#defense-methods">9&nbsp;&nbsp;<b>Defense methods</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#another-example">10&nbsp;&nbsp;<b>Another example</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#follow-up-report">11&nbsp;&nbsp;<b>Follow-up Report</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">12&nbsp;&nbsp;<b>Conclusion</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2021/07/10/cookie-bomb/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            DoS Attack Using Cookie: Cookie Bomb
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2021-07-10T00:51:38.000Z" itemprop="datePublished">10 July 2021</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2><span id="introduction">Introduction</span></h2><p>When it comes to website-related attack methods, XSS, SQL injection, or CSRF are the most commonly seen methods. However, today we will introduce another type of attack that you may have heard of but are not so familiar with: DoS, Denial-of-Service attack.</p>
+<p>When it comes to DoS, most people may think that they need to send a lot of packets to the website, and then let the website server be unable to respond or exhaust resources to achieve the goal. Or you may think of DDoS (Distributed Denial-of-Service), not a single host but a bunch of hosts sending packets to a server at the same time, and then knocking it down.</p>
+<p>DoS and DDoS actually have different layers of attacks. These layers correspond to the OSI Model that you may have learned before. For example, the attacks you remember are more like attacks on the L3 network layer and L4 transport layer. Detailed attack methods can refer to: <a target="_blank" rel="noopener" href="https://aws.amazon.com/tw/shield/ddos-attack-protection/">What is a DDoS attack?</a> and <a target="_blank" rel="noopener" href="https://www.cloudflare.com/zh-tw/learning/ddos/layer-3-ddos-attacks/">How do layer 3 DDoS attacks work? | L3 DDoS</a>.</p>
+<p>But the attack method we want to share with you in this article is a DoS attack that exists in the L7 application layer.</p>
+<p>For example, if a website has an API that can query data, and there is a default limit of 100, but I change it to 10,000 and find that the server takes about one minute to respond to me, so I send a request every two seconds. As I send more requests, the website becomes slower and slower, and finally, it crashes and can only return a 500 Internal Server Error. This is an application layer DoS attack.</p>
+<p>Any method that prevents users from accessing the website is a DoS attack. The method we found is based on the L7 application layer, so it is an L7 DoS attack.</p>
+<p>Among the many L7 DoS attack methods, there is one that I think is particularly interesting, which is the Cookie Bomb.</p>
+<span id="more"></span>
+
+<h2><span id="what-is-a-cookie">What is a Cookie?</span></h2><p>If you have no idea what a cookie is, you can refer to this article: <a target="_blank" rel="noopener" href="https://hulitw.medium.com/session-and-cookie-15e47ed838bc">Session and Cookie in Plain Language: Starting from Running a Grocery Store</a>.</p>
+<p>Simply put, some websites may store certain data in the browser, and this data is called a cookie. When the browser sends a request to the website, it will automatically bring the previously stored cookie.</p>
+<p>One of the most common applications is advertising tracking. For example, if I visit website A, and there is a GA (Google Analytics) script in website A, GA writes a cookie with an id&#x3D;abc. When the user visits website B and website B also has GA installed, when the browser sends a request to GA, it will bring the id&#x3D;abc. The server will know “this person visited website A and website B” after receiving it. As the user visits more websites, it will be clearer about their preferences.</p>
+<p>(Note: The actual tracking may be more complicated, and there are problems with third-party cookies recently, so the implementation may be different. This is just a simple example.)</p>
+<p>When writing a cookie, there is an option for the domain that can be set. You can only write up, not down. What does that mean? For example, if you are in <code>abc.com</code>, you can only write cookies to <code>abc.com</code>. But if you are in <code>a.b.abc.com</code>, you can write to <code>a.b.abc.com</code>, <code>b.abc.com</code>, and even <code>abc.com</code>.</p>
+<p>So after writing a cookie to the root domain <code>abc.com</code> from the subdomain <code>a.b.abc.com</code>, when the browser sends a request to <code>abc.com</code>, it will bring the cookie you wrote.</p>
+<h2><span id="what-is-a-cookie-bomb">What is a Cookie Bomb?</span></h2><p>Suppose my attack target is <code>example.com</code>. If I can find any subdomain or page on the website that allows me to write cookies, I can freely write the cookies I want.</p>
+<p>For example, suppose there is a page <code>https://example.com/log?uid=abc</code>. After visiting this page, <code>uid=abc</code> will be written to the cookie. Then, I only need to change the URL to <code>?uid=xxxxxxxxxx</code>, and I can write <code>xxxxxxxxxx</code> to the cookie.</p>
+<p>Let’s take another example. Suppose there is a blog website, and each user has a unique subdomain, for example, mine would be <code>huliblog.example.com</code>. The blog can customize its own JS, so I can use JS to write the cookie I want on <code>huliblog.example.com</code> for <code>example.com</code>.</p>
+<p>Okay, what can I do after writing any cookie?</p>
+<p>Start writing a bunch of junk cookies.</p>
+<p>For example, <code>a1=o....*4000</code>, just write a bunch of meaningless content in it. Here, it is important to note that a cookie can write about 4kb of data, and we need at least two cookies, which means we need to write 8kb of data to achieve the attack.</p>
+<p>After you write these cookies, when you return to the main page <code>https://example.com</code>, according to the characteristics of the cookie, all these junk cookies will be sent to the server together, right? The next step is the moment of witnessing a miracle.</p>
+<p>The server did not display the page you usually see, but returned an error: <code>431 Request Header Fields Too Large</code>.</p>
+<p><img src="/img/cookie-bomb/p1.png"></p>
+<p>Among the many HTTP status codes, there are two codes related to the request being too large:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413">413 Payload Too Large</a></li>
+<li><a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/431">431 Request Header Fields Too Large</a></li>
+</ol>
+<p>Suppose there is a form, and you fill in a million words and send it to the server, you may receive a <code>413 Payload Too Large</code> response, just like the error message says, the payload is too large, and the server cannot handle it.</p>
+<p>The header is the same. When you have too many cookies, the <code>Cookie</code> in the request header will be very large, so large that the server cannot handle it, and it will return a <code>431 Request Header Fields Too Large</code> (but according to actual tests, some servers may reply with different codes depending on the implementation, such as Microsoft’s 400 bad request).</p>
+<p>Therefore, as long as we can stuff the user’s cookie, we can make them see this error page and cannot access the service normally. This is a cookie bomb, a DoS attack caused by a large number of cookies. The principle behind it is that “when a browser visits a webpage, it will automatically bring the corresponding cookie together.”</p>
+<p>The term “Cookie Bomb” was first proposed by Egor Homakov on January 18, 2014, in <a target="_blank" rel="noopener" href="http://homakov.blogspot.com/2014/01/cookie-bomb-or-lets-break-internet.html">Cookie Bomb or let’s break the Internet.</a>, but similar attack methods appeared in 2009: <a target="_blank" rel="noopener" href="http://sirdarckcat.blogspot.com/2009/04/how-to-use-google-analytics-to-dos.html">How to use Google Analytics to DoS a client from some website</a></p>
+<h2><span id="attack-process">Attack Process</span></h2><p>As mentioned above, suppose we now find a URL <code>https://example.com/log?uid=abc</code> that allows us to set any cookie. The next thing to do is:</p>
+<ol>
+<li>Change the URL to make the cookie very large and try to make it larger than 8kb (because it seems that more server restrictions are 8kb).</li>
+<li>Pass this URL to the attack target and try to get them to click on it.</li>
+<li>The target clicked on the URL and set a very large cookie on the browser.</li>
+<li>The target visited the website <code>https://example.com</code> and found that they could not see the content, only a white screen or an error message, and the attack was successful.</li>
+</ol>
+<p>At this time, unless the user changes the browser or the cookie expires, or they clear the cookie themselves, they will always be in this state.</p>
+<p>In summary, this attack can only attack specific users and must meet two prerequisites:</p>
+<ol>
+<li>Find a place where you can set any cookie.</li>
+<li>The target must click on the URL found in step one.</li>
+</ol>
+<p>For actual attack cases, please refer to:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://blog.innerht.ml/overflow-trilogy/">Overflow Trilogy</a></li>
+<li><a target="_blank" rel="noopener" href="https://hackerone.com/reports/777984">#777984 Denial of Service with Cookie Bomb</a></li>
+<li><a target="_blank" rel="noopener" href="https://hackerone.com/reports/57356">#57356 DOM based cookie bomb</a></li>
+<li><a target="_blank" rel="noopener" href="https://hackerone.com/reports/847493">#847493 Cookie Bombing cause DOS - businesses.uber.com</a></li>
+<li><a target="_blank" rel="noopener" href="https://hackerone.com/reports/105363">#105363 [livechat.shopify.com] Cookie bomb at customer chats</a></li>
+</ol>
+<p>Before continuing to talk about the attack surface, let’s first mention the defense methods.</p>
+<h2><span id="defense-methods">Defense Methods</span></h2><p>The first point is not to trust user input. For example, in the example mentioned above: <code>https://example.com/log?uid=abc</code>, <code>abc</code> should not be directly written into the cookie. Instead, a basic check, such as format or length, can be performed to avoid this type of attack.</p>
+<p>Next, when I mentioned that cookies can be set from subdomains to root domains, many people should think of one thing: “What about shared subdomains?”</p>
+<p>For example, GitHub Pages, each person’s domain is <code>username.github.io</code>. Can’t I use a cookie bomb to bomb all GitHub Pages? Just build a malicious HTML in my own subdomain, with JS code that sets cookies, and then send this page to anyone. After they click it, they won’t be able to access any <code>*.github.io</code> resources because they will all be rejected by the server.</p>
+<p>This hypothesis seems to be valid, but there is actually a premise that must be established first, which is: “Users can set cookies on <code>*.github.io</code> to <code>github.io</code>.” If this premise is not established, the cookie bomb cannot be executed.</p>
+<p>In fact, there are many requirements for “not wanting the upper-level domain to be able to set cookies” like this. For example, if <code>a.com.tw</code> can set cookies to <code>.com.tw</code> or <code>.tw</code>, won’t a lot of unrelated websites share cookies? This is obviously unreasonable.</p>
+<p>Or the website of the Presidential Office, <code>https://www.president.gov.tw</code>, should not be affected by the website of the Ministry of Finance, <code>https://www.mof.gov.tw</code>, so <code>.gov.tw</code> should also be a domain that cannot set cookies.</p>
+<p>When the browser decides whether it can set cookies for a certain domain, it refers to a list called the <a target="_blank" rel="noopener" href="https://publicsuffix.org/list/">public suffix list</a>. The subdomains of domains that appear on this list cannot directly set cookies for that domain.</p>
+<p>For example, the following domains are on this list:</p>
+<ol>
+<li>com.tw</li>
+<li>gov.tw</li>
+<li>github.io</li>
+</ol>
+<p>So the example mentioned earlier is not valid because when I am on <code>userA.github.io</code>, I cannot set <code>github.io</code> cookies, so the cookie bomb attack cannot be executed.</p>
+<p>Regarding the public suffix list, Heroku has a special article introducing some of its historical evolution: <a target="_blank" rel="noopener" href="https://devcenter.heroku.com/articles/cookies-and-herokuapp-com">Cookies and the Public Suffix List</a>.</p>
+<h2><span id="expanding-the-attack-surface">Expanding the Attack Surface</span></h2><p>There are two prerequisites for the two attacks mentioned above to be successful:</p>
+<ol>
+<li>Find a place where any cookie can be set.</li>
+<li>The target must click on the URL found in step one.</li>
+</ol>
+<p>If you want to make the attack easier to succeed, you can think about these two prerequisites:</p>
+<ol>
+<li>Is it possible to find this place easily?</li>
+<li>Is it possible that the target will be infected without clicking on the link?</li>
+</ol>
+<p>First, let’s talk about the second point. If cache poisoning can be used, it can be easily achieved. Cache poisoning means finding a way to make the cache server store the corrupted cache (such as the 431 status code). This way, not only you, but all other users will get the corrupted file due to the cache, and see the same error message.</p>
+<p>In this case, the target does not need to click on anything to be infected, and the attack target expands from one person to everyone.</p>
+<p>In fact, the second point has a proprietary term: CPDoS (Cache Poisoned Denial of Service). Because it uses the relationship of the cache, it is not necessary to set cookies. Other headers can also be used, not limited to cookie bombs.</p>
+<p>For more detailed related attack methods, please refer to: <a target="_blank" rel="noopener" href="https://cpdos.org/">https://cpdos.org/</a></p>
+<p>The first point “Is it possible to find this place easily?” is what I really want to mention.</p>
+<p>Before continuing to explore this point, in fact, cookie bombs have more attack surface extensions, which can be used together with other attack methods. The relevant explanations and actual cases are highly recommended to be viewed in this video: <a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=njQcVWPB1is">HITCON CMT 2019 - The cookie monster in your browsers</a>, which mentions other cookie-related features besides cookie bombs.</p>
+<p>The attack method using cookie bomb in combination with other techniques in this presentation is really impressive.</p>
+<h2><span id="finding-a-place-to-easily-set-cookies">Finding a place to easily set cookies</span></h2><p>Where can we easily set cookies to achieve a cookie bomb? There is one, as mentioned earlier, a shared subdomain like <code>*.github.io</code>.</p>
+<p>But aren’t these already in the public suffix list? It’s impossible to set cookies.</p>
+<p>Just find one that’s not in it!</p>
+<p>But this is actually not an easy thing to do because you will find that almost all the services you know have already been registered, such as GitHub, AmazonS3, Heroku, and Netlify, etc.</p>
+<p>But I found one that is not on the list, which is Azure CDN provided by Microsoft: azureedge.net.</p>
+<p>I don’t know why, but this domain is not part of the public suffix, so if I build a CDN myself, I can execute a cookie bomb.</p>
+<h2><span id="actual-testing">Actual testing</span></h2><p>The code I used for the demo is as follows, referenced and rewritten from <a target="_blank" rel="noopener" href="https://github.com/wrr/cookie-bomb/blob/master/bomb.html">here</a>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> domain <span class="token operator">=</span> <span class="token string">'azureedge.net'</span>
+<span class="token keyword">const</span> cookieCount <span class="token operator">=</span> <span class="token number">40</span>
+<span class="token keyword">const</span> cookieLength <span class="token operator">=</span> <span class="token number">3000</span>
+<span class="token keyword">const</span> expireAfterMinute <span class="token operator">=</span> <span class="token number">5</span>
+<span class="token function">setCookieBomb</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token keyword">function</span> <span class="token function">setCookie</span><span class="token punctuation">(</span><span class="token parameter">key<span class="token punctuation">,</span> value</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> expires <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token operator">+</span><span class="token keyword">new</span> <span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">+</span> expireAfterMinute <span class="token operator">*</span> <span class="token number">60</span> <span class="token operator">*</span> <span class="token number">1000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  document<span class="token punctuation">.</span>cookie <span class="token operator">=</span> key <span class="token operator">+</span> <span class="token string">'='</span> <span class="token operator">+</span> value <span class="token operator">+</span> <span class="token string">'; path=/; domain='</span> <span class="token operator">+</span> domain <span class="token operator">+</span> <span class="token string">'; Secure; SameSite=None; expires='</span> <span class="token operator">+</span> expires<span class="token punctuation">.</span><span class="token function">toUTCString</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">function</span> <span class="token function">setCookieBomb</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> value <span class="token operator">=</span> <span class="token string">'Boring'</span> <span class="token operator">+</span> <span class="token string">'_'</span><span class="token punctuation">.</span><span class="token function">repeat</span><span class="token punctuation">(</span>cookieLength<span class="token punctuation">)</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span> i<span class="token operator">&lt;</span>cookieCount<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">setCookie</span><span class="token punctuation">(</span><span class="token string">'key'</span> <span class="token operator">+</span> i<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Then upload the file to Azure and set up the CDN, and you will get a custom URL: <a target="_blank" rel="noopener" href="https://hulitest2.azureedge.net/cookie.html">https://hulitest2.azureedge.net/cookie.html</a> (my azure has expired, so it should be broken now when you click on it)</p>
+<p>After clicking it, a bunch of junk cookies will be set on <code>azureedge.net</code>:</p>
+<p><img src="/img/cookie-bomb/p2.png"></p>
+<p>After refreshing, you will find that the website cannot be accessed:</p>
+<p><img src="/img/cookie-bomb/p3.png"></p>
+<p>This means that the cookie bomb was successful.</p>
+<p>So any resources placed on azureedge.net will be affected.</p>
+<p>Actually, AzureCDN has the function of custom domain, so if it is a custom domain, it will not be affected. But some websites do not use custom domains, but directly use azureedge.net as the URL.</p>
+<p>In most cases, azureedge.net is used to host some resources, such as JS and CSS or images. We can easily find a website that places resources on azureedge.net to test whether the attack is effective.</p>
+<p>At first, everything was fine, and there were no problems. But after visiting the cookie bomb URL and refreshing, the entire webpage became distorted because the cookie bomb caused those resources to fail to load:</p>
+<p><img src="/img/cookie-bomb/p4.png"></p>
+<p>Although it is impossible to make the entire webpage unreadable, the large distortion and malfunction basically make it unusable.</p>
+<p>Even some of Microsoft’s own services will be affected by this attack because they also place resources on azureedge.net:</p>
+<p><img src="/img/cookie-bomb/p5.png"></p>
+<h2><span id="defense-methods">Defense methods</span></h2><p>The best defense is to use a custom domain instead of the default azureedge.net, so there will be no cookie bomb problem. But aside from custom domains, azureedge.net should actually be registered in the public suffix, so users cannot set cookies on this domain.</p>
+<p>In addition to these two defense methods, there is another one you may not have thought of.</p>
+<p>When we import resources, don’t we do it like this: <code>&lt;script src=&quot;htps://test.azureedge.net/bundle.js&quot;&gt;&lt;/script&gt;</code>.</p>
+<p>Just add an attribute <code>crossorigin</code>, like this: <code>&lt;script src=&quot;htps://test.azureedge.net/bundle.js&quot; crossorigin&gt;&lt;/script&gt;</code>, and you can avoid the cookie bomb attack.</p>
+<p>This is because the original method will bring cookies when sending requests, but if you add <code>crossorigin</code> and use cross-origin to get it, cookies will not be brought by default, so there will be no header too large situation.</p>
+<p>Just remember to adjust it on the CDN side as well, and make sure the server has added the <code>Access-Control-Allow-Origin</code> header to allow cross-origin resource requests.</p>
+<p>I used to be confused about when to add <code>crossorigin</code>, but now I know one of the situations. If you don’t want to bring cookies together, you can add <code>crossorigin</code>.</p>
+<h2><span id="another-example">Another example</span></h2><p>Tumblr, which was once popular in a specific field but turned to Automattic after being acquired, has a special feature that allows you to customize CSS and JavaScript on your personal page, and the domain of this personal page will be userA.tumblr.com, and tumblr.com is not registered on the public suffix, so it will also be affected by cookie bomb.</p>
+<p><img src="/img/cookie-bomb/p6.png"></p>
+<p>Visit this URL: <a target="_blank" rel="noopener" href="https://aszx87410.tumblr.com/">https://aszx87410.tumblr.com/</a> and then refresh or go to the Tumblr homepage, you will find that it cannot be accessed (the JS that writes cookies is not written well, it only works on Chrome, not Firefox):</p>
+<p><img src="/img/cookie-bomb/p7.png"></p>
+<h2><span id="follow-up-report">Follow-up Report</span></h2><p>On June 16, 2021, I reported the cookie bomb issue on Tumblr on HackerOne, and received a reply the next day. The other party replied:</p>
+<blockquote>
+<p>this behavior does not pose a concrete and exploitable risk to the platform in and on itself, as this can be fixed by clearing the cache, and is more of a nuisance than a security vulnerability</p>
+</blockquote>
+<p>For some companies, if only a cookie bomb is caused, the harm is too small, and the first victim must click on that URL, and the second only needs to clear the cookie to be okay, so it is not recognized as a security vulnerability.</p>
+<p>Microsoft reported it through <a target="_blank" rel="noopener" href="https://www.microsoft.com/en-us/msrc">MSRC</a> on June 10, 2021. About two weeks later, on June 22, they received a reply, saying that the relevant team had been notified for processing, but this issue did not meet the standard for security updates, and there would be no notification after it was fixed.</p>
+<p>Later, I wrote to ask if this issue could be used as an example in the blog. I received a reply on June 30 saying OK.</p>
+<h2><span id="conclusion">Conclusion</span></h2><p>Most of the vulnerabilities I used to pay attention to were like SQL Injection or XSS, which could steal user data. But recently, I suddenly discovered that there are many interesting DoS vulnerabilities, especially application-layer DoS, such as the cookie bomb mentioned in this article, or ReDoS achieved using RegExp, and GraphQL DoS, etc.</p>
+<p>Although the impact of a simple cookie bomb is very limited if it is not combined with other attack methods, and it is okay as long as the cookie is cleared, I still think it is a pretty interesting attack, because I was originally interested in things related to cookies (maybe because I was <a href="https://blog.huli.tw/2017/08/27/a-cookie-problem/">harmed</a> before).</p>
+<p>But in fact, in addition to feeling that the cookie bomb is very interesting after researching it, there is also something that has benefited me a lot and broadened my horizons, which is the use of cookie bombs combined with other attack methods mentioned in the <a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=njQcVWPB1is">HITCON CMT 2019 - The cookie monster in your browsers</a> video posted earlier.</p>
+<p>In the field of information security, how to combine different, seemingly small problems into big problems has always been an art. Only a cookie bomb may not be able to do much, but combined with other things, it may create a serious vulnerability. Currently, I am not proficient in this area, but I believe that one day I can do it.</p>
+<p>In short, this article is just to briefly introduce the cause and repair method of the cookie bomb to everyone. If your service provides subdomains to users, remember to evaluate whether you need to register on the public suffix list to avoid subdomains writing cookies to the root domain, thereby affecting all subdomains.</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2021/08/06/en/intigriti-xss-0721/">Intigriti July XSS Challenge: Breaking Through Multiple Levels</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2021/07/03/en/xss-challenge-intigriti-june-review/">Intigriti June XSS Challenge Review</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2021/07/10/cookie-bomb/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

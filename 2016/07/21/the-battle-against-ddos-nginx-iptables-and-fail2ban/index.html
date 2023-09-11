@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>[心得] 與 DDoS 奮戰：nginx, iptables 與 fail2ban - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2016/07/21/en/the-battle-against-ddos-nginx-iptables-and-fail2ban/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2016/07/21/the-battle-against-ddos-nginx-iptables-and-fail2ban/">
+    
+
+
+
+
+
+    <meta name="description" content="最近發生主機被大量 request 攻擊的事件，而且慘的是這台主機放的是論壇服務假設攻擊的點是論壇首頁，每次 request 都會去 query DB，而且有一堆 join其中還有些是 POST 的指令會讓 db update就這樣一直瘋狂又 select 又 update 導致 DB lock，cpu 飆高掛掉 如果論壇是自己寫的，還可以在 DB 跟 application 之間加上 redis">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[心得] 與 DDoS 奮戰：nginx, iptables 與 fail2ban">
+<meta property="og:url" content="https://blog.huli.tw/2016/07/21/the-battle-against-ddos-nginx-iptables-and-fail2ban/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="最近發生主機被大量 request 攻擊的事件，而且慘的是這台主機放的是論壇服務假設攻擊的點是論壇首頁，每次 request 都會去 query DB，而且有一堆 join其中還有些是 POST 的指令會讓 db update就這樣一直瘋狂又 select 又 update 導致 DB lock，cpu 飆高掛掉 如果論壇是自己寫的，還可以在 DB 跟 application 之間加上 redis">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2016-07-21T08:38:00.000Z">
+<meta property="article:modified_time" content="2023-05-07T01:15:16.491Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Story">
+<meta property="article:tag" content="Server">
+<meta property="article:tag" content="DDoS">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+<link rel="alternative" href="/atom.xml" title="[心得] 與 DDoS 奮戰：nginx, iptables 與 fail2ban" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=3.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2016/07/21/en/the-battle-against-ddos-nginx-iptables-and-fail2ban/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            [心得] 與 DDoS 奮戰：nginx, iptables 與 fail2ban
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2016-07-21T08:38:00.000Z" itemprop="datePublished">2016年7月21日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Back-end/">Back-end</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>最近發生主機被大量 request 攻擊的事件，而且慘的是這台主機放的是論壇服務<br>假設攻擊的點是論壇首頁，每次 request 都會去 query DB，而且有一堆 join<br>其中還有些是 POST 的指令會讓 db update<br>就這樣一直瘋狂又 select 又 update 導致 DB lock，cpu 飆高掛掉</p>
+<p>如果論壇是自己寫的，還可以在 DB 跟 application 之間加上 redis 之類的快取<br>但偏偏這個論壇系統是別人的，沒有辦法動</p>
+<span id="more"></span>
+
+<p>先簡單講一下架構，為了分散流量<br>前面有一台 AWS ELB 做 load balancing，後面有兩台機器<br>所有 request 都會先到 ELB，再自動到後面兩台其中一台</p>
+<p>被攻擊之後怎麼辦呢？第一個想到的就是從 aws 提供的服務：WAF 來擋<br><a target="_blank" rel="noopener" href="https://aws.amazon.com/tw/waf/">https://aws.amazon.com/tw/waf/</a></p>
+<p>可是發現 WAF 跟原本想的不一樣，他沒有辦法設定像是：「擋掉 10 秒鐘內發超過 100 個 request 的 IP」這種規則<br>只能繼續在網路上找解法，找到從 nginx 來擋的解法：</p>
+<p><a target="_blank" rel="noopener" href="https://www.52os.net/articles/nginx-anti-ddos-setting.html">nginx防止DDOS攻击配置</a><br><a target="_blank" rel="noopener" href="http://www.infoq.com/cn/news/2016/01/Nginx-AntiDDoS">通过Nginx和Nginx Plus阻止DDoS攻击</a><br><a target="_blank" rel="noopener" href="http://nginx.org/en/docs/http/ngx_http_limit_req_module.html">Module ngx_http_limit_req_module</a></p>
+<pre class="line-numbers language-none"><code class="language-none">http &#123;
+
+  &#x2F;&#x2F;觸發條件，限制 ip 每秒 10 個 request
+  limit_req_zone $binary_remote_addr zone&#x3D;one:10m rate&#x3D;10r&#x2F;s; 
+  
+  server &#123;
+    location  ~ \.php$ &#123;
+
+      &#x2F;&#x2F;執行的動作
+      limit_req zone&#x3D;one burst&#x3D;5 nodelay;   
+    &#125;
+  &#125;
+&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>總之就是利用 <code>limit_req_zone</code>，這個 nginx 提供的東西<br>宣告一個 10mb 的 zone 叫做 <code>one</code> 來儲存狀態，這裡的 <code>10r/s</code> 指的就是一秒 10 個 request</p>
+<p>接著在你想擋的地方加上：<code>limit_req zone=one burst=5 nodelay;</code>，就可以擋掉了<br>nginx 會把處理 request 的數量調整成「最多 1 秒 10 個」，如果那個 ip 在同一時間有超過 5 個 request 還沒處理的話，就會傳回 <code>503 service temporarily unavailable</code>，這邊的 5 就是 <code>burst</code> 設定的值<br>傳回去的 status code 也可以自己指定，例如說：<code>limit_req_status 505;</code></p>
+<p>儘管這個解法看起來很棒，但不知道為什麼，加了之後好像沒有用似的<br>伺服器的警報還是一直在響，DB 還是持續飆高</p>
+<p>在請教過其他同事之後，得知 iptabls 也可以擋，而且還是直接從 tcp 層擋<br>找到下面兩篇資料：</p>
+<p><a target="_blank" rel="noopener" href="http://blog.eztable.com/2011/05/17/how-to-prevent-ddos/">淺談DDoS攻擊防護</a></p>
+<pre class="line-numbers language-none"><code class="language-none">-A INPUT -p tcp –dports 80 -j WEB_SRV_DOS
+-A WEB_SRV_DOS -p tcp –syn –dports 80 -m recent –rcheck –second 30 –hitcount 200 -j LOG –log-prefix &quot;[Possible DOS Attack]&quot;
+-A WEB_SRV_DOS -p tcp –syn –dports 80 -m recent –rcheck –second 30 –hitcount 200 -j REJECT  
+-A WEB_SRV_DOS -p tcp –syn –dports 80 -m recent –set  
+-A WEB_SRV_DOS -p tcp –dports 80 -j ACCEPT<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><a target="_blank" rel="noopener" href="http://ishm.idv.tw/?p=188">運用 iptables 限制同一IP單位時間連線數</a></p>
+<pre class="line-numbers language-none"><code class="language-none">-A INPUT -p tcp --dport 80 -m recent --rcheck --seconds 1 --hitcount 5 --name HTTP_LOG --rsource -j DROP
+-A INPUT -p tcp --dport 80 -m recent --set --name HTTP_LOG --rsource
+-A INPUT -p tcp --dport 80 -j ACCEPT<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>兩個的原理都一樣，是透過<code>-m recent –rcheck –second 30 –hitcount 200</code> 這段敘述，描述說你要擋住幾秒內發送幾次的 request，把這個連線 reject 或是 drop。</p>
+<p>直接從 iptables 去擋聽起來是個更好的解法，這樣 request 連 nginx 都不會進去就被擋住了<br>可是天不從人願，用了之後發現還是不行！怎麼會這樣呢</p>
+<p>心灰意冷之下，同事又推薦一個好東西叫做：fail2ban<br>查了一下之後發現用法非常簡單，而且原理很好懂<br>決定用別台機器來測測看，測試成功之後再套用到正式環境的機器<br><a target="_blank" rel="noopener" href="http://www.vixual.net/blog/archives/252">用 Fail2Ban 防範暴力破解 (SSH、vsftp、dovecot、sendmail)</a><br><a target="_blank" rel="noopener" href="http://blog.vic.mh4u.org/2011/272">fail2ban教學</a><br><a target="_blank" rel="noopener" href="http://chuhw.pixnet.net/blog/post/167657289-ubuntu-%E4%B8%AD%E4%BD%BF%E7%94%A8-fail2ban-%E9%87%9D%E5%B0%8D%E5%A4%A7%E9%87%8F-access-%E5%81%9A%E5%88%A4%E6%96%B7%E5%8F%8A">Ubuntu 中使用 fail2ban 針對大量 access 做判斷及阻擋</a></p>
+<p>綜合其中幾篇的敘述，可以得出以下流程</p>
+<p>1.修改<code>vim /etc/fail2ban/jail.local</code><br>2.寫入</p>
+<pre class="line-numbers language-none"><code class="language-none">[http-get-dos]
+enabled &#x3D; true
+port &#x3D; http
+filter &#x3D; http-get-dos
+logpath &#x3D; &#x2F;var&#x2F;log&#x2F;nginx&#x2F;access.log # 要判斷的log
+maxretry &#x3D; 100 # 最多幾次
+findtime &#x3D; 5 # 時間區間
+bantime &#x3D; 600 # 要 ban 多久
+action &#x3D; iptables[name&#x3D;HTTP, port&#x3D;http, protocol&#x3D;tcp]<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>上面的規則就是：5 秒內嘗試 100 次失敗之後就 ban 600 秒</p>
+<p>3.新增<code>/etc/fail2ban/filter.d/http-get-dos.conf</code><br>這邊的檔名就是對應到剛剛 <code>jail.local</code> 設定的名稱</p>
+<pre class="line-numbers language-none"><code class="language-none">[Definition]
+failregex &#x3D; ^&lt;HOST&gt;- - .*\&quot;(GET|POST).*
+ignoreregex &#x3D;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<p>這裡的<code>failregex</code>要根據你的 log 去寫<br>像是 nginx 的 access log 長這樣：</p>
+<pre class="line-numbers language-none"><code class="language-none">106.184.3.122 - - [21&#x2F;Jul&#x2F;2016:11:38:29 +0000] &quot;GET &#x2F; HTTP&#x2F;1.1&quot; 200 396 &quot;-&quot; &quot;Go-http-client&#x2F;1.1&quot;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>你就寫一個可以抓到<code>&lt;HOST&gt;</code>，也就是 ip 的 regular expression</p>
+<p>都設定好之後，重開一下應該就有效了<br>就會發現一直發 request 之後自己順利的被 ban 掉<br>可以用 <code>iptables --list</code> 看一下自己是不是真的有被 ban</p>
+<p>fail2ban 的原理應該就是去看你指定的 log 檔跟規則，用這個檔案去判斷是不是超出設定的規則，超出的話就把 ip 抓出來，加規則到 iptables 裡面去擋掉，時間到了之後再把規則移除掉</p>
+<p>試到這邊，終於成功了！可是既然原理也是 iptables，為什麼剛剛不行呢？<br>還記得一開始我提過伺服器架構嗎？前面一台 ELB，後面兩台 web server<br>因為 ELB 是 AWS 提供的服務，所以客製化程度很低，甚至連 ssh 進去都不行<br>因此上面嘗試的方案都是個別套用到那兩台 web server</p>
+<p>這時候問題就來了</p>
+<blockquote>
+<p>咦？那這樣子 web server 的 request 的來源，不就都是 ELB 的 ip 了嗎？</p>
+</blockquote>
+<p>沒錯，你突破盲點了！之前沒有用就是卡在這邊<br>你用 iptables 來檔，因為來源都是 ELB 的 ip，所以會擋掉的只有 ELB，而不是真正的攻擊來源<br>所以會造成 ELB 被擋掉，整個服務就因為一個攻擊者被搞的超級慢</p>
+<p>所以在這個網路環境底下，iptables 是行不通的！<br>那 nginx 呢？還記得我們的規則嗎？</p>
+<pre class="line-numbers language-none"><code class="language-none">limit_req_zone $binary_remote_addr zone&#x3D;one:10m rate&#x3D;10r&#x2F;s; <span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p><code>$binary_remote_addr</code>抓到的也都會是 ELB 的 ip</p>
+<p>這時候靈機一動突然想到，那能不能根據<code>X-Forwarded-For</code>這個 header 來設定呢？就會是真的 IP 了<br>找到這一篇：<a target="_blank" rel="noopener" href="http://serverfault.com/questions/487463/nginx-rate-limiting-with-x-forwarded-for-header">nginx rate limiting with X-Forwarded-For header</a></p>
+<p>把<code>$binary_remote_addr</code>換成<code>$http_x_forwarded_for</code></p>
+<p>搞定！大功告成<br>經歷一番千辛萬苦，最後終於在 nginx 把攻擊流量擋掉<br>用 <a target="_blank" rel="noopener" href="http://jmeter.apache.org/">JMeter</a> 測試之後也發現確實成功了，多的 request 會直接回傳 503<br>真是可喜可賀</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Story/">#Story</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Server/">#Server</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/DDoS/">#DDoS</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop  article-nav-prev">
+            
+            <a href="/2016/09/23/binary-search-introduction/">淺談二分搜尋法</a>
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2016/03/28/cs50-programming-course-like-ocean/">如海洋般的程式課程：CS50</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2016/07/21/en/the-battle-against-ddos-nginx-iptables-and-fail2ban/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>
