@@ -32,7 +32,7 @@
 <meta property="og:locale" content="zh_TW">
 <meta property="og:image" content="https://blog.huli.tw/img/security-of-encrypt-or-hash-password-in-client-side/cover.png">
 <meta property="article:published_time" content="2023-01-10T00:10:44.000Z">
-<meta property="article:modified_time" content="2023-10-27T12:41:40.225Z">
+<meta property="article:modified_time" content="2023-11-02T23:40:38.560Z">
 <meta property="article:author" content="Huli">
 <meta property="article:tag" content="Security">
 <meta name="twitter:card" content="summary_large_image">
@@ -385,7 +385,7 @@
 <p>然後這篇也不討論「保護帳號安全」這件事情，純粹在討論「保護密碼」。舉例來說，有人會講說：「密碼加密有什麼用？多此一舉而已，先做 2FA 比較實在」，這種就是超出範圍的討論。2FA 或 MFA 屬於「保護帳號安全」，就算密碼被偷走，攻擊者也會被其他驗證所擋住，因此沒有辦法登入進去帳號。</p>
 <p>這與「保護密碼」是完全不同的兩件事情，因為實作 MFA 對於保護密碼沒什麼幫助。很簡單就可以假設出一種狀況是雖然攻擊者無法登入帳號，但密碼明文還是被偷走了。</p>
 <p>使用者可能會在多個服務使用同一組密碼，當使用者在你網站的密碼被偷走，影響到的不只是他在這邊的帳號，還有可能影響到其他服務，這就是為什麼我們在討論「保護密碼」。</p>
-<p>最後呢，我這邊的情境是「加密密碼」而非 hash，這是因為我覺得 hash 的狀況比較複雜，我自己想先用加密來舉例，而且這個加密是「非對稱式加密」。</p>
+<p>最後呢，我這邊的情境是「加密密碼」而非 hash，這是因為我覺得 hash 的狀況比較複雜，我自己想先用加密來舉例，而且這個加密是「非對稱式加密」（放心，文章後半段還是會提到 hash 的做法）。</p>
 <p>也就是我們可以想像已經有一把 public key 存在於 client 端（當然，每個人都可以拿得到），在送出 request 以前，會先使用 JavaScript 把密碼用 public key 加密以後再送出，而 server 使用 private key 解密，拿到密碼以後 hash 過再存入資料庫中。</p>
 <p>綜合以上，這篇想處理的問題是：「已經使用了 HTTPS，在打登入 API 以前先把密碼加密過或是不做任何處理，這兩者的差別在哪？」</p>
 <p>而我們可以把回答分成兩個部分：</p>
@@ -450,6 +450,7 @@
 <p>Have the client computer hash the password using a cryptographically secure algorithm and a unique salt provided by the server. When the password is received by the server, hash it again with a different salt that is unknown to the client. Be sure to store both salts securely. If you are using a modern and secure hashing algorithm, repeated hashing does not reduce entropy.</p>
 </blockquote>
 <p>看起來是還好，問題不大。</p>
+<p>（感謝 HowardCsie 的留言補充，並不是所有的 hash 演算法都不會有問題，可參考：<a target="_blank" rel="noopener" href="https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html">Password Storage Cheat Sheet</a> 與 <a target="_blank" rel="noopener" href="https://blog.ircmaxell.com/2015/03/security-issue-combining-bcrypt-with.html">Security Issue: Combining Bcrypt With Other Hash Functions</a> 這兩篇文章）</p>
 <p>總之呢，看起來最安全的但也更複雜的解法就是 client side 先 hash 一次，然後丟到 server 的時候再 hash 一次存進資料庫，如此一來就可以保證：</p>
 <ol>
 <li>HTTPS 因為各種原因失效時，攻擊者無法取得明文密碼</li>
@@ -459,7 +460,7 @@
 <p>那如果真的比較好用，為什麼沒人在用？</p>
 <h2><span id="現實生活中到底有誰在前端做-hash-或是加密">現實生活中，到底有誰在前端做 hash 或是加密？</span></h2><p>當我一開始碰到這個問題，講出「怎麼沒人在用」的時候，其實只是「我自己沒碰過有人這樣用」，但實際上我並不知道那些知名網站的登入是怎麼做的。</p>
 <p>因此呢，我就直接去看了幾個知名網站的登入機制，我們一起來看一下結果，為了方便觀看，我把跟帳號密碼無關的內容都拿掉了。</p>
-<p>我在測試的時候，基本上都是用 test 或是 <a href="mailto:&#x74;&#101;&#x73;&#116;&#x40;&#116;&#x65;&#x73;&#x74;&#x2e;&#99;&#111;&#x6d;">&#x74;&#101;&#x73;&#116;&#x40;&#116;&#x65;&#x73;&#x74;&#x2e;&#99;&#111;&#x6d;</a> 搭配簡單的密碼如 1234 在測試，然後觀察 request 的內容。</p>
+<p>我在測試的時候，基本上都是用 test 或是 <a href="mailto:&#x74;&#x65;&#115;&#x74;&#64;&#116;&#x65;&#x73;&#x74;&#x2e;&#x63;&#111;&#109;">&#x74;&#x65;&#115;&#x74;&#64;&#116;&#x65;&#x73;&#x74;&#x2e;&#x63;&#111;&#109;</a> 搭配簡單的密碼如 1234 在測試，然後觀察 request 的內容。</p>
 <p>先來看一下 FAANG 吧！</p>
 <h3><span id="faang">FAANG</span></h3><h4><span id="facebook">Facebook</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://zh-tw.facebook.com/login">https://zh-tw.facebook.com/login</a></p>
 <p>請求內容：</p>
@@ -509,7 +510,7 @@ encpass&#x3D;#PWD_BROWSER:5:1673256089:AbJQAJUvZZNvh2dZbeDqdu9dp7HWwyHOl3+0sCGji
 &#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>補充：經討論串有人提醒後發現這是一個叫做 SRP（Secure Remote Password）的協議，Proton 有提供一個 <a target="_blank" rel="noopener" href="https://proton.me/static/9f5e7256429a2f674c943c5825257b82/protonmail_authentication_excerpt.pdf">ProtonMail Security Features and Infrastructure</a>，裡面有記錄他們的安全措施，就有講到這個機制。</p>
-<p>看起來滿複雜要花不少時間研究，先放著，有興趣的可以參考：<a target="_blank" rel="noopener" href="https://blog.amis.com/srp-1f28676aa525">SRP — 更健全的登入及資料傳輸保護協議</a></p>
+<p>看起來滿複雜要花不少時間研究，先放著，有興趣的可以參考：<a target="_blank" rel="noopener" href="https://blog.amis.com/srp-1f28676aa525">SRP—更健全的登入及資料傳輸保護協議</a></p>
 <p>雖然更安全，但成本應該又更高了。</p>
 <h3><span id="交易所與銀行">交易所與銀行</span></h3><p>看完上面案例發現有做的是少數，因此我好奇更注重安全的加密貨幣交易所與傳統銀行有沒有做。</p>
 <h4><span id="binance">Binance</span></h4><p>API 網址：<a target="_blank" rel="noopener" href="https://accounts.binance.com/bapi/accounts/v2/public/authcenter/login">https://accounts.binance.com/bapi/accounts/v2/public/authcenter/login</a></p>
@@ -601,7 +602,7 @@ ENCRYPTED_PIN_BLOCK&#x3D;A8C48B7572A1A53C5A66E9B43365027C7FBF14BF461F480A46781E4
 <p>把原本明文傳輸的密碼先 hash，成本可能是 20，增加的安全性是 5。</p>
 <p>儘管 Passkeys 的效益整體來說更高，但問題是有些公司可能現在就只有 20 個單位的資源。</p>
 <p>我自己認為一位優秀的工程師不能只給得出最佳實踐，而是必須針對有限資源的狀況之下，給出各種不同的解法，因此這篇討論的問題不是毫無意義的。把這個問題整理過一輪之後，自然而然就會出現許多成本不同，效益也不同的解法。</p>
-<p>有多少資源，就做多少事。</p>
+<p>有多少資源，就做多少事。不過話說回來，了解最佳實踐是什麼還是滿重要的，這樣你才能知道該做多少取捨。</p>
 <p>最後，如果你需要一個條列式的簡單結論，會是：</p>
 <ol>
 <li>無論如何，一定要先用 HTTPS</li>
