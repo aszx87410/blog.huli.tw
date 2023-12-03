@@ -174,6 +174,109 @@
         <article class="article content gallery" itemscope itemprop="blogPost">
     <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
         
+            <a href="/2020/02/20/en/let-vs-var-bytecode/" itemprop="url">Exploring the Performance Issues of let and var from V8 bytecode</a>
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2020-02-20T14:49:59.000Z" itemprop="datePublished">20 February 2020</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/JavaScript/">JavaScript</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>In two of my previous articles, <a href="https://blog.huli.tw/2018/11/10/javascript-hoisting-and-tdz/">I Know You Understand Hoisting, But Do You Really Understand It?</a> and <a href="https://blog.huli.tw/2018/12/08/javascript-closure/">All Functions Are Closures: Discussing Scope and Closure in JS</a>, I talked about the differences between the scopes of let and var.</p>
+<p>The scope of let is block, while var is function. This is a classic example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">var</span> i<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">;</span> i<span class="token operator">&lt;=</span><span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It was originally expected to output 1 to 10 in order, but unexpectedly output 10 11s. The reason behind this is that the i on the third line always has only one, which is the <code>var i</code> declared in the for loop, and it is the same variable from beginning to end.</p>
+<p>The classic solution is also very simple, just change var to let:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">;</span> i<span class="token operator">&lt;=</span><span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The reason why this works is that the above code can be seen as the following form:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+ <span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">1</span>
+ <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token punctuation">&#123;</span>
+ <span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">2</span>
+ <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token operator">...</span>
+
+<span class="token punctuation">&#123;</span>
+ <span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">10</span>
+ <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Since the scope of let is block, there is actually a new i in each round of the loop, so there are 10 different i after the loop runs 10 times, and of course, 10 different numbers are output in the end.</p>
+<p>Therefore, the biggest difference between var and let in this example is the number of variables, the former has only one, while the latter has 10.</p>
+<p>Okay, now that you know the difference between let and var, let’s take a look at the main issue of this article.</p>
+<p>In fact, this issue comes from a question raised by <a target="_blank" rel="noopener" href="https://github.com/getify">@getify</a>, the author of <a target="_blank" rel="noopener" href="https://github.com/getify/You-Dont-Know-JS">YDKJS (You Don’t Know JS)</a>, on his <a target="_blank" rel="noopener" href="https://twitter.com/getify/status/1227371214148165632">Twitter</a>:</p>
+<blockquote>
+<p>question for JS engines devs…<br>is there an optimization in place for this kind of code?</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// no closure</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<p>IOW, where the behavior of creating a new <code>i</code> per iteration is <em>not</em> needed nor observable… does JS skip doing it?</p>
+</blockquote>
+<p>If you didn’t understand it very well, you can continue to read the <a target="_blank" rel="noopener" href="https://twitter.com/getify/status/1227379557872828418">other tweet</a>:</p>
+<blockquote>
+<p>here’s a variation on the question… will JS engines exhibit much performance difference between these two loops?</p>
+</blockquote>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">var</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">100000000</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+   <span class="token comment">// do some stuff, but not closure</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">100000000</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+   <span class="token comment">// do the same stuff (no closure)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Simply put, when we usually use let with loops, isn’t it like we said above, there will be a new <code>i</code> in each round? If so, then there should be a performance difference between var and let, because let must new a new variable in each round, so let will be slower.</p>
+<p>If the loop does not need a new i in each round, will the JS engine optimize it? This issue is mainly to explore whether the JS engine will optimize this behavior.</p>
+<p>So how do we know? Either you are a JS engine developer, or you can look at the JS bytecode, but both of these difficulties are a bit too high. But don’t worry, there is a third way: look at the JS bytecode.</p>
+        <p class="article-more-link">
+            <a href="/2020/02/20/en/let-vs-var-bytecode/#more">Read More</a>
+        </p>
+    
+    </div>
+    
+    
+</article>
+
+
+
+
+    
+        <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
             <a href="/2020/01/21/en/webpack-newbie-tutorial/" itemprop="url">Introduction to webpack and snowpack for beginners</a>
         
     </h1>
@@ -568,49 +671,6 @@
 <p>These three are Node.js Web framework Express, PHP, and Ruby on Rails. I chose these three because their implementation of Session mechanism is different, and I think they are suitable objects for reference.</p>
         <p class="article-more-link">
             <a href="/2019/08/09/en/session-and-cookie-part3/#more">Read More</a>
-        </p>
-    
-    </div>
-    
-    
-</article>
-
-
-
-
-    
-        <article class="article content gallery" itemscope itemprop="blogPost">
-    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
-        
-            <a href="/2019/08/09/en/session-and-cookie-part2/" itemprop="url">A Brief Discussion on Session and Cookie: Reading RFC Together</a>
-        
-    </h1>
-    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
-        <span class="column is-narrow">
-            <time datetime="2019-08-09T12:10:00.000Z" itemprop="datePublished">9 August 2019</time>
-        </span>
-        
-        <span class="column is-narrow article-category">
-            <i class="far fa-folder"></i>
-            <a class="article-category-link" href="/en/categories/Web/">Web</a>
-        </span>
-        
-        
-        
-        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
-        
-    </div>
-    
-    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
-    
-        <h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>This is a series of three articles, which I call the “Session and Cookie Trilogy”. The goal of this series is to discuss this classic topic from shallow to deep, from understanding concepts to understanding implementation methods. This is the second article in the series, and the complete links to the three articles are as follows:</p>
-<ol>
-<li><a target="_blank" rel="noopener" href="https://medium.com/@hulitw/session-and-cookie-15e47ed838bc">Plain Talk on Session and Cookie: Starting with Running a Grocery Store</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/aszx87410/blog/issues/45">A Brief Discussion on Session and Cookie: Reading RFC Together</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/aszx87410/blog/issues/46">In-depth Session and Cookie: Implementation in Express, PHP, and Rails</a></li>
-</ol>
-        <p class="article-more-link">
-            <a href="/2019/08/09/en/session-and-cookie-part2/#more">Read More</a>
         </p>
     
     </div>
