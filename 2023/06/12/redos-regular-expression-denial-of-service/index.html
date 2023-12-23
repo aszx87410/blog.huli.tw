@@ -31,8 +31,8 @@
 <meta property="og:description" content="Regular expression，中文又翻作「正規表達式」或是「正規表示式」等等（以下簡稱 regexp），主要是用來做字串的配對，寫好一個模式之後，就可以拿來配對到符合規則的文字。 無論是電話號碼、Email 或是身分證字號等等，都可以運用 regexp 來完成初步的格式驗證，確保字串的格式與特定規則相符合。 Regexp 雖然方便，但沒寫好的話有可能導致一些輸入的驗證被繞過，演變成資安問題">
 <meta property="og:locale" content="zh_TW">
 <meta property="og:image" content="https://blog.huli.tw/img/redos-regular-expression-denial-of-service/cover.png">
-<meta property="article:published_time" content="2023-06-12T06:10:44.000Z">
-<meta property="article:modified_time" content="2023-06-13T14:43:16.802Z">
+<meta property="article:published_time" content="2023-06-12T05:10:44.000Z">
+<meta property="article:modified_time" content="2023-12-23T01:55:06.908Z">
 <meta property="article:author" content="Huli">
 <meta property="article:tag" content="Security">
 <meta name="twitter:card" content="summary_large_image">
@@ -173,7 +173,13 @@
                     <hr class="navbar-divider">
                     
                     
-                    <a class="navbar-item" href="#總結">5&nbsp;&nbsp;<b>總結</b></a>
+                    <a class="navbar-item" href="#為了防止-redos-而出現的另一種問題">5&nbsp;&nbsp;<b>為了防止 ReDoS 而出現的另一種問題</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">6&nbsp;&nbsp;<b>總結</b></a>
                     
                 </div>
             </div>
@@ -233,7 +239,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2023-06-12T06:10:44.000Z" itemprop="datePublished">2023年6月12日</time>
+            <time datetime="2023-06-12T05:10:44.000Z" itemprop="datePublished">2023年6月12日</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -329,6 +335,21 @@ console<span class="token punctuation">.</span><span class="token function">time
 
 <p>透過傳入精心構造的 regexp，就可以利用時間差得知第一個字元是什麼。</p>
 <p>最後簡單提一下防禦方式，最根本的解決方法就是不要寫出有缺陷的 regexp，先去學習哪一些 pattern 應該盡量少用，就能掌握到大概的方向。除此之外，似乎也有人做了一些自動化的工具幫忙掃 code 裡面出現的 regexp，這也是一種在出事前先預防的方法。</p>
+<h2><span id="為了防止-redos-而出現的另一種問題">為了防止 ReDoS 而出現的另一種問題</span></h2><p>底下這段 PHP 的程式碼會檢查輸入是否為 PHP 的格式，如果不是的話才進行後續操作，你有辦法繞過正規表達式嗎？</p>
+<pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token php language-php"><span class="token delimiter important">&lt;?php</span>
+<span class="token keyword">function</span> <span class="token function-definition function">is_php</span><span class="token punctuation">(</span><span class="token variable">$data</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>  
+    <span class="token keyword">return</span> <span class="token function">preg_match</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'/&lt;\?.*[(`;?>].*/is'</span><span class="token punctuation">,</span> <span class="token variable">$data</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">if</span><span class="token punctuation">(</span><span class="token operator">!</span><span class="token function">is_php</span><span class="token punctuation">(</span><span class="token variable">$input</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// fwrite($f, $input); ...</span>
+<span class="token punctuation">&#125;</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>答案是有辦法，但繞過的並不是正規表達式本身，而是利用了 PHP 的一個機制。</p>
+<p>PHP 為了防止 ReDoS 的發生，設有回朔次數的上限，如果超過了上限，就會回傳 <code>false</code>，而非原本預期的 0 或是 1。雖然 PHP 的<a target="_blank" rel="noopener" href="https://www.php.net/manual/en/function.preg-match.php#refsect1-function.preg-match-returnvalues">文件</a>裡面有就有提到這點，但老實說會乖乖去看文件的還是少數，因此我相信有不少開發者都不知道這個行為。</p>
+<p>因此，只需要構造出一個與 ReDoS 類似的結構觸發上限，就會讓 <code>preg_match</code> 回傳 <code>false</code>，進而繞過檢查。</p>
+<p>上面的範例來自於 phith0n 在 2018 年發表的文章：<a target="_blank" rel="noopener" href="https://www.leavesongs.com/PENETRATION/use-pcre-backtrack-limit-to-bypass-restrict.html">PHP利用PCRE回溯次数限制绕过某些安全限制</a>，而 2019 年的 Facebook CTF 中也有一題是相同的原理，可以參考 balsn 的 <a target="_blank" rel="noopener" href="https://balsn.tw/ctf_writeup/20190603-facebookctf/#rceservice">writeup</a>。</p>
+<p>甚至於這個漏洞在 2023 年也出現在現實世界中：<a target="_blank" rel="noopener" href="https://blog.sorcery.ie/posts/mybb_acp_rce/">MyBB Admin Panel RCE CVE-2023-41362</a>。</p>
 <h2><span id="總結">總結</span></h2><p>我自己覺得 ReDoS 是一個滿有趣的攻擊方式，以前沒想過靠著 regexp 還可以做出這種效果。</p>
 <p>以前第一次知道這個攻擊，似乎是還在當開發者的時候，偶爾會看到使用到的 library 有這個漏洞，不過當初沒有很在意就是了。後來在資安裡面再度碰到這東西，才覺得好像挺有趣的。</p>
 <p>這篇比較像是我的個人筆記，只是想趁著記憶猶新的時候把一些 payload 記下來，以後比較好找。</p>
