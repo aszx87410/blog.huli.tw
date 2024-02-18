@@ -30,19 +30,19 @@
 <meta property="og:site_name" content="Huli&#39;s blog">
 <meta property="og:description" content="前言前陣子在研究跟 HTTP Cache 有關的一些東西，看得眼花撩亂，不同的 Header 愈看愈混亂，像是Pragma, Cache-Control, Etag, Last-Modified, Expires 等等。找了許多參考資料閱讀之後才有了比較深刻的理解，想說若是從一個比較不同的角度來理解 Cache，說不定會比較容易了解這些 Header 到底在做什麼。 在之前查的資料裡面，很多篇都是">
 <meta property="og:locale" content="zh_TW">
-<meta property="og:image" content="http://blog.techbridge.cc/img/huli/cache/p1.png">
-<meta property="og:image" content="http://blog.techbridge.cc/img/huli/cache/p2.png">
-<meta property="og:image" content="http://blog.techbridge.cc/img/huli/cache/p3.png">
-<meta property="og:image" content="https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/images/http-cache-control.png?hl=zh-tw">
-<meta property="og:image" content="https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/images/http-cache-hierarchy.png?hl=zh-tw">
-<meta property="article:published_time" content="2017-08-27T14:15:00.000Z">
-<meta property="article:modified_time" content="2023-05-07T01:15:16.482Z">
+<meta property="og:image" content="https://blog.huli.tw/img/http-cache/p1-disk.png">
+<meta property="og:image" content="https://blog.huli.tw/img/http-cache/p2-new.png">
+<meta property="og:image" content="https://blog.huli.tw/img/http-cache/p3-304.png">
+<meta property="og:image" content="https://blog.huli.tw/img/http-cache/p4-etag.png">
+<meta property="og:image" content="https://blog.huli.tw/img/http-cache/p5-resource.png">
+<meta property="article:published_time" content="2017-08-27T13:15:00.000Z">
+<meta property="article:modified_time" content="2024-02-18T06:07:41.342Z">
 <meta property="article:author" content="Huli">
 <meta property="article:tag" content="Front-end">
 <meta property="article:tag" content="HTTP">
 <meta property="article:tag" content="Cache">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="http://blog.techbridge.cc/img/huli/cache/p1.png">
+<meta name="twitter:image" content="https://blog.huli.tw/img/http-cache/p1-disk.png">
 
 
 
@@ -287,7 +287,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2017-08-27T14:15:00.000Z" itemprop="datePublished">2017年8月27日</time>
+            <time datetime="2017-08-27T13:15:00.000Z" itemprop="datePublished">2017年8月27日</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -319,13 +319,13 @@
 
 <p>瀏覽器收到這個 Response 之後就會把這個資源給快取起來，當下一次使用者再度造訪這個頁面或是要求這個圖片的資源的時候，瀏覽器會檢視「現在的時間」是否有超過這個 Expires。如果沒有超過的話，那瀏覽器「不會發送任何 Request」，而是直接從電腦裡面已經存好的 Cache 拿資料。</p>
 <p>若是打開 Chrome dev tool，就會看到它寫著：「Status code 200 (from disk cache)」，代表這個 Request 其實沒有發出去，Response 是直接從 disk cache 裡面拿的。</p>
-<p><img src="http://blog.techbridge.cc/img/huli/cache/p1.png"></p>
+<p><img src="/img/http-cache/p1-disk.png" alt="disk cache"></p>
 <p>可是這樣其實會碰到一個問題，因為瀏覽器檢視這個 Expires 的時間是用「電腦本身的時間」，那如果我喜歡活在未來，把電腦的時間改成 2100 年，會怎樣呢？</p>
 <p>瀏覽器就會覺得所有的 Cache 都是過期的，就會重新發送 Request。</p>
 <h1><span id="cache-control-與-max-age">Cache-Control 與 max-age</span></h1><p>Expires 其實是 HTTP 1.0 就存在的 Header，而為了解決上面 Expires 會碰到的問題，HTTP 1.1 有一個新的 header 出現了，叫做：<code>Cache-Control</code>。（註：Cache-Control 是 HTTP 1.1 出現的 Header，但其實不單單只是解決這個問題，還解決許多 HTTP 1.0 沒辦法處理的快取相關問題）</p>
 <p>其中一種用法是：<code>Cache-Control: max-age=30</code>，就代表這個 Response 的過期時間是 30 秒。假設使用者在收到這個 Response 之後的第 10 秒重新整理，那就會出現上面那樣被瀏覽器 Cache 住的現象。</p>
 <p>但假如使用者是過 60 秒之後才重新整理，瀏覽器就會發送新的 Request。</p>
-<p><img src="http://blog.techbridge.cc/img/huli/cache/p2.png"></p>
+<p><img src="/img/http-cache/p2-new.png" alt="new cache"></p>
 <p>仔細觀察 Google Logo 檔案的 Response header，你會發現它的<code>max-age</code>設定成<code>31536000</code>秒，也就是 365 天的意思。只要你在一年之內造訪這個網站，都不會對 Google logo 這張圖片送出 Request，而是會直接使用瀏覽器已經快取住的 Response，也就是這邊寫的<code>Status code 200 (from memory cache)</code>。</p>
 <p>現在就碰到一個問題了，既然<code>Expires</code>跟<code>max-age</code>都可以決定一個 Response 是否過期，那如果兩個同時出現，瀏覽器要看哪一個呢？</p>
 <p>根據<a target="_blank" rel="noopener" href="https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.9.3">RFC2616</a>的定義：</p>
@@ -351,7 +351,7 @@ If-Modified-Since: 2017-01-01 13:00:00<span aria-hidden="true" class="line-numbe
 
 <p>假設檔案確實更新了，那瀏覽器就會收到一份新的檔案。如果新的檔案一樣有那些 Cache 的 Header，就一樣會快取起來，跟上面的流程都一樣。那假設檔案沒有更新呢？</p>
 <p>假設沒有更新的話，Server 就會回一個<code>Status code: 304 (Not Modified)</code>，代表你可以繼續沿用快取的這份檔案。</p>
-<p><img src="http://blog.techbridge.cc/img/huli/cache/p3.png"></p>
+<p><img src="/img/http-cache/p3-304.png" alt="304 not modified"></p>
 <h1><span id="etag-與-if-none-match">Etag 與 If-None-Match</span></h1><p>雖然上面的這個方法看起來已經很好了，但還是有一個小問題。</p>
 <p>上面講的是檔案有沒有被「編輯」過，但其實這個編輯時間就是你電腦上檔案的編輯時間。若是你打開檔案什麼都不做，然後存檔，這個編輯時間也會被更新。可是儘管編輯時間不一樣，檔案的內容還是一模一樣的。</p>
 <p>比起編輯時間，若是能用「檔案內容更動與否」來當作是否要更新快取的條件，那是再好不過了。</p>
@@ -360,7 +360,8 @@ If-Modified-Since: 2017-01-01 13:00:00<span aria-hidden="true" class="line-numbe
 <p><code>Etag</code>跟<code>If-None-Match</code>也是搭配使用的一對，就像<code>Last-Modified</code>跟<code>If-Modified-Since</code>一樣。</p>
 <p>Server 在回傳 Response 的時候帶上<code>Etag</code>表示這個檔案獨有的 hash，快取過期後瀏覽器發送<code>If-None-Match</code>詢問 Server 是否有新的資料（不符合這個<code>Etag</code>的資料），有的話就回傳新的，沒有的話就只要回傳 304 就好了。</p>
 <p>流程可以參考 Google 網站上的下圖：</p>
-<p><img src="https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/images/http-cache-control.png?hl=zh-tw"><br>（圖片來源：<a target="_blank" rel="noopener" href="https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/images/http-cache-control.png?hl=zh-tw%EF%BC%89">https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/images/http-cache-control.png?hl=zh-tw）</a></p>
+<p><img src="/img/http-cache/p4-etag.png" alt="etag"></p>
+<p>（圖片來源：<a target="_blank" rel="noopener" href="https://web.dev/articles/http-cache">https://web.dev/articles/http-cache</a> ）</p>
 <h1><span id="中場休息">中場休息</span></h1><p>讓我們來總結一下到目前為止學到的東西：</p>
 <ol>
 <li><code>Expires</code>跟<code>Cache-Control: max-age</code>決定這份快取的「新鮮度」，也就是什麼時候「過期」。在過期之前，瀏覽器「不會」發送出任何 Request</li>
@@ -446,8 +447,8 @@ Etag: 1234<span aria-hidden="true" class="line-numbers-rows"><span></span><span>
 <p>藉由把 Etag 的機制實作在<code>index.html</code>裡面，我們就達成了我們的目標：「只要檔案不更新，瀏覽器就不會發 Request，直接沿用快取裡的即可。只要檔案一更新，瀏覽器就要立即抓取新的檔案」</p>
 <p>原理就是針對不同的檔案採用不同的快取策略，並且直接用「更換 JavaScript 檔案」的方式強制瀏覽器重新下載。</p>
 <p>這邊也可以參考 Google 提供的圖片：</p>
-<p><img src="https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/images/http-cache-hierarchy.png?hl=zh-tw"></p>
-<p>（來源：<a target="_blank" rel="noopener" href="https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/http-caching?hl=zh-tw%EF%BC%89">https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/http-caching?hl=zh-tw）</a></p>
+<p><img src="/img/http-cache/p5-resource.png" alt="resource"></p>
+<p>（圖片來源：<a target="_blank" rel="noopener" href="https://web.dev/articles/http-cache">https://web.dev/articles/http-cache</a> ）</p>
 <h1><span id="總結">總結</span></h1><p>之所以快取的機制會有點小複雜，是因為分成不同的部分，每一個相關的 Header 其實都是在負責不同的部分。例如說<code>Expires</code>跟<code>max-age</code>是在負責看這個快取是不是「新鮮」，<code>Last-Modified</code>, <code>If-Modified-Since</code>, <code>Etag</code>, <code>If-None-Match</code>是負責詢問這個快取能不能「繼續使用」，而<code>no-cache</code>與<code>no-store</code>則是代表到底要不要使用快取，以及應該如何使用。</p>
 <p>這篇文章其實只講到快取機制的一半，沒有提到的部分大致上都跟 shared cache 以及 proxy server 有關，有其他的值是在決定快取能不能被存在 proxy server 上？或者是驗證能否繼續使用的時候應該要跟原 server 驗證，還是跟 proxy server 驗證也可以。有興趣想要知道更多的讀者們可以參考底下的參考資料。</p>
 <p>最後，希望這篇文章能讓初學者更理解 HTTP 的快取機制。</p>
@@ -485,7 +486,7 @@ Etag: 1234<span aria-hidden="true" class="line-numbers-rows"><span></span><span>
         </span>
         <span class="column is-12-mobile is-half-desktop  article-nav-next">
             
-            <a href="/2017/08/27/ajax-and-cors/">輕鬆理解 Ajax 與跨來源請求</a>
+            <a href="/2017/08/27/a-cookie-problem/">我遇過的最難的 Cookie 問題</a>
             
         </span>
     </div>
