@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>navigator.sendBeacon 的 64KiB 限制與底層實作 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+            
+<link href="https://blog.huli.tw/2025/01/06/en/navigator-sendbeacon-64kib-and-source-code/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2025/01/06/navigator-sendbeacon-64kib-and-source-code/">
+    
+
+
+
+
+
+    <meta name="description" content="當你想在網頁上向 server 發送一些 tracking 相關的資訊時，比起直接用 fetch 送出請求，有另一個通常會被推薦的選擇：navigator.sendBeacon。 為什麼會推薦這個呢？ 因為如果是用一般送出請求的方法，在使用者把頁面關掉或是跳轉的時候可能會有問題，例如說剛好在關掉頁面時發送請求，這個請求可能就送不出去，隨著頁面關閉一起被取消了。 雖然說可以利用一些方法嘗試強制送出請">
+<meta property="og:type" content="article">
+<meta property="og:title" content="navigator.sendBeacon 的 64KiB 限制與底層實作">
+<meta property="og:url" content="https://blog.huli.tw/2025/01/06/navigator-sendbeacon-64kib-and-source-code/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="當你想在網頁上向 server 發送一些 tracking 相關的資訊時，比起直接用 fetch 送出請求，有另一個通常會被推薦的選擇：navigator.sendBeacon。 為什麼會推薦這個呢？ 因為如果是用一般送出請求的方法，在使用者把頁面關掉或是跳轉的時候可能會有問題，例如說剛好在關掉頁面時發送請求，這個請求可能就送不出去，隨著頁面關閉一起被取消了。 雖然說可以利用一些方法嘗試強制送出請">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/navigator-sendbeacon-64kib-and-source-code/cover.png">
+<meta property="article:published_time" content="2025-01-06T02:40:00.000Z">
+<meta property="article:modified_time" content="2025-01-06T11:51:47.703Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Front-end">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/navigator-sendbeacon-64kib-and-source-code/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="navigator.sendBeacon 的 64KiB 限制與底層實作" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#navigatorsendbeacon-的-payload-限制">1&nbsp;&nbsp;<b>navigator.sendBeacon 的 payload 限制</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#navigatorsendbeacon-的規格與-sentry-的小故事">2&nbsp;&nbsp;<b>navigator.sendBeacon 的規格與 Sentry 的小故事</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#sendbeacon-的實作">3&nbsp;&nbsp;<b>sendBeacon 的實作</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#chromium-的-sendbeacon-實作">3.1&nbsp;&nbsp;Chromium 的 sendBeacon 實作</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#safari-的-sendbeacon-實作">3.2&nbsp;&nbsp;Safari 的 sendBeacon 實作</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#firefox-的-sendbeacon-實作">3.3&nbsp;&nbsp;Firefox 的 sendBeacon 實作</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#結語">4&nbsp;&nbsp;<b>結語</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2025/01/06/en/navigator-sendbeacon-64kib-and-source-code/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            navigator.sendBeacon 的 64KiB 限制與底層實作
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2025-01-06T02:40:00.000Z" itemprop="datePublished">2025年1月6日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Front-end/">Front-end</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>當你想在網頁上向 server 發送一些 tracking 相關的資訊時，比起直接用 <code>fetch</code> 送出請求，有另一個通常會被推薦的選擇：<code>navigator.sendBeacon</code>。</p>
+<p>為什麼會推薦這個呢？</p>
+<p>因為如果是用一般送出請求的方法，在使用者把頁面關掉或是跳轉的時候可能會有問題，例如說剛好在關掉頁面時發送請求，這個請求可能就送不出去，隨著頁面關閉一起被取消了。</p>
+<p>雖然說可以利用一些方法嘗試強制送出請求，但這些方法通常都會傷害使用者體驗，例如說強制讓頁面晚一點關閉，或是送出一個同步的請求之類的。</p>
+<p>而 <code>navigator.sendBeacon</code> 就是為了解決這個問題而生的。</p>
+<span id="more"></span>
+
+<p>就如同 <a target="_blank" rel="noopener" href="https://w3c.github.io/beacon/">spec</a> 上所寫的：</p>
+<blockquote>
+<p>This specification defines an interface that web developers can use to schedule asynchronous and non-blocking delivery of data that minimizes resource contention with other time-critical operations, while ensuring that such requests are still processed and delivered to destination</p>
+<p>此規範定義了一個 interface，供網頁開發者用於安排非同步且非阻塞的數據傳輸，以最大限度地減少與其他時間敏感操作的資源競爭，同時確保這些請求仍能被處理並傳遞到目標位置。</p>
+</blockquote>
+<p>而使用的方式也非常簡單：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">navigator<span class="token punctuation">.</span><span class="token function">sendBeacon</span><span class="token punctuation">(</span><span class="token string">"/log"</span><span class="token punctuation">,</span> payload<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>就會發送一個 POST 的請求到 <code>/log</code> 去。</p>
+<p>雖然簡單易用，但需要注意的一點是，送出的 payload 是有大小限制的，而且這個限制不是單一請求的限制。</p>
+<h2><span id="navigatorsendbeacon-的-payload-限制">navigator.sendBeacon 的 payload 限制</span></h2><p><code>sendBeacon</code> 的 payload 上限是 64 KiB，等同於 65536 個 bytes，如果 payload 都是由英文字組成的話，因為每一個是一個 byte，就是 65536 個字。</p>
+<p>如果超過這個大小，你會發現請求送不出去，永遠處於 pending 狀態：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  navigator<span class="token punctuation">.</span><span class="token function">sendBeacon</span><span class="token punctuation">(</span><span class="token string">"/log"</span><span class="token punctuation">,</span> <span class="token string">'A'</span><span class="token punctuation">.</span><span class="token function">repeat</span><span class="token punctuation">(</span><span class="token number">65536</span> <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p><img src="/img/navigator-sendbeacon-64kib-and-source-code/p1.png" alt="永遠 pending "></p>
+<p>而且這個限制其實並不是限制單一請求，而是背後有個 queue，這個 queue 只要超過 65536 bytes 就不接受新的東西了。</p>
+<p>舉例來說，當我們連續送出 8 個 10000 字的請求時：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">;</span> i<span class="token operator">&lt;=</span><span class="token number">8</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    navigator<span class="token punctuation">.</span><span class="token function">sendBeacon</span><span class="token punctuation">(</span><span class="token string">"https://httpstat.us/200?log"</span><span class="token operator">+</span>i<span class="token punctuation">,</span> <span class="token string">'A'</span><span class="token punctuation">.</span><span class="token function">repeat</span><span class="token punctuation">(</span><span class="token number">10000</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>你會發現最後兩個一直處於 pending 狀態，送不出去：</p>
+<p><img src="/img/navigator-sendbeacon-64kib-and-source-code/p2.png" alt="超過 queue 的範圍就會一直 pending"></p>
+<p>這是因為前六次 <code>sendBeacon</code> 已經把 queue 填到 60000 了，因此最後兩次都塞不下，所以無法接受新的請求，就會永遠處於 pending，就會 queue 空了也不會主動再塞進去。</p>
+<p>不過嚴格來講這其實也不是 <code>sendBeacon</code> 的問題，而是 fetch 加上 keepalive 會有的限制。事實上，<code>navigator.sendBeacon</code> 的底層就是 fetch 加上 keepalive。</p>
+<h2><span id="navigatorsendbeacon-的規格與-sentry-的小故事">navigator.sendBeacon 的規格與 Sentry 的小故事</span></h2><p>在規格的段落 <a target="_blank" rel="noopener" href="https://w3c.github.io/beacon/#sec-processing-model">3.2 Processing Model</a> 的第六步中，就有提到剛剛講的 queue：</p>
+<p><img src="/img/navigator-sendbeacon-64kib-and-source-code/p3.png" alt="spec 中的 queue"></p>
+<p>如果判斷塞不進去 queue 的話，<code>sendBeacon</code> 會回傳 false。</p>
+<p>其實這就是 payload 碰到問題時的解法，在呼叫 <code>sendBeacon</code> 之後判斷回傳值是否為 false，是的話就進行處理，看是要 fallback 成一般的 fetch，還是自己再做個重試的機制。</p>
+<p>而第七步則是 <code>sendBeacon</code> 主要做的事情，新建一個 keepalive 的請求然後送出：</p>
+<p><img src="/img/navigator-sendbeacon-64kib-and-source-code/p4.png" alt="keepalive 的段落"></p>
+<p>而 fetch + keepalive 的 payload 限制就是 64 KiB，這是有寫在 <a target="_blank" rel="noopener" href="https://fetch.spec.whatwg.org/#http-network-or-cache-fetch">spec</a> 裡的：</p>
+<p><img src="/img/navigator-sendbeacon-64kib-and-source-code/fetch-spec.png" alt="fetch 的 spec"></p>
+<p>專門做 error tracking 的服務 Sentry 以前其實就碰過這問題，在 2018 年時有人發現 Sentry 在 fetch 時會預設打開 keepalive，導致有些超過 65536 bytes 的請求送不出去，因此把這個 flag 給拿掉了：</p>
+<p><img src="/img/navigator-sendbeacon-64kib-and-source-code/p5.png" alt="Sentry 的 issue"></p>
+<p>來源：<a target="_blank" rel="noopener" href="https://github.com/getsentry/sentry-javascript/issues/1464">When fetch is used keepalive is the default, and Chrome only allows a POST body &lt;&#x3D; 65536 bytes in that scenario #1464</a>，拿掉的 PR：<a target="_blank" rel="noopener" href="https://github.com/getsentry/sentry-javascript/pull/1496">ref: Remove keepalive:true as a default and document payload size #1496</a></p>
+<p>兩年後的 2020 年，有人發現了 keepalive 的規格以及正確用法：<a target="_blank" rel="noopener" href="https://github.com/getsentry/sentry-javascript/issues/2547">Fetch KeepAlive #2547</a>，提議在 payload 許可之下用 keepalive，超過才不用，而不是像當時全部都不用。</p>
+<p>但當時並沒有任何動作，是又過了兩年，在 2022 年時，有人發現 Chrome 在 navigation 的時候會取消所有請求，因此有些請求送不出去，才想到要利用 keepalive 來解決。</p>
+<p>因此在 2022 年 9 月時，才又把它加了回去，並且留下精闢的註解：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/getsentry/sentry-javascript/issues/2547">feat(browser): Use fetch keepalive flag #5697</a></p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// Outgoing requests are usually cancelled when navigating to a different page, causing a "TypeError: Failed to</span>
+<span class="token comment">// fetch" error and sending a "network_error" client-outcome - in Chrome, the request status shows "(cancelled)".</span>
+<span class="token comment">// The `keepalive` flag keeps outgoing requests alive, even when switching pages. We want this since we're</span>
+<span class="token comment">// frequently sending events right before the user is switching pages (eg. whenfinishing navigation transactions).</span>
+<span class="token comment">// Gotchas:</span>
+<span class="token comment">// - `keepalive` isn't supported by Firefox</span>
+<span class="token comment">// - As per spec (https://fetch.spec.whatwg.org/#http-network-or-cache-fetch), a request with `keepalive: true`</span>
+<span class="token comment">//   and a content length of > 64 kibibytes returns a network error. We will therefore only activate the flag when</span>
+<span class="token comment">//   we're below that limit.</span>
+<span class="token literal-property property">keepalive</span><span class="token operator">:</span> request<span class="token punctuation">.</span>body<span class="token punctuation">.</span>length <span class="token operator">&lt;=</span> <span class="token number">65536</span><span class="token punctuation">,</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>中文機翻：</p>
+<blockquote>
+<p>當切換到不同頁面時，未完成的請求通常會被取消，進而導致「TypeError: Failed to fetch」錯誤，並出現「network_error」。在 Chrome 中，請求狀態會顯示「(cancelled)」。<br>keepalive 標誌可以讓未完成的請求在頁面切換時繼續保持活動狀態。由於我們經常在使用者切換頁面前傳送事件，因此需要這個功能。</p>
+<p>需要注意：</p>
+<ol>
+<li>Firefox 不支援 keepalive。</li>
+<li>根據規範，如果請求設定了 keepalive: true 並且內容長度超過 64 KiB，將會返回網路錯誤。因此，我們只會在請求內容長度低於該限制時啟用此標誌。</li>
+</ol>
+</blockquote>
+<p>但故事還沒完，就像我剛才提到的，這個 65536 的限制並不只是單個請求，而是有個 queue，因此這樣做是不夠的。半年之後，Sentry 也注意到了這個問題，加上了計算 queue size 的邏輯，讓整個機制變得更加穩健：<a target="_blank" rel="noopener" href="https://github.com/getsentry/sentry-javascript/pull/7553">fix(browser): Ensure keepalive flag is correctly set for parallel requests #7553</a></p>
+<p><img src="/img/navigator-sendbeacon-64kib-and-source-code/p6.png" alt="Issue 截圖"></p>
+<p>如果之後有想要實作類似的東西，可以直接參考上面 Sentry 的 PR。</p>
+<h2><span id="sendbeacon-的實作">sendBeacon 的實作</span></h2><h3><span id="chromium-的-sendbeacon-實作">Chromium 的 sendBeacon 實作</span></h3><p>最後我們來看一下 sendBeacon 底層的實作，先從 Chromium 開始，我以寫文章時最新的穩定版 131.0.6778.205 為例，相關程式碼在：<a target="_blank" rel="noopener" href="https://source.chromium.org/chromium/chromium/src/+/refs/tags/131.0.6778.205:third_party/blink/renderer/modules/beacon/navigator_beacon.cc;l=93">third_party&#x2F;blink&#x2F;renderer&#x2F;modules&#x2F;beacon&#x2F;navigator_beacon.cc</a></p>
+<p>我擷取其中一小段核心程式碼：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">bool NavigatorBeacon<span class="token operator">::</span><span class="token function">SendBeaconImpl</span><span class="token punctuation">(</span>
+    ScriptState<span class="token operator">*</span> script_state<span class="token punctuation">,</span>
+    <span class="token keyword">const</span> String<span class="token operator">&amp;</span> url_string<span class="token punctuation">,</span>
+    <span class="token keyword">const</span> V8UnionReadableStreamOrXMLHttpRequestBodyInit<span class="token operator">*</span> data<span class="token punctuation">,</span>
+    ExceptionState<span class="token operator">&amp;</span> exception_state<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  ExecutionContext<span class="token operator">*</span> execution_context <span class="token operator">=</span> ExecutionContext<span class="token operator">::</span><span class="token function">From</span><span class="token punctuation">(</span>script_state<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  KURL url <span class="token operator">=</span> execution_context<span class="token operator">-></span><span class="token function">CompleteURL</span><span class="token punctuation">(</span>url_string<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token function">CanSendBeacon</span><span class="token punctuation">(</span>execution_context<span class="token punctuation">,</span> url<span class="token punctuation">,</span> exception_state<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">return</span> false<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+
+  bool allowed<span class="token punctuation">;</span>
+  LocalFrame<span class="token operator">*</span> frame <span class="token operator">=</span> <span class="token function">GetSupplementable</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">DomWindow</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">GetFrame</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>data<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token keyword">switch</span> <span class="token punctuation">(</span>data<span class="token operator">-></span><span class="token function">GetContentType</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+      <span class="token comment">// [...]</span>
+      <span class="token keyword">case</span> V8UnionReadableStreamOrXMLHttpRequestBodyInit<span class="token operator">::</span>ContentType<span class="token operator">::</span>
+          kUSVString<span class="token operator">:</span>
+        UseCounter<span class="token operator">::</span><span class="token function">Count</span><span class="token punctuation">(</span>execution_context<span class="token punctuation">,</span>
+                          WebFeature<span class="token operator">::</span>kSendBeaconWithUSVString<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        allowed <span class="token operator">=</span> PingLoader<span class="token operator">::</span><span class="token function">SendBeacon</span><span class="token punctuation">(</span><span class="token operator">*</span>script_state<span class="token punctuation">,</span> frame<span class="token punctuation">,</span> url<span class="token punctuation">,</span>
+                                         data<span class="token operator">-></span><span class="token function">GetAsUSVString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">break</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+    allowed <span class="token operator">=</span> PingLoader<span class="token operator">::</span><span class="token function">SendBeacon</span><span class="token punctuation">(</span><span class="token operator">*</span>script_state<span class="token punctuation">,</span> frame<span class="token punctuation">,</span> url<span class="token punctuation">,</span> <span class="token function">String</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>allowed<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    UseCounter<span class="token operator">::</span><span class="token function">Count</span><span class="token punctuation">(</span>execution_context<span class="token punctuation">,</span> WebFeature<span class="token operator">::</span>kSendBeaconQuotaExceeded<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token keyword">return</span> allowed<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>開頭的 <code>CanSendBeacon</code> 基本上就是檢查 URL 是否合法而已，合法的話繼續往下走，會判斷要送出的 payload 的 content type，而實際送出是在 <code>PingLoader::SendBeacon</code> 這個方法裡面。</p>
+<p>除此之外可以在程式碼裡面看到 <code>UseCounter::Count</code>，這個是 Chromium 用來追蹤某些功能的使用頻率時會用到的。</p>
+<p><code>PingLoader::SendBeacon</code> 的實作在 <a target="_blank" rel="noopener" href="https://source.chromium.org/chromium/chromium/src/+/refs/tags/131.0.6778.205:third_party/blink/renderer/core/loader/ping_loader.cc">third_party&#x2F;blink&#x2F;renderer&#x2F;core&#x2F;loader&#x2F;ping_loader.cc</a>：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">bool <span class="token function">SendBeaconCommon</span><span class="token punctuation">(</span><span class="token keyword">const</span> ScriptState<span class="token operator">&amp;</span> state<span class="token punctuation">,</span>
+                      LocalFrame<span class="token operator">*</span> frame<span class="token punctuation">,</span>
+                      <span class="token keyword">const</span> KURL<span class="token operator">&amp;</span> url<span class="token punctuation">,</span>
+                      <span class="token keyword">const</span> BeaconData<span class="token operator">&amp;</span> beacon<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>frame<span class="token operator">-></span><span class="token function">DomWindow</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+           <span class="token operator">-></span><span class="token function">GetContentSecurityPolicyForWorld</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>state<span class="token punctuation">.</span><span class="token function">World</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+           <span class="token operator">-></span><span class="token function">AllowConnectToSource</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> url<span class="token punctuation">,</span> RedirectStatus<span class="token operator">::</span>kNoRedirect<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// We're simulating a network failure here, so we return 'true'.</span>
+    <span class="token keyword">return</span> true<span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+
+  ResourceRequest <span class="token function">request</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  request<span class="token punctuation">.</span><span class="token function">SetHttpMethod</span><span class="token punctuation">(</span>http_names<span class="token operator">::</span>kPOST<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  request<span class="token punctuation">.</span><span class="token function">SetKeepalive</span><span class="token punctuation">(</span>true<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  request<span class="token punctuation">.</span><span class="token function">SetRequestContext</span><span class="token punctuation">(</span>mojom<span class="token operator">::</span>blink<span class="token operator">::</span>RequestContextType<span class="token operator">::</span>BEACON<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  beacon<span class="token punctuation">.</span><span class="token function">Serialize</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  FetchParameters <span class="token function">params</span><span class="token punctuation">(</span>std<span class="token operator">::</span><span class="token function">move</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span><span class="token punctuation">,</span>
+                         <span class="token function">ResourceLoaderOptions</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>state<span class="token punctuation">.</span><span class="token function">World</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token comment">// The spec says:</span>
+  <span class="token comment">//  - If mimeType is not null:</span>
+  <span class="token comment">//   - If mimeType value is a CORS-safelisted request-header value for the</span>
+  <span class="token comment">//     Content-Type header, set corsMode to "no-cors".</span>
+  <span class="token comment">// As we don't support requests with non CORS-safelisted Content-Type, the</span>
+  <span class="token comment">// mode should always be "no-cors".</span>
+  params<span class="token punctuation">.</span><span class="token function">MutableOptions</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>initiator_info<span class="token punctuation">.</span>name <span class="token operator">=</span>
+      fetch_initiator_type_names<span class="token operator">::</span>kBeacon<span class="token punctuation">;</span>
+
+  frame<span class="token operator">-></span><span class="token function">Client</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">DidDispatchPingLoader</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  FetchUtils<span class="token operator">::</span><span class="token function">LogFetchKeepAliveRequestMetric</span><span class="token punctuation">(</span>
+      params<span class="token punctuation">.</span><span class="token function">GetResourceRequest</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">GetRequestContext</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+      FetchUtils<span class="token operator">::</span>FetchKeepAliveRequestState<span class="token operator">::</span>kTotal<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  Resource<span class="token operator">*</span> resource <span class="token operator">=</span>
+      RawResource<span class="token operator">::</span><span class="token function">Fetch</span><span class="token punctuation">(</span>params<span class="token punctuation">,</span> frame<span class="token operator">-></span><span class="token function">DomWindow</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">Fetcher</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> nullptr<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">return</span> resource<span class="token operator">-></span><span class="token function">GetStatus</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">!=</span> ResourceStatus<span class="token operator">::</span>kLoadError<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>開頭先檢查是否違反 CSP，如果沒有違反，就送出一個 keepalive 的請求，然後回傳是否成功。</p>
+<p>值得注意的是在同個檔案中，也有另一個功能做了類似的事情，叫做 <code>PingLoader::SendLinkAuditPing</code>。在 <code>&lt;a&gt;</code> 標籤上有個屬性叫做 <code>ping</code>，當使用者點了連結，瀏覽器就會發送一個請求到 ping 所指定的位置：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span>
+  <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://example.com<span class="token punctuation">"</span></span>
+  <span class="token attr-name">ping</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://blog.huli.tw<span class="token punctuation">"</span></span>
+  <span class="token punctuation">></span></span>click me
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這背後一樣是用 keepalive 的 fetch 來實作的：</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token keyword">void</span> PingLoader<span class="token operator">::</span><span class="token function">SendLinkAuditPing</span><span class="token punctuation">(</span>LocalFrame<span class="token operator">*</span> frame<span class="token punctuation">,</span>
+                                   <span class="token keyword">const</span> KURL<span class="token operator">&amp;</span> ping_url<span class="token punctuation">,</span>
+                                   <span class="token keyword">const</span> KURL<span class="token operator">&amp;</span> destination_url<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>ping_url<span class="token punctuation">.</span><span class="token function">ProtocolIsInHTTPFamily</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span><span class="token punctuation">;</span>
+
+  ResourceRequest <span class="token function">request</span><span class="token punctuation">(</span>ping_url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  request<span class="token punctuation">.</span><span class="token function">SetHttpMethod</span><span class="token punctuation">(</span>http_names<span class="token operator">::</span>kPOST<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  request<span class="token punctuation">.</span><span class="token function">SetHTTPContentType</span><span class="token punctuation">(</span><span class="token function">AtomicString</span><span class="token punctuation">(</span><span class="token string">"text/ping"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  request<span class="token punctuation">.</span><span class="token function">SetHttpBody</span><span class="token punctuation">(</span>EncodedFormData<span class="token operator">::</span><span class="token function">Create</span><span class="token punctuation">(</span>base<span class="token operator">::</span><span class="token function">span_from_cstring</span><span class="token punctuation">(</span><span class="token string">"PING"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  request<span class="token punctuation">.</span><span class="token function">SetHttpHeaderField</span><span class="token punctuation">(</span>http_names<span class="token operator">::</span>kCacheControl<span class="token punctuation">,</span>
+                             <span class="token function">AtomicString</span><span class="token punctuation">(</span><span class="token string">"max-age=0"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  request<span class="token punctuation">.</span><span class="token function">SetHttpHeaderField</span><span class="token punctuation">(</span>http_names<span class="token operator">::</span>kPingTo<span class="token punctuation">,</span>
+                             <span class="token function">AtomicString</span><span class="token punctuation">(</span>destination_url<span class="token punctuation">.</span><span class="token function">GetString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  scoped_refptr<span class="token operator">&lt;</span><span class="token keyword">const</span> SecurityOrigin<span class="token operator">></span> ping_origin <span class="token operator">=</span>
+      SecurityOrigin<span class="token operator">::</span><span class="token function">Create</span><span class="token punctuation">(</span>ping_url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">ProtocolIs</span><span class="token punctuation">(</span>frame<span class="token operator">-></span><span class="token function">DomWindow</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">Url</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">GetString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">"http"</span><span class="token punctuation">)</span> <span class="token operator">||</span>
+      frame<span class="token operator">-></span><span class="token function">DomWindow</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">GetSecurityOrigin</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">CanAccess</span><span class="token punctuation">(</span>ping_origin<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    request<span class="token punctuation">.</span><span class="token function">SetHttpHeaderField</span><span class="token punctuation">(</span>
+        http_names<span class="token operator">::</span>kPingFrom<span class="token punctuation">,</span>
+        <span class="token function">AtomicString</span><span class="token punctuation">(</span>frame<span class="token operator">-></span><span class="token function">DomWindow</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">Url</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">GetString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+
+  request<span class="token punctuation">.</span><span class="token function">SetKeepalive</span><span class="token punctuation">(</span>true<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  request<span class="token punctuation">.</span><span class="token function">SetReferrerString</span><span class="token punctuation">(</span>Referrer<span class="token operator">::</span><span class="token function">NoReferrer</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  request<span class="token punctuation">.</span><span class="token function">SetReferrerPolicy</span><span class="token punctuation">(</span>network<span class="token operator">::</span>mojom<span class="token operator">::</span>ReferrerPolicy<span class="token operator">::</span>kNever<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  request<span class="token punctuation">.</span><span class="token function">SetRequestContext</span><span class="token punctuation">(</span>mojom<span class="token operator">::</span>blink<span class="token operator">::</span>RequestContextType<span class="token operator">::</span>PING<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  FetchParameters <span class="token function">params</span><span class="token punctuation">(</span>
+      std<span class="token operator">::</span><span class="token function">move</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token function">ResourceLoaderOptions</span><span class="token punctuation">(</span>frame<span class="token operator">-></span><span class="token function">DomWindow</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">GetCurrentWorld</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  params<span class="token punctuation">.</span><span class="token function">MutableOptions</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>initiator_info<span class="token punctuation">.</span>name <span class="token operator">=</span>
+      fetch_initiator_type_names<span class="token operator">::</span>kPing<span class="token punctuation">;</span>
+
+  frame<span class="token operator">-></span><span class="token function">Client</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">DidDispatchPingLoader</span><span class="token punctuation">(</span>ping_url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  FetchUtils<span class="token operator">::</span><span class="token function">LogFetchKeepAliveRequestMetric</span><span class="token punctuation">(</span>
+      params<span class="token punctuation">.</span><span class="token function">GetResourceRequest</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">GetRequestContext</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+      FetchUtils<span class="token operator">::</span>FetchKeepAliveRequestState<span class="token operator">::</span>kTotal<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  RawResource<span class="token operator">::</span><span class="token function">Fetch</span><span class="token punctuation">(</span>params<span class="token punctuation">,</span> frame<span class="token operator">-></span><span class="token function">DomWindow</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">Fetcher</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> nullptr<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3><span id="safari-的-sendbeacon-實作">Safari 的 sendBeacon 實作</span></h3><p>Safari 的實作在 <a target="_blank" rel="noopener" href="https://github.com/WebKit/WebKit/blob/WebKit-7620.1.16.111.5/Source/WebCore/Modules/beacon/NavigatorBeacon.cpp">WebKit&#x2F;Source&#x2F;WebCore&#x2F;Modules&#x2F;beacon<br>&#x2F;NavigatorBeacon.cpp</a>：</p>
+<pre class="line-numbers language-cpp" data-language="cpp"><code class="language-cpp">ExceptionOr<span class="token operator">&lt;</span><span class="token keyword">bool</span><span class="token operator">></span> <span class="token class-name">NavigatorBeacon</span><span class="token double-colon punctuation">::</span><span class="token function">sendBeacon</span><span class="token punctuation">(</span>Document<span class="token operator">&amp;</span> document<span class="token punctuation">,</span> <span class="token keyword">const</span> String<span class="token operator">&amp;</span> url<span class="token punctuation">,</span> std<span class="token double-colon punctuation">::</span>optional<span class="token operator">&lt;</span>FetchBody<span class="token double-colon punctuation">::</span>Init<span class="token operator">></span><span class="token operator">&amp;&amp;</span> body<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    URL parsedUrl <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">completeURL</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// Set parsedUrl to the result of the URL parser steps with url and base. If the algorithm returns an error, or if</span>
+    <span class="token comment">// parsedUrl's scheme is not "http" or "https", throw a "TypeError" exception and terminate these steps.</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>parsedUrl<span class="token punctuation">.</span><span class="token function">isValid</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+        <span class="token keyword">return</span> Exception <span class="token punctuation">&#123;</span> ExceptionCode<span class="token double-colon punctuation">::</span>TypeError<span class="token punctuation">,</span> <span class="token string">"This URL is invalid"</span>_s <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>parsedUrl<span class="token punctuation">.</span><span class="token function">protocolIsInHTTPFamily</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+        <span class="token keyword">return</span> Exception <span class="token punctuation">&#123;</span> ExceptionCode<span class="token double-colon punctuation">::</span>TypeError<span class="token punctuation">,</span> <span class="token string">"Beacons can only be sent over HTTP(S)"</span>_s <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>document<span class="token punctuation">.</span><span class="token function">frame</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>document<span class="token punctuation">.</span><span class="token function">shouldBypassMainWorldContentSecurityPolicy</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span>document<span class="token punctuation">.</span><span class="token function">checkedContentSecurityPolicy</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">allowConnectToSource</span><span class="token punctuation">(</span>parsedUrl<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token comment">// We simulate a network error so we return true here. This is consistent with Blink.</span>
+        <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    ResourceRequest <span class="token function">request</span><span class="token punctuation">(</span>parsedUrl<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    request<span class="token punctuation">.</span><span class="token function">setHTTPMethod</span><span class="token punctuation">(</span><span class="token string">"POST"</span>_s<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    request<span class="token punctuation">.</span><span class="token function">setRequester</span><span class="token punctuation">(</span>ResourceRequestRequester<span class="token double-colon punctuation">::</span>Beacon<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>RefPtr documentLoader <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">loader</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+        request<span class="token punctuation">.</span><span class="token function">setIsAppInitiated</span><span class="token punctuation">(</span>documentLoader<span class="token operator">-></span><span class="token function">lastNavigationWasAppInitiated</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    ResourceLoaderOptions options<span class="token punctuation">;</span>
+    options<span class="token punctuation">.</span>credentials <span class="token operator">=</span> FetchOptions<span class="token double-colon punctuation">::</span>Credentials<span class="token double-colon punctuation">::</span>Include<span class="token punctuation">;</span>
+    options<span class="token punctuation">.</span>cache <span class="token operator">=</span> FetchOptions<span class="token double-colon punctuation">::</span>Cache<span class="token double-colon punctuation">::</span>NoCache<span class="token punctuation">;</span>
+    options<span class="token punctuation">.</span>keepAlive <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+    options<span class="token punctuation">.</span>sendLoadCallbacks <span class="token operator">=</span> SendCallbackPolicy<span class="token double-colon punctuation">::</span>SendCallbacks<span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>body<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        options<span class="token punctuation">.</span>mode <span class="token operator">=</span> FetchOptions<span class="token double-colon punctuation">::</span>Mode<span class="token double-colon punctuation">::</span>NoCors<span class="token punctuation">;</span>
+        String mimeType<span class="token punctuation">;</span>
+        <span class="token keyword">auto</span> result <span class="token operator">=</span> <span class="token class-name">FetchBody</span><span class="token double-colon punctuation">::</span><span class="token function">extract</span><span class="token punctuation">(</span><span class="token function">WTFMove</span><span class="token punctuation">(</span>body<span class="token punctuation">.</span><span class="token function">value</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span> mimeType<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>result<span class="token punctuation">.</span><span class="token function">hasException</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+            <span class="token keyword">return</span> result<span class="token punctuation">.</span><span class="token function">releaseException</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">auto</span> fetchBody <span class="token operator">=</span> result<span class="token punctuation">.</span><span class="token function">releaseReturnValue</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>fetchBody<span class="token punctuation">.</span><span class="token function">isReadableStream</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+            <span class="token keyword">return</span> Exception <span class="token punctuation">&#123;</span> ExceptionCode<span class="token double-colon punctuation">::</span>TypeError<span class="token punctuation">,</span> <span class="token string">"Beacons cannot send ReadableStream body"</span>_s <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+        request<span class="token punctuation">.</span><span class="token function">setHTTPBody</span><span class="token punctuation">(</span>fetchBody<span class="token punctuation">.</span><span class="token function">bodyAsFormData</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>mimeType<span class="token punctuation">.</span><span class="token function">isEmpty</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            request<span class="token punctuation">.</span><span class="token function">setHTTPContentType</span><span class="token punctuation">(</span>mimeType<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token function">isCrossOriginSafeRequestHeader</span><span class="token punctuation">(</span>HTTPHeaderName<span class="token double-colon punctuation">::</span>ContentType<span class="token punctuation">,</span> mimeType<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                options<span class="token punctuation">.</span>mode <span class="token operator">=</span> FetchOptions<span class="token double-colon punctuation">::</span>Mode<span class="token double-colon punctuation">::</span>Cors<span class="token punctuation">;</span>
+                options<span class="token punctuation">.</span>httpHeadersToKeep<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>HTTPHeadersToKeepFromCleaning<span class="token double-colon punctuation">::</span>ContentType<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">auto</span> cachedResource <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">protectedCachedResourceLoader</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">requestBeaconResource</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span> <span class="token function">WTFMove</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span><span class="token punctuation">,</span> options <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>cachedResource<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">logError</span><span class="token punctuation">(</span>cachedResource<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token function">ASSERT</span><span class="token punctuation">(</span><span class="token operator">!</span>m_inflightBeacons<span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span>cachedResource<span class="token punctuation">.</span><span class="token function">value</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    m_inflightBeacons<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span>cachedResource<span class="token punctuation">.</span><span class="token function">value</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    cachedResource<span class="token punctuation">.</span><span class="token function">value</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">addClient</span><span class="token punctuation">(</span><span class="token operator">*</span><span class="token keyword">this</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>可以看到整個流程與 Chromium 是差不多的，先檢查 URL 的合法性，接著檢查 CSP，然後送出一個 keepalive 的請求。</p>
+<p>這呼應到我們之前所說的以及規格上寫的，sendBeacon 底層就是個 keepalive 的 fetch。那 keepalive queue 大小超過的原始碼會在哪裡呢？</p>
+<p>從實作中可以看出如果 queue 的大小超過了，八成就是這一段出錯，因為只有這邊會回傳 false：</p>
+<pre class="line-numbers language-cpp" data-language="cpp"><code class="language-cpp"><span class="token keyword">auto</span> cachedResource <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">protectedCachedResourceLoader</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-></span><span class="token function">requestBeaconResource</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span> <span class="token function">WTFMove</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span><span class="token punctuation">,</span> options <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>cachedResource<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">logError</span><span class="token punctuation">(</span>cachedResource<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>因此可以往 <code>requestBeaconResource</code> 下去追蹤。除此之外，我們也可以從另一個方向來追蹤原始碼在哪一段。</p>
+<p>還記得剛剛那個送出 8 個長度 10000 的字串的範例嗎？在 Chrome 上只會看到請求變成 pending，但是在 Safari 上會出現貼心的提示：</p>
+<blockquote>
+<p>Beacon API cannot load <a target="_blank" rel="noopener" href="https://httpstat.us/200?log7">https://httpstat.us/200?log7</a>. Reached maximum amount of queued data of 64Kb for keepalive requests</p>
+</blockquote>
+<p>直接用這個錯誤訊息就可以找到相關的原始碼，在 <a target="_blank" rel="noopener" href="https://github.com/WebKit/WebKit/blob//WebKit-7620.1.16.111.5/Source/WebCore/loader/cache/CachedResource.cpp#L249">WebKit&#x2F;Source&#x2F;WebCore&#x2F;loader&#x2F;cache&#x2F;CachedResource.cpp</a>：</p>
+<pre class="line-numbers language-cpp" data-language="cpp"><code class="language-cpp"><span class="token keyword">if</span> <span class="token punctuation">(</span>
+    m_options<span class="token punctuation">.</span>keepAlive <span class="token operator">&amp;&amp;</span> <span class="token function">type</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">!=</span> Type<span class="token double-colon punctuation">::</span>Ping <span class="token operator">&amp;&amp;</span>
+    <span class="token operator">!</span>cachedResourceLoader<span class="token punctuation">.</span><span class="token function">keepaliveRequestTracker</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">tryRegisterRequest</span><span class="token punctuation">(</span><span class="token operator">*</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+  <span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token function">setResourceError</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+      errorDomainWebKitInternal<span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">,</span> request<span class="token punctuation">.</span><span class="token function">url</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+      <span class="token string">"Reached maximum amount of queued data of 64Kb for keepalive requests"</span>_s<span class="token punctuation">,</span>
+      ResourceError<span class="token double-colon punctuation">::</span>Type<span class="token double-colon punctuation">::</span>AccessControl
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">failBeforeStarting</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果是 keepalive，而且 type 不是 ping（sendBeacon 的 type 會是 <code>Type::Beacon</code>），又沒辦法註冊新的請求，就回傳這個錯誤。</p>
+<p>因此重點就是 <code>keepaliveRequestTracker().tryRegisterRequest</code> 這個方法了，在 <a target="_blank" rel="noopener" href="https://github.com/WebKit/WebKit/blob/WebKit-7620.1.16.111.5/Source/WebCore/loader/cache/KeepaliveRequestTracker.cpp">Source&#x2F;WebCore&#x2F;loader&#x2F;cache&#x2F;KeepaliveRequestTracker.cpp</a>：</p>
+<pre class="line-numbers language-cpp" data-language="cpp"><code class="language-cpp"><span class="token keyword">const</span> <span class="token keyword">uint64_t</span> maxInflightKeepaliveBytes <span class="token punctuation">&#123;</span> <span class="token number">65536</span> <span class="token punctuation">&#125;</span><span class="token punctuation">;</span> <span class="token comment">// 64 kibibytes as per Fetch specification.</span>
+
+<span class="token keyword">bool</span> <span class="token class-name">KeepaliveRequestTracker</span><span class="token double-colon punctuation">::</span><span class="token function">tryRegisterRequest</span><span class="token punctuation">(</span>CachedResource<span class="token operator">&amp;</span> resource<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token function">ASSERT</span><span class="token punctuation">(</span>resource<span class="token punctuation">.</span><span class="token function">options</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>keepAlive<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">auto</span> body <span class="token operator">=</span> resource<span class="token punctuation">.</span><span class="token function">resourceRequest</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">httpBody</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>body<span class="token punctuation">)</span>
+        <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">uint64_t</span> bodySize <span class="token operator">=</span> body<span class="token operator">-></span><span class="token function">lengthInBytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>m_inflightKeepaliveBytes <span class="token operator">+</span> bodySize <span class="token operator">></span> maxInflightKeepaliveBytes<span class="token punctuation">)</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+
+    <span class="token function">registerRequest</span><span class="token punctuation">(</span>resource<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>其實也就只是算一下還在等待的有多少，加上去會不會超過最大值 65536，做的事情跟 Sentry 最後的那個 PR 差不多。</p>
+<h3><span id="firefox-的-sendbeacon-實作">Firefox 的 sendBeacon 實作</span></h3><p>在之前 Sentry 的 PR 中其實就有提到 Firefox 不支援 keepalive，對應到的 ticket 是這張：<a target="_blank" rel="noopener" href="https://bugzilla.mozilla.org/show_bug.cgi?id=1342484">[meta] Support Fetch keepalive flag and enforce limit on inflight keepalive bytes</a>，目前還沒被關閉，從討論中看起來似乎半年前開始有了進展，在 2024 年 11 月推出的 Firefox 133 版本中正式開始支援，雖然還有一些 bug，但應該會越來越穩定。</p>
+<p>我用三個瀏覽器測試了一個情境，送出 10 個長度 6 萬的字串：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">;</span> i<span class="token operator">&lt;=</span><span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    navigator<span class="token punctuation">.</span><span class="token function">sendBeacon</span><span class="token punctuation">(</span><span class="token string">"https://httpstat.us/200?log"</span><span class="token operator">+</span>i<span class="token punctuation">,</span> <span class="token string">'A'</span><span class="token punctuation">.</span><span class="token function">repeat</span><span class="token punctuation">(</span><span class="token number">60000</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Chrome 跟 Safari 都只送出了一個請求，但是 Firefox 133.0.3  倒是很貼心地全部都送出去了，目前還沒有 64 KiB 的限制：</p>
+<p><img src="/img/navigator-sendbeacon-64kib-and-source-code/p7.png" alt="Firefox 截圖"></p>
+<p>如果有人好奇底層實作，程式碼在這裡：<a target="_blank" rel="noopener" href="https://github.com/mozilla/gecko-dev/blob/94c62970ba2f9c40efd5a4f83a538595425820d9/dom/base/Navigator.cpp#L1163">gecko-dev&#x2F;dom&#x2F;base&#x2F;Navigator.cpp</a>，目前看起來應該還沒把 keepalive 整進去，所以才沒有觸發到上限。未來應該會按照 spec 走，使用 keepalive 請求，並且遵守 payload 的大小限制。</p>
+<h2><span id="結語">結語</span></h2><p>小功能大學問，一個看似簡單的 <code>sendBeacon</code>，其實深入研究之後也滿有趣的，知道了它的限制、解法，也能從 Sentry 的修補過程中學到一些經驗，還看了瀏覽器的原始碼，更理解背後的實作。</p>
+<p>總之呢，在實務上若是要使用 <code>sendBeacon</code>，都請記得加個錯誤處理，在回傳值是 false 時，改成一般的 fetch 或是加上重試機制，才能加強資料傳輸的穩定性。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Front-end/">#Front-end</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2024/09/23/hitconctf-corctf-sekaictf-2024-writeup/">HITCON CTF &amp; corCTF &amp; sekaiCTF 2024 筆記</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2025 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2025/01/06/en/navigator-sendbeacon-64kib-and-source-code/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>
