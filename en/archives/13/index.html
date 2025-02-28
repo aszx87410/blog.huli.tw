@@ -6,10 +6,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 
+<link href="https://blog.huli.tw/en/archives/13/" rel="alternate" hreflang="en" />
+
+
+<link href="https://blog.huli.tw/archives/13/" rel="alternate" hreflang="x-default" />
+
+
             
 <link href="https://blog.huli.tw/archives/13/" rel="alternate" hreflang="zh-TW" />
             
-    
+
 
 
     
@@ -173,6 +179,109 @@
         <article class="article content gallery" itemscope itemprop="blogPost">
     <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
         
+            <a href="/2020/02/20/en/let-vs-var-bytecode/" itemprop="url">Exploring the Performance Issues of let and var from V8 bytecode</a>
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2020-02-20T14:49:59.000Z" itemprop="datePublished">20 February 2020</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/JavaScript/">JavaScript</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>In two of my previous articles, <a href="https://blog.huli.tw/2018/11/10/javascript-hoisting-and-tdz/">I Know You Understand Hoisting, But Do You Really Understand It?</a> and <a href="https://blog.huli.tw/2018/12/08/javascript-closure/">All Functions Are Closures: Discussing Scope and Closure in JS</a>, I talked about the differences between the scopes of let and var.</p>
+<p>The scope of let is block, while var is function. This is a classic example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">var</span> i<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">;</span> i<span class="token operator">&lt;=</span><span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>It was originally expected to output 1 to 10 in order, but unexpectedly output 10 11s. The reason behind this is that the i on the third line always has only one, which is the <code>var i</code> declared in the for loop, and it is the same variable from beginning to end.</p>
+<p>The classic solution is also very simple, just change var to let:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">;</span> i<span class="token operator">&lt;=</span><span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The reason why this works is that the above code can be seen as the following form:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+ <span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">1</span>
+ <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token punctuation">&#123;</span>
+ <span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">2</span>
+ <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token operator">...</span>
+
+<span class="token punctuation">&#123;</span>
+ <span class="token keyword">let</span> i<span class="token operator">=</span><span class="token number">10</span>
+ <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Since the scope of let is block, there is actually a new i in each round of the loop, so there are 10 different i after the loop runs 10 times, and of course, 10 different numbers are output in the end.</p>
+<p>Therefore, the biggest difference between var and let in this example is the number of variables, the former has only one, while the latter has 10.</p>
+<p>Okay, now that you know the difference between let and var, let’s take a look at the main issue of this article.</p>
+<p>In fact, this issue comes from a question raised by <a target="_blank" rel="noopener" href="https://github.com/getify">@getify</a>, the author of <a target="_blank" rel="noopener" href="https://github.com/getify/You-Dont-Know-JS">YDKJS (You Don’t Know JS)</a>, on his <a target="_blank" rel="noopener" href="https://twitter.com/getify/status/1227371214148165632">Twitter</a>:</p>
+<blockquote>
+<p>question for JS engines devs…<br>is there an optimization in place for this kind of code?</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">10</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token comment">// no closure</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<p>IOW, where the behavior of creating a new <code>i</code> per iteration is <em>not</em> needed nor observable… does JS skip doing it?</p>
+</blockquote>
+<p>If you didn’t understand it very well, you can continue to read the <a target="_blank" rel="noopener" href="https://twitter.com/getify/status/1227379557872828418">other tweet</a>:</p>
+<blockquote>
+<p>here’s a variation on the question… will JS engines exhibit much performance difference between these two loops?</p>
+</blockquote>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">var</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">100000000</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+   <span class="token comment">// do some stuff, but not closure</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">100000000</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+   <span class="token comment">// do the same stuff (no closure)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Simply put, when we usually use let with loops, isn’t it like we said above, there will be a new <code>i</code> in each round? If so, then there should be a performance difference between var and let, because let must new a new variable in each round, so let will be slower.</p>
+<p>If the loop does not need a new i in each round, will the JS engine optimize it? This issue is mainly to explore whether the JS engine will optimize this behavior.</p>
+<p>So how do we know? Either you are a JS engine developer, or you can look at the JS bytecode, but both of these difficulties are a bit too high. But don’t worry, there is a third way: look at the JS bytecode.</p>
+        <p class="article-more-link">
+            <a href="/2020/02/20/en/let-vs-var-bytecode/#more">Read More</a>
+        </p>
+    
+    </div>
+    
+    
+</article>
+
+
+
+
+    
+        <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
             <a href="/2020/01/21/en/webpack-newbie-tutorial/" itemprop="url">Introduction to webpack and snowpack for beginners</a>
         
     </h1>
@@ -271,7 +380,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2019-11-26T06:33:14.000Z" itemprop="datePublished">26 November 2019</time>
+            <time datetime="2019-11-26T05:33:14.000Z" itemprop="datePublished">26 November 2019</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -287,13 +396,14 @@
     
     <div class="article-entry is-size-6-mobile" itemprop="articleBody">
     
-        <h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>Recently, the second edition of YDKJS (You Don’t Know JS) was released, called <a target="_blank" rel="noopener" href="https://twitter.com/ydkjsy">YDKJSY</a>, where Y stands for Yet. Although the second edition is not yet complete, some of the initial chapters have already been made available on <a target="_blank" rel="noopener" href="https://github.com/getify/You-Dont-Know-JS">GitHub</a>.</p>
+        <h2 id="Introduction">Introduction</h2>
+<p>Recently, the second edition of YDKJS (You Don’t Know JS) was released, called <a target="_blank" rel="noopener" href="https://twitter.com/ydkjsy">YDKJSY</a>, where Y stands for Yet. Although the second edition is not yet complete, some of the initial chapters have already been made available on <a target="_blank" rel="noopener" href="https://github.com/getify/You-Dont-Know-JS">GitHub</a>.</p>
 <p>I read the first chapter, which talks about the history of JS. It mentioned an interesting issue:</p>
 <blockquote>
 <p>As such, sometimes the JS engines will refuse to conform to a specification-dictated change because it would break that web content.</p>
 </blockquote>
 <blockquote>
-<p>In these cases, often TC39 will backtrack and simply choose to conform the specification to the reality of the web. For example, TC39 planned to add a contains(..) method for Arrays, but it was found that this name conflicted with old JS frameworks still in use on some sites, so they changed the name to a non-conflicting includes(..). The same happened with a comedic&#x2F;tragic JS community crisis dubbed “smooshgate”, where the planned flatten(..) method was eventually renamed flat(..).</p>
+<p>In these cases, often TC39 will backtrack and simply choose to conform the specification to the reality of the web. For example, TC39 planned to add a contains(…) method for Arrays, but it was found that this name conflicted with old JS frameworks still in use on some sites, so they changed the name to a non-conflicting includes(…). The same happened with a comedic/tragic JS community crisis dubbed “smooshgate”, where the planned flatten(…) method was eventually renamed flat(…).</p>
 </blockquote>
 <p>In summary, it means that sometimes the JS specification must compromise with reality (existing old implementations). For example, the Array was originally supposed to add a method called contains, but it was changed to includes due to issues. Flatten was also renamed to flat.</p>
 <p>There is also a term “smooshgate” that was specially marked above. When searching for this keyword, it was found that it was an event that occurred around March last year, related to the aforementioned flatten. When I saw this, my first reaction was, “Huh, why don’t I know anything?” After searching for information in Traditional Chinese, I found only this article that mentioned it: <a target="_blank" rel="noopener" href="https://blog.othree.net/log/2018/05/28/smooshgate/">SmooshGate</a> and this article that only touched on it: <a target="_blank" rel="noopener" href="https://medium.com/@liuderchi/%E7%AD%86%E8%A8%98-3-%E7%A8%AE-javascript-%E7%89%A9%E4%BB%B6%E5%B1%AC%E6%80%A7%E7%9A%84%E7%89%B9%E6%80%A7-3b982f4c5695">[Note] 3 types of JavaScript object property characteristics</a>.</p>
@@ -360,7 +470,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2019-10-04T14:07:00.000Z" itemprop="datePublished">4 October 2019</time>
+            <time datetime="2019-10-04T13:07:00.000Z" itemprop="datePublished">4 October 2019</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -376,7 +486,8 @@
     
     <div class="article-entry is-size-6-mobile" itemprop="articleBody">
     
-        <h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>If there is one concept in JavaScript that is important and commonly used but often confused by beginners, it is undoubtedly “Asynchronous”. Compared to other concepts such as <a href="https://blog.huli.tw/2019/02/23/javascript-what-is-this/">this</a>, <a href="https://blog.huli.tw/2018/12/08/javascript-closure/">closure</a>, <a href="https://blog.huli.tw/2017/08/27/the-javascripts-prototype-chain/">prototype</a>, or <a href="https://blog.huli.tw/2018/11/10/javascript-hoisting-and-tdz/">hoisting</a>, asynchronous is used much more frequently in practical development and is often a pitfall for beginners.</p>
+        <h2 id="Introduction">Introduction</h2>
+<p>If there is one concept in JavaScript that is important and commonly used but often confused by beginners, it is undoubtedly “Asynchronous”. Compared to other concepts such as <a href="https://blog.huli.tw/2019/02/23/javascript-what-is-this/">this</a>, <a href="https://blog.huli.tw/2018/12/08/javascript-closure/">closure</a>, <a href="https://blog.huli.tw/2017/08/27/the-javascripts-prototype-chain/">prototype</a>, or <a href="https://blog.huli.tw/2018/11/10/javascript-hoisting-and-tdz/">hoisting</a>, asynchronous is used much more frequently in practical development and is often a pitfall for beginners.</p>
 <p>Is asynchronous really that difficult?</p>
 <p>I don’t think so. As long as you follow a correct context, you can gradually understand why asynchronous is needed and how it is handled in JavaScript.</p>
 <p>I actually wrote about a similar topic four years ago, but looking back now, it was not well written. Therefore, four years later, I am revisiting this topic and hoping to write a better quality article to clarify the concept of asynchronous.</p>
@@ -578,57 +689,18 @@
 
 
     
-        <article class="article content gallery" itemscope itemprop="blogPost">
-    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
-        
-            <a href="/2019/08/09/en/session-and-cookie-part2/" itemprop="url">A Brief Discussion on Session and Cookie: Reading RFC Together</a>
-        
-    </h1>
-    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
-        <span class="column is-narrow">
-            <time datetime="2019-08-09T12:10:00.000Z" itemprop="datePublished">9 August 2019</time>
-        </span>
-        
-        <span class="column is-narrow article-category">
-            <i class="far fa-folder"></i>
-            <a class="article-category-link" href="/en/categories/Web/">Web</a>
-        </span>
-        
-        
-        
-        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
-        
-    </div>
-    
-    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
-    
-        <h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>This is a series of three articles, which I call the “Session and Cookie Trilogy”. The goal of this series is to discuss this classic topic from shallow to deep, from understanding concepts to understanding implementation methods. This is the second article in the series, and the complete links to the three articles are as follows:</p>
-<ol>
-<li><a target="_blank" rel="noopener" href="https://medium.com/@hulitw/session-and-cookie-15e47ed838bc">Plain Talk on Session and Cookie: Starting with Running a Grocery Store</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/aszx87410/blog/issues/45">A Brief Discussion on Session and Cookie: Reading RFC Together</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/aszx87410/blog/issues/46">In-depth Session and Cookie: Implementation in Express, PHP, and Rails</a></li>
-</ol>
-        <p class="article-more-link">
-            <a href="/2019/08/09/en/session-and-cookie-part2/#more">Read More</a>
-        </p>
-    
-    </div>
-    
-    
-</article>
-
-
-
-
-    
     
         
 <nav class="pagination is-centered is-rounded" role="navigation" aria-label="pagination">
     <div class="pagination-previous">
-        <a href="/en/archives/12/">Prev</a>
+        
+            <a href="/en/archives/12/">Prev</a>
+        
     </div>
     <div class="pagination-next">
-        <a href="/en/archives/14/">Next</a>
+        
+            <a href="/en/archives/14/">Next</a>
+        
     </div>
     <ul class="pagination-list is-hidden-mobile">
         

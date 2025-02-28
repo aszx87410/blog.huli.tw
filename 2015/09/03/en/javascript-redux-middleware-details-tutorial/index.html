@@ -6,10 +6,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 
+<link href="https://blog.huli.tw/2015/09/03/en/javascript-redux-middleware-details-tutorial/" rel="alternate" hreflang="en" />
+
+
+<link href="https://blog.huli.tw/2015/09/03/javascript-redux-middleware-details-tutorial/" rel="alternate" hreflang="x-default" />
+
+
             
 <link href="https://blog.huli.tw/2015/09/03/javascript-redux-middleware-details-tutorial/" rel="alternate" hreflang="zh-TW" />
             
-    
+
 
 
 
@@ -29,8 +35,8 @@
 <meta property="og:site_name" content="Huli&#39;s blog">
 <meta property="og:description" content="Previously, I wrote an article to briefly summarize my experience in learning Redux. I still recommend the official documentation because it is super clear. However, when I was reading the official do">
 <meta property="og:locale" content="en_US">
-<meta property="article:published_time" content="2015-09-03T07:45:00.000Z">
-<meta property="article:modified_time" content="2023-06-20T05:10:49.065Z">
+<meta property="article:published_time" content="2015-09-03T06:45:00.000Z">
+<meta property="article:modified_time" content="2025-02-28T12:56:12.544Z">
 <meta property="article:author" content="Huli">
 <meta property="article:tag" content="React">
 <meta property="article:tag" content="Front-end">
@@ -212,7 +218,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2015-09-03T07:45:00.000Z" itemprop="datePublished">3 September 2015</time>
+            <time datetime="2015-09-03T06:45:00.000Z" itemprop="datePublished">3 September 2015</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -229,12 +235,13 @@
     <div class="article-entry is-size-6-mobile" itemprop="articleBody">
     
         <p>Previously, I wrote <a target="_blank" rel="noopener" href="http://huli.logdown.com/posts/294037-javascript-redux-basic-tutorial">an article</a> to briefly summarize my experience in learning Redux. I still recommend the official documentation because it is super clear.</p>
-<p>However, when I was reading the official documentation before, I didn’t fully understand the middleware part and got confused towards the end. This time, I re-read the official documentation on middleware and asynchronous operations, took notes while reading, and finally understood the implementation principle of middleware. As usual, I will share my experience.<br><a target="_blank" rel="noopener" href="http://camsong.github.io/redux-in-chinese/docs/advanced/Middleware.html">Official documentation (Chinese version, but this article has not been translated yet)</a></p>
+<p>However, when I was reading the official documentation before, I didn’t fully understand the middleware part and got confused towards the end. This time, I re-read the official documentation on middleware and asynchronous operations, took notes while reading, and finally understood the implementation principle of middleware. As usual, I will share my experience.</p>
 <p>The great thing about the official documentation is that it not only teaches you how to use it, but also starts from scratch, so you know why middleware is in its current form.</p>
 <span id="more"></span>
-
-<p>#Main Content<br>After reading some tutorial articles, you think Redux is really great, so you start using Redux for your own product. But at this moment, you suddenly want to implement a feature: logging. You want to record every action and the changes to the store after executing the action. How to do it? Let’s start with the simplest method!</p>
-<p>##First Attempt: Most Intuitive Method<br>Assuming that the code for dispatching actions is originally written like this:</p>
+<p>#Main Content<br>
+After reading some tutorial articles, you think Redux is really great, so you start using Redux for your own product. But at this moment, you suddenly want to implement a feature: logging. You want to record every action and the changes to the store after executing the action. How to do it? Let’s start with the simplest method!</p>
+<p>##First Attempt: Most Intuitive Method<br>
+Assuming that the code for dispatching actions is originally written like this:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">store<span class="token punctuation">.</span><span class="token function">dispatch</span><span class="token punctuation">(</span><span class="token function">addTodo</span><span class="token punctuation">(</span><span class="token string">'Use Redux'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 <p>We can directly change it to:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">let</span> action <span class="token operator">=</span> <span class="token function">addTodo</span><span class="token punctuation">(</span><span class="token string">'Use Redux'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
@@ -242,8 +249,8 @@
 console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'dispatching'</span><span class="token punctuation">,</span> action<span class="token punctuation">)</span><span class="token punctuation">;</span>
 store<span class="token punctuation">.</span><span class="token function">dispatch</span><span class="token punctuation">(</span>action<span class="token punctuation">)</span><span class="token punctuation">;</span>
 console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'next state'</span><span class="token punctuation">,</span> store<span class="token punctuation">.</span><span class="token function">getState</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>##Second Attempt: Wrap it in a Function<br>But everyone knows that the first method cannot be done like this because there must be more than one place in the program that needs to do this. So what should we do next? Wrap it in a function.</p>
+<p>##Second Attempt: Wrap it in a Function<br>
+But everyone knows that the first method cannot be done like this because there must be more than one place in the program that needs to do this. So what should we do next? Wrap it in a function.</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">dispatchAndLog</span><span class="token punctuation">(</span><span class="token parameter">store<span class="token punctuation">,</span> action</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
   console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'dispatching'</span><span class="token punctuation">,</span> action<span class="token punctuation">)</span><span class="token punctuation">;</span>
   store<span class="token punctuation">.</span><span class="token function">dispatch</span><span class="token punctuation">(</span>action<span class="token punctuation">)</span><span class="token punctuation">;</span>
@@ -251,7 +258,8 @@ console<span class="token punctuation">.</span><span class="token function">log<
 <span class="token punctuation">&#125;</span>
 <span class="token function">dispatchAndLog</span><span class="token punctuation">(</span>store<span class="token punctuation">,</span> <span class="token function">addTodo</span><span class="token punctuation">(</span><span class="token string">'Use Redux'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 <p>However, in this way, you need to import this function every time you need to dispatch, is there a better way?</p>
-<p>##Third Attempt: Monkeypatching<br>What is <code>Monkeypatch</code>? You can Google it yourself. The idea is to replace something at runtime. Just like you can write in your chrome devtool:</p>
+<p>##Third Attempt: Monkeypatching<br>
+What is <code>Monkeypatch</code>? You can Google it yourself. The idea is to replace something at runtime. Just like you can write in your chrome devtool:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">console<span class="token punctuation">.</span><span class="token function-variable function">log</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">text</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
   <span class="token function">alert</span><span class="token punctuation">(</span>text<span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
@@ -306,7 +314,6 @@ store<span class="token punctuation">.</span><span class="token function">dispat
 
 <span class="token function">patchStoreToAddLogging</span><span class="token punctuation">(</span>store<span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token function">patchStoreToAddCrashReporting</span><span class="token punctuation">(</span>store<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
 <p>When I first read this, I was a bit confused about how this works. Won’t the second function overwrite the first one? But after reading it a few times, I finally understood the essence of it, which lies in the <code>let next = store.dispatch;</code> line.</p>
 <p>The behavior of the above code is roughly as follows:</p>
 <ol>
@@ -329,7 +336,8 @@ store<span class="token punctuation">.</span><span class="token function">dispat
 <li>It ends.</li>
 </ol>
 <p>This way, we achieve the most important function of our middleware, which is to let the action go through layer after layer of middleware and finally reach the store. But this is still not good enough.</p>
-<h2><span id="fourth-attempt-hide-monkeypatching">Fourth attempt: Hide Monkeypatching</span></h2><p>Previously, we directly replaced <code>store.dispatch</code>. What if we don’t replace it directly, but instead return a function? What will happen?</p>
+<h2><span id="fourth-attempt-hide-monkeypatching">Fourth attempt: Hide Monkeypatching</span></h2>
+<p>Previously, we directly replaced <code>store.dispatch</code>. What if we don’t replace it directly, but instead return a function? What will happen?</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">logger</span><span class="token punctuation">(</span><span class="token parameter">store</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
   <span class="token keyword">let</span> next <span class="token operator">=</span> store<span class="token punctuation">.</span>dispatch<span class="token punctuation">;</span>
 
@@ -343,11 +351,9 @@ store<span class="token punctuation">.</span><span class="token function">dispat
     <span class="token keyword">return</span> result<span class="token punctuation">;</span>
   <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
 <p>Suppose we change our <code>crashReporter</code> to this form as well. Then we can do this:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">store<span class="token punctuation">.</span>dispatcher <span class="token operator">=</span> <span class="token function">logger</span><span class="token punctuation">(</span>store<span class="token punctuation">)</span><span class="token punctuation">;</span>
 store<span class="token punctuation">.</span>dispatcher <span class="token operator">=</span> <span class="token function">crashReporter</span><span class="token punctuation">(</span>store<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-
 <p>We’re just extracting <code>store.dispatcher</code> and putting it outside the function. But the advantage of doing this is that we can do this:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">applyMiddlewareByMonkeypatching</span><span class="token punctuation">(</span><span class="token parameter">store<span class="token punctuation">,</span> middlewares</span><span class="token punctuation">)</span> 
   <span class="token comment">// Transform dispatch function with each middleware.</span>
@@ -356,9 +362,9 @@ store<span class="token punctuation">.</span>dispatcher <span class="token opera
   <span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span>
 <span class="token function">applyMiddlewareByMonkeypatching</span><span class="token punctuation">(</span>store<span class="token punctuation">,</span> <span class="token punctuation">[</span>logger<span class="token punctuation">,</span> crashReporter<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
 <p>But this is still just extracting the monkeypatching part. In the next step, we need to completely remove the monkeypatching method.</p>
-<h2><span id="fifth-attempt-removing-monkeypatching">Fifth Attempt: Removing Monkeypatching</span></h2><p>Why do we need to override <code>dispatch</code>? One important factor is that this is the only way to continuously call the previous <code>dispatch</code>.</p>
+<h2><span id="fifth-attempt-removing-monkeypatching">Fifth Attempt: Removing Monkeypatching</span></h2>
+<p>Why do we need to override <code>dispatch</code>? One important factor is that this is the only way to continuously call the previous <code>dispatch</code>.</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">logger</span><span class="token punctuation">(</span><span class="token parameter">store</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
   <span class="token comment">// This line is crucial to achieve chaining</span>
   <span class="token keyword">let</span> next <span class="token operator">=</span> store<span class="token punctuation">.</span>dispatch<span class="token punctuation">;</span>
@@ -370,7 +376,6 @@ store<span class="token punctuation">.</span>dispatcher <span class="token opera
     <span class="token keyword">return</span> result<span class="token punctuation">;</span>
   <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
 <p>Without that important line, we cannot achieve the chaining effect. However, there is another way to achieve the same result. We can receive a <code>next</code> parameter to achieve the same effect. The official documentation then quickly explains the most important part. Here, I will try to slow down the progress and explain more details, which is the concept of <code>currying</code>.</p>
 <p>Continuing from what we just talked about, we can receive a <code>next</code> parameter, which will look like this:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">logger</span><span class="token punctuation">(</span><span class="token parameter">store<span class="token punctuation">,</span> next</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
@@ -381,7 +386,6 @@ store<span class="token punctuation">.</span>dispatcher <span class="token opera
     <span class="token keyword">return</span> result<span class="token punctuation">;</span>
   <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
 <p>As you can see, it looks very similar to the previous one, except that the original <code>next</code> is now passed in as a parameter. When we use it, it becomes:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">let</span> dispatch <span class="token operator">=</span> store<span class="token punctuation">.</span>dispatch<span class="token punctuation">;</span>
 dispatch <span class="token operator">=</span> <span class="token function">crashReporter</span><span class="token punctuation">(</span>store<span class="token punctuation">,</span> dispatch<span class="token punctuation">)</span><span class="token punctuation">;</span>
@@ -407,7 +411,6 @@ dispatch <span class="token operator">=</span> <span class="token function">logg
     <span class="token punctuation">&#125;</span>
   <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
 <p>The difference is that the <code>let next = store.dispatch;</code> inside the function is removed. Our middleware functions <code>logger</code> and <code>crashReport</code> are now cleaner. After changing it, we also need to change our original <code>applyMiddleware</code> to make it conform to the new format:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">applyMiddleware</span><span class="token punctuation">(</span><span class="token parameter">store<span class="token punctuation">,</span> middlewares</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
 
@@ -421,7 +424,6 @@ dispatch <span class="token operator">=</span> <span class="token function">logg
 
 <span class="token comment">// The way to call it is exactly the same, except that this function now returns a store</span>
 <span class="token function">applyMiddleware</span><span class="token punctuation">(</span>store<span class="token punctuation">,</span> <span class="token punctuation">[</span>logger<span class="token punctuation">,</span> crashReporter<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
 <p>Next, let’s look at the official documentation and examples and see where they differ from what we just wrote. The first point is that we pass two parameters to <code>logger</code> and <code>crashReport</code>, but the official implementation only passes one. This is done using a technique called <code>currying</code>. What is <code>currying</code>? It is the process of breaking down a function with multiple parameters into many functions with only one parameter. You can understand it better by looking at the example:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">max</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span>b</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
 	<span class="token keyword">return</span> a<span class="token operator">></span>b<span class="token operator">?</span>a<span class="token operator">:</span>b<span class="token punctuation">;</span>
@@ -434,7 +436,6 @@ dispatch <span class="token operator">=</span> <span class="token function">logg
 	<span class="token punctuation">&#125;</span>
 <span class="token punctuation">&#125;</span>
 <span class="token function">maxCurrying</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
 <p>With this basic concept, we can also make the same changes to our <code>logger</code> function:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// It can be compared with the original, and it is only one more layer of function wrapping</span>
 <span class="token keyword">function</span> <span class="token function">logger</span><span class="token punctuation">(</span><span class="token parameter">store</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
@@ -465,7 +466,6 @@ dispatch <span class="token operator">=</span> <span class="token function">logg
     <span class="token keyword">return</span> result<span class="token punctuation">;</span>
   <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
 <p>When I first looked at the official documentation, the most confusing part for me was this section. Because I rarely used this kind of function that returns a function that returns a function, I was immediately confused. So I had to find a way to reduce the number of nested functions first, and then understand <code>currying</code> before going back to understand the original code. For me, this way is easier, otherwise it would be too overwhelming.</p>
 <p><code>applyMiddleware</code> can be changed to this:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">applyMiddleware</span><span class="token punctuation">(</span><span class="token parameter">store<span class="token punctuation">,</span> middlewares</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
@@ -486,7 +486,6 @@ dispatch <span class="token operator">=</span> <span class="token function">logg
 
   <span class="token keyword">return</span> Object<span class="token punctuation">.</span><span class="token function">assign</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span> store<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span> dispatch <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
 <p>In fact, at this point, it is already quite similar to the implementation of <code>redux</code> itself. In fact, the way middleware is written is the way <code>redux</code> requires it to be written. Finally, let’s take a look at how to use the official provided usage:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">import</span> <span class="token punctuation">&#123;</span> createStore<span class="token punctuation">,</span> combineReducers<span class="token punctuation">,</span> applyMiddleware <span class="token punctuation">&#125;</span> <span class="token keyword">from</span> <span class="token string">'redux'</span><span class="token punctuation">;</span>
 
@@ -504,15 +503,13 @@ dispatch <span class="token operator">=</span> <span class="token function">logg
 
 <span class="token comment">// Replace the original createStore with createStoreWithMiddleware</span>
 <span class="token keyword">let</span> store <span class="token operator">=</span> <span class="token function">createStoreWithMiddleware</span><span class="token punctuation">(</span>todoApp<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<h2><span id="summary">Summary</span></h2><p>When I was reading the official documentation, I could understand everything until it suddenly jumped to the <code>currying</code> part. Because I was unfamiliar with this concept, I was confused. Later, I made up my mind to understand it, and after reading it again, I tried to understand what each line meant and how the process worked. After that, it became clearer.</p>
+<h2><span id="summary">Summary</span></h2>
+<p>When I was reading the official documentation, I could understand everything until it suddenly jumped to the <code>currying</code> part. Because I was unfamiliar with this concept, I was confused. Later, I made up my mind to understand it, and after reading it again, I tried to understand what each line meant and how the process worked. After that, it became clearer.</p>
 <p>This article is heavily based on the official example, and the code is copied directly, but with some minor changes explained here. For example, in the <code>applyMiddleware</code> of the official example, there is actually:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">middlewares <span class="token operator">=</span> middlewares<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 middlewares<span class="token punctuation">.</span><span class="token function">reverse</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-
 <p><code>reverse()</code> is because of the order of execution, and <code>slice()</code> is to copy the array. But I don’t know why it needs to be copied, maybe to avoid changing the original parameters?</p>
 <p>In short, I hope this article can help some beginners who are confused like me. I still recommend everyone to read the official documentation. If there are any mistakes in my writing, please leave a comment or send me an email. Thank you.</p>
-<p>Reference:<br><a target="_blank" rel="noopener" href="http://camsong.github.io/redux-in-chinese/docs/advanced/Middleware.html">http://camsong.github.io/redux-in-chinese/docs/advanced/Middleware.html</a></p>
 
     
     </div>
