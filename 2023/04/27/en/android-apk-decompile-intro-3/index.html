@@ -244,6 +244,7 @@
 <p>Finally, I found out that Android changed its security settings above 6.0, and by default, it does not trust certificates installed by users, which is why it cannot intercept them. One solution is to install a local VPN, which will route all traffic through the proxy, but I found it a bit cumbersome after trying it out.</p>
 <p>Among the many methods, the most useful one I tried was to unpack the apk, modify some settings, and then repack it. This article will document the process and experience.</p>
 <span id="more"></span>
+
 <p>Series links:</p>
 <ol>
 <li><a href="/2023/04/27/en/android-apk-decompile-intro-1/">Android App Reverse Engineering Part 1: Unpacking and Rebuilding Apks</a></li>
@@ -251,26 +252,24 @@
 <li><a href="/2023/04/27/en/android-apk-decompile-intro-3/">Android App Reverse Engineering Part 3: Monitoring App Packets</a></li>
 <li><a href="/2023/04/27/en/android-apk-decompile-intro-4/">Android App Reverse Engineering Part 4: Dynamic Analysis with Frida</a></li>
 </ol>
-<h2><span id="prerequisites">Prerequisites</span></h2>
-<p>There are two prerequisites:</p>
+<h2><span id="prerequisites">Prerequisites</span></h2><p>There are two prerequisites:</p>
 <ol>
 <li>Prepare a proxy</li>
 <li>Set up the phone</li>
 </ol>
 <p>Any proxy can be used for the proxy part. I used the common <a target="_blank" rel="noopener" href="https://portswigger.net/burp">Burp Suite</a>, and the settings for other software should be similar.</p>
 <p>First, go to Proxy -&gt; Options to add Proxy Listeners, and remember to select all interfaces for the bind to address so that the phone can connect:</p>
-<p><img src="/img/android-apk-decompile-intro/p7-proxy.png" alt></p>
+<p><img src="/img/android-apk-decompile-intro/p7-proxy.png"></p>
 <p>The computer’s proxy is now set up, and we can move on to setting up the phone.</p>
-<p>Before starting the setup, make sure that the phone and computer are connected to the same Wi-Fi network. Then, check the internal IP address of the computer and go to Settings =&gt; Connections =&gt; Wi-Fi on the phone to edit the connected network and set up a manual proxy to route the phone’s traffic to the computer.</p>
+<p>Before starting the setup, make sure that the phone and computer are connected to the same Wi-Fi network. Then, check the internal IP address of the computer and go to Settings &#x3D;&gt; Connections &#x3D;&gt; Wi-Fi on the phone to edit the connected network and set up a manual proxy to route the phone’s traffic to the computer.</p>
 <p>Next, we need to install Burp Suite’s certificate on the phone. Simply visit <code>http://burpsuite</code> on the phone, and a file called <code>cert.der</code> will be downloaded. Remember to rename it to <code>cert.cer</code> and then install the certificate.</p>
 <p>At this point, the phone is ready.</p>
-<h2><span id="modifying-the-apk">Modifying the Apk</span></h2>
-<p>The apk used for this demonstration can be found here: <a target="_blank" rel="noopener" href="https://github.com/aszx87410/demo/raw/master/android/demoapp-http.apk">https://github.com/aszx87410/demo/raw/master/android/demoapp-http.apk</a></p>
+<h2><span id="modifying-the-apk">Modifying the Apk</span></h2><p>The apk used for this demonstration can be found here: <a target="_blank" rel="noopener" href="https://github.com/aszx87410/demo/raw/master/android/demoapp-http.apk">https://github.com/aszx87410/demo/raw/master/android/demoapp-http.apk</a></p>
 <p>The content of the app is simple: pressing a button sends a request, and if it is intercepted, it means that it was successful. After installing the app, you can try it out. You should find that even though all the settings are in place, the proxy is still empty.</p>
 <p>As I mentioned at the beginning, there is a section in the Android official documentation that explains this: <a target="_blank" rel="noopener" href="https://developer.android.com/training/articles/security-config">Network security configuration</a></p>
 <p>The modification method is also simple and basically does not require any changes to the code. Therefore, we first use Apktool to unpack the apk.</p>
 <p>Next, open AndroidManifest.xml and find <code>&lt;application&gt;</code>. Check if it has the attribute <code>android:networkSecurityConfig</code>. If it does not, add it: <code>android:networkSecurityConfig=&quot;@xml/network_security_config&quot;</code>. If it does, remember the name of the xml.</p>
-<p>Then, go to res/xml and add <code>network_security_config.xml</code>, with the following content:</p>
+<p>Then, go to res&#x2F;xml and add <code>network_security_config.xml</code>, with the following content:</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token prolog">&lt;?xml version="1.0" encoding="utf-8"?></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>network-security-config</span><span class="token punctuation">></span></span>
   <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>base-config</span> <span class="token attr-name">cleartextTrafficPermitted</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>true<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
@@ -280,11 +279,11 @@
     <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>trust-anchors</span><span class="token punctuation">></span></span>
   <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>base-config</span><span class="token punctuation">></span></span>
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>network-security-config</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>This file represents that the app trusts all certificates, including those installed by the user. If the app already has this file, you can replace the contents with the above to ensure that the app trusts user certificates.</p>
 <p>Then repack the apk and click the button again to see if you can intercept the traffic from the proxy:</p>
-<p><img src="/img/android-apk-decompile-intro/p8-success.png" alt></p>
-<h2><span id="certificate-pinning">Certificate pinning</span></h2>
-<p>If the proxy still cannot listen after the above steps, it means that the app may have other security settings, such as certificate pinning.</p>
+<p><img src="/img/android-apk-decompile-intro/p8-success.png"></p>
+<h2><span id="certificate-pinning">Certificate pinning</span></h2><p>If the proxy still cannot listen after the above steps, it means that the app may have other security settings, such as certificate pinning.</p>
 <p>What is certificate pinning? If a webpage uses https, it means that the server has an https certificate, and certificate pinning means that the app specifies what certificate should correspond to a certain domain. If the certificate does not match, it means that someone is messing with it in the middle, so the connection is rejected.</p>
 <p>Taking the popular library OkHttp as an example, the document writes how to implement this feature:</p>
 <pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token class-name">String</span> hostname <span class="token operator">=</span> <span class="token string">"publicobject.com"</span><span class="token punctuation">;</span>
@@ -299,6 +298,7 @@
     <span class="token punctuation">.</span><span class="token function">url</span><span class="token punctuation">(</span><span class="token string">"https://"</span> <span class="token operator">+</span> hostname<span class="token punctuation">)</span>
     <span class="token punctuation">.</span><span class="token function">build</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 client<span class="token punctuation">.</span><span class="token function">newCall</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">execute</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>If you want to try it out, you can use this apk file: <a target="_blank" rel="noopener" href="https://github.com/aszx87410/demo/raw/master/android/demoapp-pinning.apk">https://github.com/aszx87410/demo/raw/master/android/demoapp-pinning.apk</a></p>
 <p>We still use apktool to unpack it, then put the network security config in as before, and then find where the code uses certificate pinner.</p>
 <p>Because the code has turned on proguard this time, even okhttp has been obfuscated, and searching for the keyword <code>certificatePinner</code> may not find anything. What should we do? We can try another way. When using this feature, you must write a set of sha256 values in it, so we can search for: <code>sha256/</code></p>
@@ -333,6 +333,7 @@ client<span class="token punctuation">.</span><span class="token function">newCa
     <span class="token keyword">const</span><span class="token operator">/</span><span class="token number">4</span> v3<span class="token punctuation">,</span> <span class="token number">0x0</span>
 
     <span class="token keyword">const</span><span class="token operator">/</span><span class="token number">4</span> v4<span class="token punctuation">,</span> <span class="token number">0x0</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>What should we do after finding it? Do we need to change smali and remove certificate pinner? In fact, there is a simpler way.</p>
 <p>From the code, we can guess that the <code>archive.org</code> below should be the bound domain, so as long as we change this domain to any other string, other domains will not check whether the certificate matches.</p>
 <p>After changing it, repack the app and install it, and you can listen to the traffic normally.</p>
@@ -340,6 +341,7 @@ client<span class="token punctuation">.</span><span class="token function">newCa
 <pre class="line-numbers language-java" data-language="java"><code class="language-java"># virtual methods
 <span class="token punctuation">.</span>method <span class="token keyword">public</span> varargs <span class="token function">add</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token punctuation">[</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">Lokhttp3</span><span class="token operator">/</span><span class="token class-name">CertificatePinner</span>$<span class="token class-name">Builder</span><span class="token punctuation">;</span>
     <span class="token punctuation">.</span>locals <span class="token number">5</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
 <p>This is the method that okhttp uses to handle adding certificate pinner. We just need to change it like this:</p>
 <pre class="line-numbers language-java" data-language="java"><code class="language-java"># virtual methods
 <span class="token punctuation">.</span>method <span class="token keyword">public</span> varargs <span class="token function">add</span><span class="token punctuation">(</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token punctuation">[</span><span class="token class-name">Ljava</span><span class="token operator">/</span>lang<span class="token operator">/</span><span class="token class-name">String</span><span class="token punctuation">;</span><span class="token punctuation">)</span><span class="token class-name">Lokhttp3</span><span class="token operator">/</span><span class="token class-name">CertificatePinner</span>$<span class="token class-name">Builder</span><span class="token punctuation">;</span>
@@ -347,9 +349,9 @@ client<span class="token punctuation">.</span><span class="token function">newCa
 
     # patch
     <span class="token keyword">const</span><span class="token operator">-</span>string p1<span class="token punctuation">,</span> <span class="token string">"abc"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>So the first parameter (domain) will always be abc and will never take effect.</p>
-<h2><span id="summary">Summary</span></h2>
-<p>In this article, we learned how to modify the app ourselves and remove some anti-man-in-the-middle attack mechanisms, such as changing the network security config and the part of the code that handles certificate pinning.</p>
+<h2><span id="summary">Summary</span></h2><p>In this article, we learned how to modify the app ourselves and remove some anti-man-in-the-middle attack mechanisms, such as changing the network security config and the part of the code that handles certificate pinning.</p>
 <p>For general apps, this should be enough, at least to monitor traffic and see what the app is sending. And compared to the VPN solution, there is another advantage, that is, it can be repackaged twice, and a version that can work by replacing the API address can be produced, with higher flexibility.</p>
 <p>In the next article, we will learn another way to analyze apps.</p>
 <p>Series link:</p>
@@ -378,7 +380,7 @@ client<span class="token punctuation">.</span><span class="token function">newCa
         </span>
         <span class="column is-12-mobile is-half-desktop  article-nav-next">
             
-            <a href="/2023/04/14/en/how-to-prepare-japan-fe-and-sg-exam/">Preparation Experience for Japan&#39;s FE and SG Exams for Zero-Day Japanese Beginners</a>
+            <a href="/2023/04/27/en/android-apk-decompile-intro-2/">Android App Reverse Engineering Part 2: Modifying Smali Code</a>
             
         </span>
     </div>

