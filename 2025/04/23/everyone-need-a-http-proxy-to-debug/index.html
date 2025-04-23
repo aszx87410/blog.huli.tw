@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>人人都需要一個 HTTP proxy 來 debug - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<link href="https://blog.huli.tw/2025/04/23/everyone-need-a-http-proxy-to-debug/" rel="alternate" hreflang="zh-TW" />
+
+
+<link href="https://blog.huli.tw/2025/04/23/everyone-need-a-http-proxy-to-debug/" rel="alternate" hreflang="x-default" />
+
+
+            
+<link href="https://blog.huli.tw/2025/04/23/en/everyone-need-a-http-proxy-to-debug/" rel="alternate" hreflang="en" />
+            
+
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2025/04/23/everyone-need-a-http-proxy-to-debug/">
+    
+
+
+
+
+
+    <meta name="description" content="身為每天都要與網頁打交道的前端工程師，熟悉 DevTools 的使用是相當合理的。每當接 API 出問題時，就按下快捷鍵打開 DevTools，切到 Network 分頁，找到紅色的那一行，右鍵複製成 cURL 貼到群組裡面，讓後端自己找找問題。 但不曉得大家有沒有碰過 DevTools 不夠用的狀況，這時該怎麼辦？">
+<meta property="og:type" content="article">
+<meta property="og:title" content="人人都需要一個 HTTP proxy 來 debug">
+<meta property="og:url" content="https://blog.huli.tw/2025/04/23/everyone-need-a-http-proxy-to-debug/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="身為每天都要與網頁打交道的前端工程師，熟悉 DevTools 的使用是相當合理的。每當接 API 出問題時，就按下快捷鍵打開 DevTools，切到 Network 分頁，找到紅色的那一行，右鍵複製成 cURL 貼到群組裡面，讓後端自己找找問題。 但不曉得大家有沒有碰過 DevTools 不夠用的狀況，這時該怎麼辦？">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/everyone-need-a-http-proxy-to-debug/cover.png">
+<meta property="article:published_time" content="2025-04-23T02:50:00.000Z">
+<meta property="article:modified_time" content="2025-04-23T11:40:51.930Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Web">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/everyone-need-a-http-proxy-to-debug/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="人人都需要一個 HTTP proxy 來 debug" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#devtools-真的會不夠用嗎是不是你不會用">1&nbsp;&nbsp;<b>DevTools 真的會不夠用嗎？是不是你不會用？</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#重新導向前的請求細節看不到">1.1&nbsp;&nbsp;重新導向前的請求細節看不到</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#websocket-連線握手失敗找不到原因">1.2&nbsp;&nbsp;WebSocket 連線握手失敗找不到原因</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#簡單好用的-http-proxy">2&nbsp;&nbsp;<b>簡單好用的 HTTP Proxy</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#把-burp-suite-當-proxy-app-來用">2.1&nbsp;&nbsp;把 Burp Suite 當 Proxy App 來用</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#用-mitmproxy-搭配腳本動態改變內容">2.2&nbsp;&nbsp;用 mitmproxy 搭配腳本動態改變內容</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#結語">3&nbsp;&nbsp;<b>結語</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2025/04/23/en/everyone-need-a-http-proxy-to-debug/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        最近開了一個讀者回饋表單，無論是對文章的感想或是對部落格的感想，有什麼想回饋的都可以填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            人人都需要一個 HTTP proxy 來 debug
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2025-04-23T02:50:00.000Z" itemprop="datePublished">2025年4月23日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Web/">Web</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>身為每天都要與網頁打交道的前端工程師，熟悉 DevTools 的使用是相當合理的。每當接 API 出問題時，就按下快捷鍵打開 DevTools，切到 Network 分頁，找到紅色的那一行，右鍵複製成 cURL 貼到群組裡面，讓後端自己找找問題。</p>
+<p>但不曉得大家有沒有碰過 DevTools 不夠用的狀況，這時該怎麼辦？</p>
+<span id="more"></span>
+
+<h2><span id="devtools-真的會不夠用嗎是不是你不會用">DevTools 真的會不夠用嗎？是不是你不會用？</span></h2><p>舉幾個我實際碰過的案例，如果 DevTools 能解決那當然是最方便的，但我解決不了（也有可能是我不會用就是了）。另外，底下的 DevTools 指的都是 Chrome DevTools，或許其他瀏覽器的不會有這些問題。</p>
+<h3><span id="重新導向前的請求細節看不到">重新導向前的請求細節看不到</span></h3><p>很多實作 OAuth 相關服務的網站在登入完成後，會跳轉到 redirect url 並且帶著一個 code，而這時有些網站會拿 code 去交換 access_token，然後再帶著 access_token 跳轉到下一個頁面。如果 code 交換 access_token 這一步有問題，該怎麼 debug 呢？</p>
+<p>Chrome DevTools 在跳轉到其他頁面時，預設會把 console 跟 network 的東西都清空。有一個選項叫做「Preserve log」，把它勾起來以後看似問題就解決了，但其實沒有。</p>
+<p>大家可以隨便找一個網頁，打開 DevTools 並且把保留 log 勾起來，然後執行以下程式碼：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'https://httpbin.org/user-agent'</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> window<span class="token punctuation">.</span>location <span class="token operator">=</span> <span class="token string">'https://example.com'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>當跳轉完成以後，雖然 Network 那邊確實可以看到這個請求，但點進去以後只會看到「Failed to load response data」：</p>
+<p><img src="/img/everyone-need-a-http-proxy-to-debug/p1.png" alt="看不到請求"></p>
+<p>這個問題從 2012 年就有人回報了，好不容易等了十幾年，2023 年底時說這個在 2024 的 roadmap 上，但目前依然沒有任何動靜：<a target="_blank" rel="noopener" href="https://issues.chromium.org/issues/40254754">DevTools: XHR (and other resources) content not available after navigation.</a>。</p>
+<p>總之呢，在這個情境之下，看不到 response 基本上沒辦法 debug，很不方便。</p>
+<h3><span id="websocket-連線握手失敗找不到原因">WebSocket 連線握手失敗找不到原因</span></h3><p>雖然我們平常在用 WebSocket 時，只需要一行程式碼就可以建立連接，但背後其實是分了兩步。</p>
+<p>第一步會發出一個 HTTP Upgrade 請求，完成以後才切換到 WebSocket 連線。雖然大多數狀況之下第一步都會成功，那如果第一步失敗會怎樣呢？</p>
+<p>我們可以請 AI 寫一個很簡單的 demo 出來：</p>
+<pre class="line-numbers language-none"><code class="language-none">寫一個 nodejs websocket server，然後用一個 nginx 擋在前面
+nginx 的作用是當 url 含有 ?debug 的時候要回傳 500 錯誤
+
+當 websocket 連線後會往 client 自動發送 hello 的 message
+
+最後要包裝成可以用 docker compose 跑起來<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>等 AI 產完之後用 docker 跑起來，一樣隨便開個網頁建立連接，會發現帶有 debug 的那個連線請求，你只知道失敗了，卻完全不知道原因：</p>
+<p><img src="/img/everyone-need-a-http-proxy-to-debug/p2.png" alt="看不到原因"></p>
+<p>這個錯誤訊息甚至跟你隨便連一個沒開的 port 一樣，完全不知道為什麼會失敗，這樣也很難跟後端說問題在哪裡。</p>
+<p>以上是兩個我有印象的範例，但實際開發中應該碰過更多更多，基本上都是只靠 DevTools 來看 Network 沒辦法解決的問題，要嘛是看不到，要嘛看到的東西不太對。</p>
+<h2><span id="簡單好用的-http-proxy">簡單好用的 HTTP Proxy</span></h2><p>既然沒辦法靠 DevTools，那只能依賴更底層的工具了，例如說 HTTP Proxy！有些工具會在你本機起一個 proxy，這樣流量就會都經過它，自然而然就能看到所有的請求了，就不必再受限於 DevTools。</p>
+<p>而且另一個好處是有地方可以互相對照，如果 proxy 顯示的跟 DevTools 顯示的不同，就有可能是 DevTools 顯示的東西有問題。</p>
+<p>因此，誠心推薦大家找個 HTTP Proxy 來用，我自己用過的有這三個：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://www.charlesproxy.com/">Charles</a></li>
+<li><a target="_blank" rel="noopener" href="https://portswigger.net/burp/communitydownload">Burp Suite</a></li>
+<li><a target="_blank" rel="noopener" href="https://mitmproxy.org/">mitmproxy</a></li>
+</ol>
+<p>以前我剛接觸 proxy 時用的是 Charles，接觸到資安以後就改成用第二個 Burp Suite 了。它其實是個可以拿來做各種資安相關測試的工具，但我覺得你只拿來做 proxy 也沒問題，非常方便。</p>
+<p>第三個 mitmproxy 是開源且免費的，知名度也很高，我偶爾也會用但是用的方式不太一樣，這個晚點再講。</p>
+<h3><span id="把-burp-suite-當-proxy-app-來用">把 Burp Suite 當 Proxy App 來用</span></h3><p>先到官網下載個免費的社群版：<a target="_blank" rel="noopener" href="https://portswigger.net/burp/communitydownload">https://portswigger.net/burp/communitydownload</a></p>
+<p>打開之後按下 Next 然後 Start Burp，就會看到主畫面。你會發現它的功能很多，但我們先切到「Proxy」頁籤底下「HTTP history」這一頁就行了：</p>
+<p><img src="/img/everyone-need-a-http-proxy-to-debug/p3.png" alt="Burp 畫面"></p>
+<p>然後那顆很顯眼橘色的「Open Browser」點下去，就會開啟它自帶的 Chrome 瀏覽器，可以用這個瀏覽器訪問任何一個網頁，例如說 example.com。</p>
+<p>接著切回工具，就會發現 HTTP history 裡面記錄著所有請求的原始內容跟 response：</p>
+<p><img src="/img/everyone-need-a-http-proxy-to-debug/p4.png" alt="請求紀錄"></p>
+<p>如此一來，前面提過的跳轉案例跟 WebSocket 握手失敗，都可以在這邊看到原始請求內容，錯誤一目瞭然：</p>
+<p><img src="/img/everyone-need-a-http-proxy-to-debug/p5.png" alt="原始內容"></p>
+<p>如果未來你碰到有些請求看不到，那就是被預設的 filter 篩選掉了，點 Filter settings 那邊選 show all 後 apply，應該就能看到了。</p>
+<p>（若是有碰到不安全的連線等問題，需要先安裝憑證，請參考：<a target="_blank" rel="noopener" href="https://portswigger.net/burp/documentation/desktop/external-browser-config/certificate">Installing Burp’s CA certificate</a>）</p>
+<p>以上就是 Burp Suite 做為 HTTP Proxy 的基本介紹。如果你不想用它提供的 Chrome，也可以自己設置電腦或是瀏覽器的 proxy，它預設會在 8080 port。</p>
+<p>舉例來說，我在 Mac 上會再裝一個 Chrome Canary 專門拿來 debug，用這個指令可以開啟並且設定好 proxy 位置：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">open</span> <span class="token parameter variable">-a</span> <span class="token string">"Google Chrome Canary"</span> <span class="token parameter variable">--args</span> --proxy-server<span class="token operator">=</span><span class="token string">"http://localhost:8080"</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如此一來就能用自己熟悉的瀏覽器 debug 了。</p>
+<p>話說 Burp Suite 還有很多其他功能啦，例如說重放請求或是暴力破解等等，不過我覺得一般工程師把它當 proxy 來用就已經幫助很大了。對完整功能有興趣的話可以參考 HackerCat 所寫的 <a target="_blank" rel="noopener" href="https://hackercat.org/burp-suite-tutorial/web-pentesting-burp-suite-total-tutorial">Web滲透測試 – Burp Suite 完整教學系列</a>。</p>
+<h3><span id="用-mitmproxy-搭配腳本動態改變內容">用 mitmproxy 搭配腳本動態改變內容</span></h3><p>mitmproxy 的安裝過程我就不多說了，可以參考<a target="_blank" rel="noopener" href="https://docs.mitmproxy.org/stable/overview-getting-started/">官方文件</a>或是跟 AI 協作自己裝起來，安裝完之後也記得訪問一下 <code>http://mitm.it</code> 下載並安裝憑證，才能攔截到 HTTPS 的流量。</p>
+<p>都安裝完以後，執行 <code>mitmproxy</code> 就能夠把 proxy 跑起來了，會看到一個 CLI 的介面。</p>
+<p>那既然 Burp Suite 已經很好用了，什麼時候會用到 mitmproxy 呢？它有個好用的功能是可以透過簡單的 Python 腳本去客製化 proxy 的行為，非常方便。</p>
+<p>舉例來說，假設因為某些原因，測試環境無法完全模擬正式環境，但你又不可能直接把 code 上到正式環境去測試。這時就可以用 proxy 動態替換 production 的 response，在本機模擬一些行為。</p>
+<p>雖然 Chrome 也有<a target="_blank" rel="noopener" href="https://developer.chrome.com/docs/devtools/override">覆蓋 response</a> 的功能，但限制比較多，例如說內容只能固定等等。我們自己用 proxy 搭配腳本，絕對是更彈性而且自由度更高的選擇。</p>
+<p>底下是一個簡單的 mitm 腳本，目的是把我部落格的 script.js 用本機的來替換：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">from</span> mitmproxy <span class="token keyword">import</span> http
+<span class="token keyword">import</span> requests
+
+URL_MAPPINGS <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token string">"https://blog.huli.tw/js/script.js"</span><span class="token punctuation">:</span> <span class="token string">"http://localhost:5555/script.js"</span><span class="token punctuation">,</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">def</span> <span class="token function">request</span><span class="token punctuation">(</span>flow<span class="token punctuation">:</span> http<span class="token punctuation">.</span>HTTPFlow<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+    <span class="token keyword">for</span> url <span class="token keyword">in</span> URL_MAPPINGS<span class="token punctuation">:</span>
+        <span class="token keyword">if</span> flow<span class="token punctuation">.</span>request<span class="token punctuation">.</span>pretty_url<span class="token punctuation">.</span>startswith<span class="token punctuation">(</span>url<span class="token punctuation">)</span><span class="token punctuation">:</span>
+            replacement_url <span class="token operator">=</span> URL_MAPPINGS<span class="token punctuation">[</span>url<span class="token punctuation">]</span>
+
+            replacement_response <span class="token operator">=</span> requests<span class="token punctuation">.</span>get<span class="token punctuation">(</span>replacement_url<span class="token punctuation">)</span>
+
+            flow<span class="token punctuation">.</span>response <span class="token operator">=</span> http<span class="token punctuation">.</span>Response<span class="token punctuation">.</span>make<span class="token punctuation">(</span>
+                <span class="token number">200</span><span class="token punctuation">,</span>
+                replacement_response<span class="token punctuation">.</span>content<span class="token punctuation">,</span> 
+                <span class="token punctuation">&#123;</span><span class="token string">"Content-Type"</span><span class="token punctuation">:</span> <span class="token string">"application/javascript"</span><span class="token punctuation">&#125;</span> 
+            <span class="token punctuation">)</span>
+            <span class="token keyword">return</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>用這個指令就可以跑起來：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">mitmproxy <span class="token parameter variable">-s</span> proxy.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>接著用前面講過的指令打開一個設定好 proxy 的瀏覽器：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">open</span> <span class="token parameter variable">-a</span> <span class="token string">"Google Chrome Canary"</span> <span class="token parameter variable">--args</span> --proxy-server<span class="token operator">=</span><span class="token string">"http://localhost:8080"</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>再用瀏覽器訪問 <code>https://blog.huli.tw</code>，就能夠看出 script 的內容已經被替換。</p>
+<h2><span id="結語">結語</span></h2><p>以上就是我平常自己會使用到的一些 proxy 以及使用方法。</p>
+<p>太過依賴於瀏覽器不是件好事，只要瀏覽器沒有顯示，就不知道該怎麼辦。但前端工程師身為第一線，絕對是有辦法拿到整個 request 與 response，才能進一步釐清問題。以後若是碰到瀏覽器上看不到請求的問題，可以試試看使用 proxy 來拿到完整的請求以及響應。</p>
+<p>除了電腦的網頁之外，手機也可以用，可以在 Android 上設定 proxy 連到同個 Wi-Fi 的電腦上，接著在手機上安裝憑證，就能攔截手機的流量。</p>
+<p>最後再講一個小訣竅，在 Mac 的 CLI 執行指令時加上 <code>https_proxy=http://localhost:8080</code> 就能夠配置 proxy，如 <code>https_proxy=http://localhost:8080 cursor .</code>，就可以把 Cursor IDE 的流量都導到 proxy 去。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Web/">#Web</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2025/03/16/vscode-material-theme-is-not-a-malware/">VS Code Material Theme 不是惡意軟體——安全的線該畫在哪？</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2025 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2025/04/23/en/everyone-need-a-http-proxy-to-debug/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>
