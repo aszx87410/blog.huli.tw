@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>Chrome 內建的翻譯與 Prompt API - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+            
+<link href="https://blog.huli.tw/2025/09/27/en/chrome-built-in-prompt-api/" rel="alternate" hreflang="en" />
+            
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2025/09/27/chrome-built-in-prompt-api/">
+    
+
+
+
+
+
+    <meta name="description" content="前陣子有個讀者分享給我他自己做的 Chrome extension：JP NEWS Helper，能夠摘要、翻譯 NHK News Easy 上面的文章，幫助學日文。 由於這個擴充套件是開源的，因此我第一件好奇的事就是：「它是用哪一間 AI 的服務，key 怎麼處理？」，結果看了 source code 才發現居然是 Chrome 內建的 Web API，不是我以為的 HTTP API。 算是有點">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Chrome 內建的翻譯與 Prompt API">
+<meta property="og:url" content="https://blog.huli.tw/2025/09/27/chrome-built-in-prompt-api/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前陣子有個讀者分享給我他自己做的 Chrome extension：JP NEWS Helper，能夠摘要、翻譯 NHK News Easy 上面的文章，幫助學日文。 由於這個擴充套件是開源的，因此我第一件好奇的事就是：「它是用哪一間 AI 的服務，key 怎麼處理？」，結果看了 source code 才發現居然是 Chrome 內建的 Web API，不是我以為的 HTTP API。 算是有點">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/chrome-built-in-prompt-api/cover.png">
+<meta property="article:published_time" content="2025-09-26T21:50:00.000Z">
+<meta property="article:modified_time" content="2025-09-27T07:11:12.982Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Web">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/chrome-built-in-prompt-api/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Chrome 內建的翻譯與 Prompt API" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#chrome-的內建-ai-相關-api">1&nbsp;&nbsp;<b>Chrome 的內建 AI 相關 API</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#prompt-api">2&nbsp;&nbsp;<b>Prompt API</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#其他瀏覽器呢">3&nbsp;&nbsp;<b>其他瀏覽器呢？</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#結語">4&nbsp;&nbsp;<b>結語</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2025/09/27/en/chrome-built-in-prompt-api/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        如果有什麼想回饋的（如對文章或部落格的感想），除了留言以外也能填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>。若是對更多 JavaScript 知識有興趣，歡迎參考我的新書<a target="_blank" rel="noopener" href="https://www.tenlong.com.tw/products/9786267757048">《JavaScript 重修就好》</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Chrome 內建的翻譯與 Prompt API
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2025-09-26T21:50:00.000Z" itemprop="datePublished">2025年9月27日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Web/">Web</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>前陣子有個讀者分享給我他自己做的 Chrome extension：<a target="_blank" rel="noopener" href="https://github.com/Stevetanus/JPNEWS-helper/tree/main">JP NEWS Helper</a>，能夠摘要、翻譯 NHK News Easy 上面的文章，幫助學日文。</p>
+<p>由於這個擴充套件是開源的，因此我第一件好奇的事就是：「它是用哪一間 AI 的服務，key 怎麼處理？」，結果看了 source code 才發現居然是 Chrome 內建的 Web API，不是我以為的 HTTP API。</p>
+<p>算是有點後知後覺，現在才發現原來有內建的 Web API 可以用，因此寫篇文章簡單記錄一下。</p>
+<span id="more"></span>
+
+<h2><span id="chrome-的內建-ai-相關-api">Chrome 的內建 AI 相關 API</span></h2><p>如果想直接看 Google 的官方影片，可以參考這個：<a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=8iIvAMZ-XYU">The future of Chrome Extensions with Gemini in your browser</a>，文字版的話則是這篇：<a target="_blank" rel="noopener" href="https://developer.chrome.com/docs/ai/built-in-apis">內建 AI API</a>。</p>
+<p>Chrome 從 138 版本開始（寫這篇文章當下，最新穩定版是 140），提供了三個內建的 Web API：</p>
+<ol>
+<li>Translator API，翻譯</li>
+<li>Language Detector API，偵測語言</li>
+<li>Summarizer API，摘要文章</li>
+</ol>
+<p>這三個 API 在使用前會需要下載一些小模型，而整體的使用方式超級簡單，底下以翻譯的功能為例。</p>
+<p>首先，會需要檢查是否可用以及是否需要下載：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> translator <span class="token operator">=</span> <span class="token keyword">await</span> Translator<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">sourceLanguage</span><span class="token operator">:</span> <span class="token string">'en'</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">targetLanguage</span><span class="token operator">:</span> <span class="token string">'zh-TW'</span><span class="token punctuation">,</span>
+  <span class="token function">monitor</span><span class="token punctuation">(</span><span class="token parameter">m</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    m<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'downloadprogress'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Downloaded </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$&#123;</span>e<span class="token punctuation">.</span>loaded <span class="token operator">*</span> <span class="token number">100</span><span class="token interpolation-punctuation punctuation">&#125;</span></span><span class="token string">%</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>那個 monitor 就是監控下載進度用的，以翻譯來說滿快就可以下載完。</p>
+<p>下載完之後，只要一行程式碼就可以翻譯：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">await</span> translator<span class="token punctuation">.</span><span class="token function">translate</span><span class="token punctuation">(</span><span class="token string">'How are you?'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment">// 你好嗎?</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>就這樣，沒了，超級簡單。</p>
+<p>不過我試了一下，翻譯的品質沒有到很好，還是比不上直接去用真的大型 LLM 模型。但這功能可以直接內建在 Web API 裡，已經是一大進步了。</p>
+<h2><span id="prompt-api">Prompt API</span></h2><p>除了開頭提的那三種，也有幾個還在測試中的 API，如 prompt API，就是可以直接下 prompt，跟平常使用 ChatGPT 等等的 API 差不多。目前要用的話需要去申請個 origin trial 拿 key，我之前有寫過怎麼申請：<a href="https://blog.huli.tw/2022/02/02/origin-trials-try-new-feature/">透過 Chrome Origin Trials 搶先試用新功能</a>。</p>
+<p>我做了一個 demo 網站，有興趣可以玩玩看。因為 prompt API 的模型滿大的，建議在非手機網路環境下載，否則網路流量可能會爆掉。</p>
+<p>另外，由於這個 API 還在測試階段，所以可能會有些問題。我一開始自己玩幾次都沒問題，但後來好像踩到了什麼 bug，每次問 AI 後都會直接系統級 panic，整個 Mac 當掉自動重開。</p>
+<p><a target="_blank" rel="noopener" href="https://aszx87410.github.io/demo/ai/prompt-api.html">https://aszx87410.github.io/demo/ai/prompt-api.html</a></p>
+<p><img src="/img/chrome-built-in-prompt-api/p1.png" alt="Prompt API 示範網站截圖"></p>
+<p>而這個 API 的使用方法也超簡單，第一步同樣是確認可用性以及下載：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">await</span> LanguageModel<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token function">monitor</span><span class="token punctuation">(</span><span class="token parameter">m</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    <span class="token comment">// 監控下載進度</span>
+    m<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'downloadprogress'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+      <span class="token function">updateProgress</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>loaded<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>e<span class="token punctuation">.</span>loaded <span class="token operator">>=</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+        <span class="token function">updateStatus</span><span class="token punctuation">(</span><span class="token string">'✅ AI 下載完成並已就緒！'</span><span class="token punctuation">,</span> <span class="token string">'available'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>下載完之後就可以用了：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> session <span class="token operator">=</span> <span class="token keyword">await</span> LanguageModel<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> session<span class="token punctuation">.</span><span class="token function">prompt</span><span class="token punctuation">(</span><span class="token string">'你可以做什麼？'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>response<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>有更多參數可以調整啦，而且可以支援更複雜的對話，上面只是一個很基礎的範例而已。</p>
+<p>儘管模型不大，可以做的事情也沒有其他大模型多，但是在瀏覽器上面放一個可以在本地跑的小模型，已經能分擔掉一部分需要 API key 才能做的事了。</p>
+<p>現在 Chrome 也越來越積極把小模型直接包在裡面，提供更多原生的 AI 功能，而未來開發者也可以運用這些 Web API 直接開發產品，不需要自己準備後端。</p>
+<h2><span id="其他瀏覽器呢">其他瀏覽器呢？</span></h2><p>Translation API 已經隨著 Chrome 138 一起正式發佈，Google 也訂出了相關標準，不過目前 Firefox 跟 Safari 則是還在很早期的階段。</p>
+<p>Firefox 對目前的 API design <a target="_blank" rel="noopener" href="https://github.com/mozilla/standards-positions/issues/1015">不太滿意</a>，有提了另一個<a target="_blank" rel="noopener" href="https://github.com/mozilla/explainers/blob/main/translation.md">版本</a>。而 Safari 對目前的做法也有一些隱私與資安上的<a target="_blank" rel="noopener" href="https://github.com/WebKit/standards-positions/issues/339">考量</a>，看起來還沒什麼進展。</p>
+<p>至於其他更強大的 API 如 Prompt API，Firefox 直接對目前的提案給了個 <a target="_blank" rel="noopener" href="https://github.com/mozilla/standards-positions/issues/1213#issuecomment-2950074313">negative</a>，而 Safari <a target="_blank" rel="noopener" href="https://github.com/WebKit/standards-positions/issues/495">那邊</a>看起來似乎沒什麼消息。</p>
+<p>因此，這篇所提到的東西目前都只有 Chromium-based 的瀏覽器可以用，如 Chrome 與 Edge。未來其他瀏覽器會不會跟上，還是個未知數。</p>
+<h2><span id="結語">結語</span></h2><p>各種 AI 與現有產品的整合勢在必行，瀏覽器身為使用者會重度使用的應用程式，更是兵家必爭之地。</p>
+<p>例如說 Perplexity 自己推了個 <a target="_blank" rel="noopener" href="https://www.perplexity.ai/comet">Comet Browser</a>，而 Chrome 也有越來越多內建的 AI 功能。</p>
+<p>如果 AI 沒騙我的話，目前 Chrome 的 Prompt API 用的是 <a target="_blank" rel="noopener" href="https://ai.google.dev/gemma/docs">Gemma</a>，Edge 上的是 <a target="_blank" rel="noopener" href="https://azure.microsoft.com/en-us/products/phi">Phi</a>。</p>
+<p>當瀏覽器內建的 AI 模型越來越進化，能做的事情就更多了。不過以目前的狀況來看，在本地能跑的模型絕對是很有限的，畢竟能用的資源就那些，效果還是沒有那些大模型來得好，但未來可以持續關注，應該會一直不斷進化。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Web/">#Web</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2025/09/15/xss-without-semicolon-and-parentheses/">不需要括號跟分號的 XSS</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2025 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2025/09/27/en/chrome-built-in-prompt-api/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>
