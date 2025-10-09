@@ -31,7 +31,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://blog.huli.tw/img/idek-ctf-2024-iframe/cover-en.png">
 <meta property="article:published_time" content="2024-09-07T02:40:00.000Z">
-<meta property="article:modified_time" content="2024-09-11T22:45:49.501Z">
+<meta property="article:modified_time" content="2025-10-09T21:59:36.478Z">
 <meta property="article:author" content="Huli">
 <meta property="article:tag" content="Security">
 <meta name="twitter:card" content="summary_large_image">
@@ -433,7 +433,6 @@ document<span class="token punctuation">.</span>head<span class="token punctuati
 <p>What if there is no bfcache? Logically, the webpage should reload, so the expected situation would be as it was at the very beginning:</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">sandbox</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>f</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>data:text/html,test1:&lt;script>document.writeln(Math.random())&lt;/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-
 <p>This means that a sandboxed iframe loads test1.</p>
 <p>However, if you actually press the back button, you’ll find that the result is neither the initial sandbox + test1 nor the previous no sandbox + test2, but rather a combination of both: sandbox + test2.</p>
 <p>In other words, the sandbox attribute maintains the latest state of the page, which is present, but the iframe’s src is not the latest; it remains at the historical record of test2. When combined, it becomes sandboxed test2.</p>
@@ -460,6 +459,24 @@ document<span class="token punctuation">.</span>head<span class="token punctuati
 <li>The sandbox attribute always follows the latest page.</li>
 <li>The src will be the last loaded webpage.</li>
 </ol>
+<p>2025-10-10 updates:</p>
+<p>Chrome made a change in September 2025: <a target="_blank" rel="noopener" href="https://developer.chrome.com/docs/web-platform/bfcache-ccns">Enabling bfcache for Cache-Control: no-store</a>. Chrome will enable bfcache even when HTTP caching is disabled, which causes the above test to fail.</p>
+<p>However, as the article explains, you can easily disable bfcache by opening a WebSocket connection, for example:</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>iframe</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span>f</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>data:text/html,test1:&lt;script>document.writeln(Math.random())&lt;/script><span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>iframe</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>load test2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript">location <span class="token operator">=</span> <span class="token string">'a.html'</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>top level navigation<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script"><span class="token language-javascript">
+  <span class="token comment">// to disable bfcache</span>
+  <span class="token keyword">const</span> ws <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">WebSocket</span><span class="token punctuation">(</span><span class="token string">'ws://example.com'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'run'</span><span class="token punctuation">)</span>
+  <span class="token keyword">function</span> <span class="token function">loadTest2</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+    f<span class="token punctuation">.</span><span class="token function">setAttribute</span><span class="token punctuation">(</span><span class="token string">'sandbox'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span>
+    f<span class="token punctuation">.</span>src <span class="token operator">=</span> <span class="token string">'data:text/html,test2:&lt;script>document.writeln(Math.random())&lt;\/script>'</span>
+  <span class="token punctuation">&#125;</span>
+</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <h3><span id="3-inheritance-of-csp">3. Inheritance of CSP</span></h3><p>If using iframe src, since it embeds another independent webpage, there is no relation between the CSPs of the two pages, and they do not affect each other. However, if using srcdoc, there is an inheritance relationship.</p>
 <p>For example, with the following code:</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
