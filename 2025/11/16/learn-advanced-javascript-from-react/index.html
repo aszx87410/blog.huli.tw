@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>從 React 中學習 JavaScript 底層運作 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<link href="https://blog.huli.tw/2025/11/16/learn-advanced-javascript-from-react/" rel="alternate" hreflang="zh-TW" />
+
+
+<link href="https://blog.huli.tw/2025/11/16/learn-advanced-javascript-from-react/" rel="alternate" hreflang="x-default" />
+
+
+<link href="https://blog.huli.tw/2025/11/16/en/learn-advanced-javascript-from-react/" rel="alternate" hreflang="en" />
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2025/11/16/learn-advanced-javascript-from-react/">
+    
+
+
+
+
+
+    <meta name="description" content="前陣子去 JSDC 的線上前導活動分享了這個主題，想說既然都分享了，不如就寫篇文章好了。這篇文章的靈感來源以及內容其實都是來自於《JavaScript 重修就好》。當初寫書的時候就有參考 React 原始碼中的一些東西，這篇只是把原本分散在書中的各個 React 相關章節整理起來重寫一遍。 我覺得從這些開源專案的程式碼中學一些新的概念滿有趣的，畢竟這些很多人用的框架通常碰過的 bug 也越多，學到">
+<meta property="og:type" content="article">
+<meta property="og:title" content="從 React 中學習 JavaScript 底層運作">
+<meta property="og:url" content="https://blog.huli.tw/2025/11/16/learn-advanced-javascript-from-react/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="前陣子去 JSDC 的線上前導活動分享了這個主題，想說既然都分享了，不如就寫篇文章好了。這篇文章的靈感來源以及內容其實都是來自於《JavaScript 重修就好》。當初寫書的時候就有參考 React 原始碼中的一些東西，這篇只是把原本分散在書中的各個 React 相關章節整理起來重寫一遍。 我覺得從這些開源專案的程式碼中學一些新的概念滿有趣的，畢竟這些很多人用的框架通常碰過的 bug 也越多，學到">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/learn-advanced-javascript-from-react/cover.png">
+<meta property="article:published_time" content="2025-11-15T22:32:08.000Z">
+<meta property="article:modified_time" content="2025-11-16T08:01:36.948Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="JavaScript">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/learn-advanced-javascript-from-react/cover.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="從 React 中學習 JavaScript 底層運作" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#react-舊版的-xss-漏洞">1&nbsp;&nbsp;<b>React 舊版的 XSS 漏洞</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#從-react-fiber-學習-event-loop">2&nbsp;&nbsp;<b>從 React Fiber 學習 event loop</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#react-1600-requestidlecallback">2.1&nbsp;&nbsp;React 16.0.0 - requestIdleCallback</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#react-1640-requestanimationframe-postmessage">2.2&nbsp;&nbsp;React 16.4.0 - requestAnimationFrame + postMessage</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#react-1670-requestanimationframe-messagechannel">2.3&nbsp;&nbsp;React 16.7.0 - requestAnimationFrame + MessageChannel</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#react-16120-messagechannel">2.4&nbsp;&nbsp;React 16.12.0 - MessageChannel</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#不遠的未來原生-scheduler-api">2.5&nbsp;&nbsp;不遠的未來：原生 Scheduler API</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#從-v8-bug-學習底層運作">3&nbsp;&nbsp;<b>從 V8 bug 學習底層運作</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#從-v8-bytecode-看底層型別">3.1&nbsp;&nbsp;從 V8 bytecode 看底層型別</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#總結">4&nbsp;&nbsp;<b>總結</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2025/11/16/en/learn-advanced-javascript-from-react/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        如果有什麼想回饋的（如對文章或部落格的感想），除了留言以外也能填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>。若是對更多 JavaScript 知識有興趣，歡迎參考我的新書<a target="_blank" rel="noopener" href="https://www.tenlong.com.tw/products/9786267757048">《JavaScript 重修就好》</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            從 React 中學習 JavaScript 底層運作
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2025-11-15T22:32:08.000Z" itemprop="datePublished">2025年11月16日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/JavaScript/">JavaScript</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>前陣子去 <a target="_blank" rel="noopener" href="https://2025.jsdc.tw/">JSDC</a> 的線上前導活動分享了這個主題，想說既然都分享了，不如就寫篇文章好了。這篇文章的靈感來源以及內容其實都是來自於<a target="_blank" rel="noopener" href="https://www.tenlong.com.tw/products/9786267757048">《JavaScript 重修就好》</a>。當初寫書的時候就有參考 React 原始碼中的一些東西，這篇只是把原本分散在書中的各個 React 相關章節整理起來重寫一遍。</p>
+<p>我覺得從這些開源專案的程式碼中學一些新的概念滿有趣的，畢竟這些很多人用的框架通常碰過的 bug 也越多，學到這些問題的解法以後，也可以再回去反思以前自己學過的東西。</p>
+<p>這篇分成三個小章節：</p>
+<ol>
+<li>React 舊版的 XSS</li>
+<li>從 React Fiber 學習 event loop</li>
+<li>從 V8 bug 學習底層運作</li>
+</ol>
+<p>開頭先聲明一下，雖然標題叫做「從 React 中學習 JavaScript 底層運作」，只有最後一個比較底層，第一個更是與底層沒什麼關係。只是我沒想到比這個更好的標題，因此就用這個了。</p>
+<span id="more"></span>
+
+<h2><span id="react-舊版的-xss-漏洞">React 舊版的 XSS 漏洞</span></h2><p>請問底下這段程式碼有什麼資安問題？</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">Test</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> name <span class="token operator">=</span> qs<span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>search<span class="token punctuation">)</span><span class="token punctuation">.</span>name<span class="token punctuation">;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token operator">&lt;</span>div className<span class="token operator">=</span><span class="token string">"text-red"</span><span class="token operator">></span>
+      <span class="token operator">&lt;</span>h1<span class="token operator">></span><span class="token punctuation">&#123;</span>name<span class="token punctuation">&#125;</span><span class="token operator">&lt;</span><span class="token operator">/</span>h1<span class="token operator">></span>
+    <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">></span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>看一看好像沒什麼問題？不就 render 一個 name 嗎，在 React 裡面會自動做 encode，所以就算插入一個 <code>&lt;img&gt;</code> 也不會被當作標籤解析，而是會被轉換成純文字，看起來沒問題。</p>
+<p>若是我們繼續把這段程式碼展開，從 JSX 變成 JavaScript，大概會類似於這樣：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">Test</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> name <span class="token operator">=</span> qs<span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>search<span class="token punctuation">)</span><span class="token punctuation">.</span>name<span class="token punctuation">;</span>
+  <span class="token keyword">return</span> <span class="token function">createElement</span><span class="token punctuation">(</span>
+    <span class="token string">'div'</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#123;</span> <span class="token literal-property property">className</span><span class="token operator">:</span> <span class="token string">'text-red'</span> <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    <span class="token function">createElement</span><span class="token punctuation">(</span>
+      <span class="token string">'h1'</span><span class="token punctuation">,</span>
+      <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+      name
+    <span class="token punctuation">)</span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>JSX 語法會在 compile 的時候變回 JavaScript，舊版會用 <code>React.createElement</code>，新版改成 <code>_jsx</code> 了，但不管 API 長怎樣，總之就是一段建立 element 的 JavaScript。</p>
+<p>而這些 function 執行完以後就會產生所謂的 virtual DOM，再次展開成 object 的話會類似於：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">Test</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">const</span> name <span class="token operator">=</span> qs<span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>search<span class="token punctuation">)</span><span class="token punctuation">.</span>name<span class="token punctuation">;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">type</span><span class="token operator">:</span> <span class="token string">'div'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">props</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">className</span><span class="token operator">:</span> <span class="token string">'text-red'</span><span class="token punctuation">,</span>
+      <span class="token literal-property property">children</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+        <span class="token literal-property property">type</span><span class="token operator">:</span> <span class="token string">'h1'</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">props</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+          <span class="token literal-property property">children</span><span class="token operator">:</span> name
+        <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>而 React 在 render 的時候，就會根據這個 object 去 render，並且展示出我們所傳入的 name。</p>
+<p>但問題來了，像是 <code>qs</code> 這種 library，其實是支援物件的，例如說 <code>?name[test]=1</code>，name 會變成 <code>&#123;&quot;test&quot;: 1&#125;</code>，因此這個 name 雖然你怎麼看都應該是字串，但實際上可以是個物件。</p>
+<p>儘管通常傳物件會被 React 擋掉，但你有沒有想過這些 component 其實也是個物件？那 React 是怎麼決定一個 object 到底是不是 component 的呢？</p>
+<p>在舊版的 React 中，這個檢查非常簡單：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">ReactElement<span class="token punctuation">.</span><span class="token function-variable function">isValidElement</span> <span class="token operator">=</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">object</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token operator">!</span><span class="token operator">!</span><span class="token punctuation">(</span>
+    <span class="token keyword">typeof</span> object <span class="token operator">===</span> <span class="token string">'object'</span> <span class="token operator">&amp;&amp;</span>
+    object <span class="token operator">!==</span> <span class="token keyword">null</span> <span class="token operator">&amp;&amp;</span>
+    <span class="token string">'type'</span> <span class="token keyword">in</span> object <span class="token operator">&amp;&amp;</span>
+    <span class="token string">'props'</span> <span class="token keyword">in</span> object
+  <span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>只要有 type 有 props，就把它看作是一個 React component。因此，如果我們的 name 是底下這樣，就會被當作是 React component 被渲染出來：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">type</span><span class="token operator">:</span> <span class="token string">"div"</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">props</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">dangerouslySetInnerHTML</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+      <span class="token literal-property property">__html</span><span class="token operator">:</span> <span class="token string">"&lt;img src=x onerror=alert()>"</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如此一來，就成功利用了這個特性，假裝是 React component 並且 render 出任意的 HTML，構造出了一個 XSS 漏洞。</p>
+<p>這個漏洞最早在 2015 年時被 Daniel LeCheminan 發現，還寫了一篇文章：<a target="_blank" rel="noopener" href="http://danlec.com/blog/xss-via-a-spoofed-react-element">XSS via a spoofed React element</a>，不過原文的情境稍微不同就是了。</p>
+<p>總之呢，這個問題被 React 關注到，開了一個 issue 進行討論：<a target="_blank" rel="noopener" href="https://github.com/facebook/react/issues/3473">How Much XSS Vulnerability Protection is React Responsible For? #3473</a>，而最後的 fix 在這：<a target="_blank" rel="noopener" href="https://github.com/facebook/react/pull/4832">Use a Symbol to tag every ReactElement #4832</a>。</p>
+<p>解法就是：Symbol。</p>
+<p>在 React component 上加了一個 <code>$$typeof: Symbol.for(&#39;react.element&#39;)</code>，並且在 <code>isValidElement</code> 的檢查中也把這個判斷加上，就能確保其他物件沒辦法偽造出一個 React component。</p>
+<p>背後的原理就是 symbol 的特性，與一般的物件不一樣，symbol 就只會跟同一個 symbol 相等，而 JSON 反序列化是不支援 symbol 的，所以你只能創造出普通的物件，沒辦法做出一個 symbol，自然就偽造不了 component 了。</p>
+<p>以後有人問你 symbol 可以用在哪裡的時候，可以拿這個案例去回答。</p>
+<p>另外，其實除了前端，後端也是一樣的，例如說 JavaScript 的 ORM：<a target="_blank" rel="noopener" href="https://sequelize.org/">Sequelize</a> 舊版本的 operator 也是用字串，例如說：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">Post<span class="token punctuation">.</span><span class="token function">findAll</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">where</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">authorId</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+      <span class="token string-property property">'$or'</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">12</span><span class="token punctuation">,</span> <span class="token number">13</span><span class="token punctuation">]</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>但從 v5 開始就全部換成 symbol 了，已經棄用了原本的字串：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">const</span> <span class="token punctuation">&#123;</span> Op <span class="token punctuation">&#125;</span> <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'sequelize'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+Post<span class="token punctuation">.</span><span class="token function">findAll</span><span class="token punctuation">(</span><span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">where</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token literal-property property">authorId</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+      <span class="token punctuation">[</span>Op<span class="token punctuation">.</span>or<span class="token punctuation">]</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">12</span><span class="token punctuation">,</span> <span class="token number">13</span><span class="token punctuation">]</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// operators.ts</span>
+<span class="token keyword">export</span> <span class="token keyword">const</span> <span class="token literal-property property">Op</span><span class="token operator">:</span> OpTypes <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+  <span class="token literal-property property">eq</span><span class="token operator">:</span> Symbol<span class="token punctuation">.</span><span class="token function">for</span><span class="token punctuation">(</span><span class="token string">'eq'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">ne</span><span class="token operator">:</span> Symbol<span class="token punctuation">.</span><span class="token function">for</span><span class="token punctuation">(</span><span class="token string">'ne'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">gte</span><span class="token operator">:</span> Symbol<span class="token punctuation">.</span><span class="token function">for</span><span class="token punctuation">(</span><span class="token string">'gte'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token literal-property property">or</span><span class="token operator">:</span> Symbol<span class="token punctuation">.</span><span class="token function">for</span><span class="token punctuation">(</span><span class="token string">'or'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token comment">// [...]</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>背後原因相同，都是資安上的考量，當初的 PR 在這裡：<a target="_blank" rel="noopener" href="https://github.com/sequelize/sequelize/pull/8240">Secure operators #8240</a>。</p>
+<p>話說直播的時候有人問，那如果你可以創造出一個 symbol，是不是這些防禦就沒用了？答案是：沒錯。但通常你要能做出 symbol，要嘛你已經可以執行程式碼了，要嘛開發者要自己加一個可以建立 symbol 的 deserializer，這兩個的達成難度都滿高的。</p>
+<h2><span id="從-react-fiber-學習-event-loop">從 React Fiber 學習 event loop</span></h2><p>2018 年的時候我寫過一篇 React fiber 相關的文章：<a href="https://blog.huli.tw/2018/03/31/react-fiber-and-lifecycles/">淺談 React Fiber 及其對 lifecycles 造成的影響</a>，而這個機制一語道破其實就是：「把同步的大 task 切成多個非同步的小 task」，藉此來避開阻塞 main thread。</p>
+<p>那在 JavaScript 裡面，該怎麼來實作這個機制呢？要怎麼安排這些非同步的 task 呢？</p>
+<h3><span id="react-1600-requestidlecallback">React 16.0.0 - requestIdleCallback</span></h3><p>在最早的 React 16.0.0 版本中，是用瀏覽器內建的 API：requestIdleCallback 來做的，MDN 的描述是：</p>
+<blockquote>
+<p>The window.requestIdleCallback() method queues a function to be called during a browser’s idle periods. This enables developers to perform background and low priority work on the main thread, without impacting latency-critical events such as animation and input response.</p>
+<p>window.requestIdleCallback() 方法會插入一個函式，並在瀏覽器處於閒置時呼叫該函式。這讓開發者能在主事件迴圈中執行背景或低優先度的工作，而不會影響到像動畫或使用者輸入回應這類對延遲敏感的事件。</p>
+</blockquote>
+<p>把原本大的 task 切成小的 task 以後，用 <code>requestIdleCallback</code> 來安排下一個 task，讓瀏覽器在空閒的時候執行，就能不阻礙到 main thread。</p>
+<h3><span id="react-1640-requestanimationframe-postmessage">React 16.4.0 - requestAnimationFrame + postMessage</span></h3><p>但是在 React 16.4.0 時，被換成了另一種結合 <code>requestAnimationFrame</code>（以下簡稱 rAF） 跟 <code>postMessage</code> 的方式（這個方式其實一開始是做為沒有 <code>requestIdleCallback</code> 時的替代方案，但在這個版本被扶正，直接取代掉了 <code>requestIdleCallback</code>）。</p>
+<p>在這個機制中，會建立兩種類型的 callback，一個是利用 rAF 安排的 callback，由瀏覽器自動觸發，而另一個則是用 <code>window.addEventListener(&#39;message&#39;, fn)</code> 安排的 callback，透過 <code>window.postMessage</code> 來觸發。</p>
+<p>這個機制實際運作的方式是這樣的，底下每一個 tick 代表一次的 event loop，我們先安排一個 rAF，在裡面計算下次 rAF 應該觸發的時間（就是當前時間 + frame 長度(如 16ms)）：</p>
+<p><img src="/img/learn-advanced-javascript-from-react/p1.png" alt="rAF"></p>
+<p>接著在裡面再次呼叫 rAF 還有 postMessage，安排下一次 tick 的 callback：</p>
+<p><img src="/img/learn-advanced-javascript-from-react/p2.png" alt="rAF + postMessage"></p>
+<p>下一步是 browser render，結束之後進入下一個 tick，然後 message handler 被觸發：</p>
+<p><img src="/img/learn-advanced-javascript-from-react/p3.png" alt="message handler"></p>
+<p>由於剛剛已經計算過下次 rAF 應該被觸發的時間，所以 message handler 可以趁著這段時間（可能有個 5ms 或更長） 做事，在時間到之前不斷執行小的 task。</p>
+<p>執行完以後 rAF 會再次觸發，做跟剛剛一樣的事情，安排下一個 tick 的 callback，然後 browser render，結束這個 tick：</p>
+<p><img src="/img/learn-advanced-javascript-from-react/p4.png" alt="tick over"></p>
+<p>這樣的流程不斷執行下去，就是整個非同步 task 的任務安排機制了，簡單來講就是：</p>
+<ol>
+<li>在 rAF 裡面算出有多少時間可以執行 task 而不干擾 render</li>
+<li>在 message handler 中盡量執行任務</li>
+</ol>
+<p>在 React 原始碼中，rAF 會被叫做 Animation Tick，而 message handler 叫做 Idle Tick。</p>
+<p>那為什麼要用 postMessage 跟 message handler 呢？原因是如果用 <code>setTimeout(fn, 0)</code> 的話，有個經典的 4ms 限制，如果你不斷利用 setTimeout 來安排 task，在重複遞迴安排幾次之後，最短的執行間隔就會變成 4ms，不論你 interval 設多少都一樣。</p>
+<p>而 postMessage 跟 message handler 則沒有這個限制，因此就選了這個。</p>
+<p>但是用 message handler 有個缺點，那就是目前的使用方式是 <code>window.addEventListener(&#39;message&#39;, fn)</code>，因此每次安排 task 時都必須使用 <code>window.postMessage</code>，若是頁面上有別的 listener，就會一直一直被觸發。</p>
+<p>像是有些擴充套件可能會印出所有收到的 message 來幫助 debug，可能每 30ms 左右就會收到一個，log 直接被打爆。像這樣有 side-effect 的行為顯然不是什麼好事，會干擾到其他的實作。</p>
+<h3><span id="react-1670-requestanimationframe-messagechannel">React 16.7.0 - requestAnimationFrame + MessageChannel</span></h3><p>所以從 React 16.7.0 開始，就把這段改用 MessageChannel 來做了，這是另一個可以實作訊息交換的 Web API，用法跟原本的其實很像，只是多了個 port 的概念：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// DOM and Worker environments.</span>
+<span class="token comment">// We prefer MessageChannel because of the 4ms setTimeout clamping.</span>
+<span class="token keyword">const</span> channel <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">MessageChannel</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> port <span class="token operator">=</span> channel<span class="token punctuation">.</span>port2<span class="token punctuation">;</span>
+channel<span class="token punctuation">.</span>port1<span class="token punctuation">.</span>onmessage <span class="token operator">=</span> performWorkUntilDeadline<span class="token punctuation">;</span>
+<span class="token function-variable function">schedulePerformWorkUntilDeadline</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">&#123;</span>
+  port<span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在程式碼的註解中也可以看到為什麼 React 不用 setTimeout，跟我剛剛講的理由是一樣的，加上這個改動的 PR 在這：<a target="_blank" rel="noopener" href="https://github.com/facebook/react/pull/14234">[scheduler] Post to MessageChannel instead of window #14234</a>。</p>
+<p>看起來好像就是這樣了？這個機制滿合理的，透過兩種不同類型的非同步 task 做不同的事情，並且在不干擾到 render 的前提下盡量做事。</p>
+<h3><span id="react-16120-messagechannel">React 16.12.0 - MessageChannel</span></h3><p>但是，在 React 16.12.0 時，機制又變了一次，把 rAF 也拿掉了，只留下 MessageChannel 而已，每次執行最多 5ms：</p>
+<p><img src="/img/learn-advanced-javascript-from-react/p5.png" alt="message channel"></p>
+<p>那為什麼要換成這個機制呢？有兩個地方有說明，第一個是 16.12.0 裡的<a target="_blank" rel="noopener" href="https://github.com/facebook/react/blob/v16.12.0/packages/scheduler/src/forks/SchedulerHostConfig.default.js">程式碼</a>：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token comment">// Scheduler periodically yields in case there is other work on the main</span>
+<span class="token comment">// thread, like user events. By default, it yields multiple times per frame.</span>
+<span class="token comment">// It does not attempt to align with frame boundaries, since most tasks don't</span>
+<span class="token comment">// need to be frame aligned; for those that do, use requestAnimationFrame.</span>
+<span class="token keyword">let</span> yieldInterval <span class="token operator">=</span> <span class="token number">5</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>翻中文是：</p>
+<blockquote>
+<p>調度器會定期讓出執行權，以便主執行緒上若有其他工作（例如使用者事件）能夠被處理。預設情況下，它在每一幀中會讓出多次。它不會嘗試與畫面更新（frame）邊界對齊，因為大多數任務不需要與畫面對齊；若是需要對齊畫面更新，請使用 requestAnimationFrame。</p>
+</blockquote>
+<p>大意就是因為任務不需要跟畫面 render 對齊，所以就不管 render 了，反正就是一直讓出去。</p>
+<p>第二個説明則是在 <a target="_blank" rel="noopener" href="https://github.com/facebook/react/issues/21662">Concurrency &#x2F; time-slicing by default #21662</a> 這個 issue 中，有人問說 scheduler 是不是還在用 <code>requestIdleCallback</code> 時，dan 哥的留言：</p>
+<blockquote>
+<p>No, it fired too late and we’d waste CPU time. It’s really important for our use case that we utilize CPU to full extent rather than only after some idle period. So instead we rewrote to have our own loop that yields every 5ms.<br>不行，那個（機制）觸發得太晚，會浪費 CPU 時間。對我們的使用情境來說，盡可能充分利用 CPU 非常重要，而不是等到某個閒置時間才開始做事。所以我們改成自己寫一個每 5ms 就讓出一次的循環。</p>
+</blockquote>
+<p>解惑了為什麼一開始把 <code>requestIdleCallback</code> 淘汰掉，因為觸發的太晚了。</p>
+<p>那現在最新的 v19.2.0 版本的實作又是如何呢？</p>
+<p>從<a target="_blank" rel="noopener" href="https://github.com/facebook/react/blob/v19.2.0/packages/scheduler/src/forks/Scheduler.js">程式碼</a>中可以看出來，基本上就是上面那一套機制了，沒有太多改變，一樣是用 MessageChannel 安排 task，然後每隔一段時間讓出去。</p>
+<h3><span id="不遠的未來原生-scheduler-api">不遠的未來：原生 Scheduler API</span></h3><p>其實 Scheduler 這東西不止 React，只要需要非同步安排任務的都會用到。因此，瀏覽器其實有提供原生的 <a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/API/Scheduler">Scheduler API</a>，只是很新所以支援度不太好，但可以預見在未來可能不需要自己寫一套了，用瀏覽器原生給的會是最好的。</p>
+<p>事實上，React 現在就有用這個實作一套了，但還是 unstable 的狀態：<a target="_blank" rel="noopener" href="https://github.com/facebook/react/blob/v19.2.0/packages/scheduler/src/forks/SchedulerPostTask.js">SchedulerPostTask.js</a>，原生直接支援安排不同優先順序的任務，比自己寫方便多了。</p>
+<p>總之，從 React 對於安排非同步任務的程式碼中，可以學到幾個不同函式觸發的時機以及頻率的差別，也可以從這幾次的機制變動中，去了解為什麼 React 做出了這樣的選擇，讓我們更了解這些非同步的細節差異。</p>
+<h2><span id="從-v8-bug-學習底層運作">從 V8 bug 學習底層運作</span></h2><p>延續剛剛講的 React fiber，在<a target="_blank" rel="noopener" href="https://github.com/facebook/react/blob/v19.2.0/packages/react-reconciler/src/ReactFiber.js#L177">程式碼</a>中有一段 profiler 相關的部分：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>enableProfilerTimer<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>actualDuration <span class="token operator">=</span> <span class="token operator">-</span><span class="token number">0</span><span class="token punctuation">;</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>actualStartTime <span class="token operator">=</span> <span class="token operator">-</span><span class="token number">1.1</span><span class="token punctuation">;</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>selfBaseDuration <span class="token operator">=</span> <span class="token operator">-</span><span class="token number">0</span><span class="token punctuation">;</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>treeBaseDuration <span class="token operator">=</span> <span class="token operator">-</span><span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>問題來了，為什麼這邊的初始值是 -0 而不是 0？這兩個有什麼差異呢？</p>
+<p>甚至在舊一點的版本中，還先賦值成 NaN 才變成 0，這又是什麼魔法？</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span>enableProfilerTimer<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  
+  <span class="token keyword">this</span><span class="token punctuation">.</span>actualDuration <span class="token operator">=</span> Number<span class="token punctuation">.</span><span class="token number">NaN</span><span class="token punctuation">;</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>actualStartTime <span class="token operator">=</span> Number<span class="token punctuation">.</span><span class="token number">NaN</span><span class="token punctuation">;</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>selfBaseDuration <span class="token operator">=</span> Number<span class="token punctuation">.</span><span class="token number">NaN</span><span class="token punctuation">;</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>treeBaseDuration <span class="token operator">=</span> Number<span class="token punctuation">.</span><span class="token number">NaN</span><span class="token punctuation">;</span>
+  
+  <span class="token keyword">this</span><span class="token punctuation">.</span>actualDuration <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>actualStartTime <span class="token operator">=</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">;</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>selfBaseDuration <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>treeBaseDuration <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>這一切都跟 V8 底層的運作以及一個 bug 有關。</p>
+<p>針對這件事情，其實 V8 自己有一篇部落格文章：<a target="_blank" rel="noopener" href="https://v8.dev/blog/react-cliff">The story of a V8 performance cliff in React</a>，裡面講的已經很好了，麻煩自己去讀這篇文章，或是跟 AI 一起看，我就不再重複一次，底下只講結論跟重點。</p>
+<p>首先，儘管我們都知道在 JavaScript 的規格中，<a href="https://blog.huli.tw/2022/02/25/javascript-how-many-types/#6-number">所有的數字都是 double</a>，但是 JavaScript 引擎在實作時可不一定，畢竟如果真的每個數字都存成 64bit 的 double，既會有空間問題也有效能問題，整數做加減也會是浮點數運算，誰受得了。</p>
+<p>因此，在 V8 引擎中，其實數字還是有分兩種，一種是 32bit 的 int 叫做 small integer，簡稱 Smi，而另外一種就真的是浮點數了，叫做 HeapNumber，兩種存的位置是不同的，浮點數要存到 heap 去。</p>
+<p>而為了幫 object 做一些優化，因此 object 在儲存時，會關聯到一個叫 shape 的東西，類似於 object 的 metadata，來存每個值的 type 以及 offset，同樣 interface 的 object 會共享同一個 shape。</p>
+<p>在 object value 的型別改變時，這個 shape 也會一起跟著變，例如說從 Smi 變成 double，就會產生一個新的 shape。</p>
+<p>而 V8 的這個 bug 簡單來講就是在 React profiler 中一開始會把某些值初始化成 0，型別是 Smi，接著用 <code>Object.preventExtensions</code> 來阻止新增新的屬性，然後把這個值改成浮點數（<code>performance.now()</code> 的回傳值）。</p>
+<p>這樣的行為讓 V8 壞掉，不知道該怎麼處理 shape 的改變，於是就新增了一個全新的 shape。而且不只針對這一個 object，是所有類似的 object 都會，都無法共享 shape，而是每人有一個自己的。</p>
+<p>儘管大多數人都不會察覺這種底層的差別，但因為 React 在測試時 node 數量很多，當基數放大後就能察覺到差異，演變成了一個性能問題。</p>
+<p>雖然 V8 把 bug 修掉，所以現在不會有這問題了，但是 React 那邊也修了一版，例如說剛提到的 NaN，會設置成 NaN 是因為它底層是浮點數而不是 Smi，而現今的版本之所以是 -0 也是一樣的原因，-0 是浮點數，0 是 Smi。</p>
+<p>當初始值跟後來的值都是浮點數時，就不會有這個 shape 改變的問題，也就不會碰到這個 V8 bug。</p>
+<p>但是，你有沒有想過要怎麼知道 NaN 跟 -0 是浮點數呢？</p>
+<h3><span id="從-v8-bytecode-看底層型別">從 V8 bytecode 看底層型別</span></h3><p>除了翻規格以外，把程式碼編譯成 V8 bytecode 其實是個很好的方法，例如說底下的函式：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token parameter">x</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> x <span class="token operator">===</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">function</span> <span class="token constant">AAAAA</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token function">test</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">test</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">test</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token function">test</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token operator">/</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// NaN</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token constant">AAAAA</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>我用指令 <code>node --print-bytecode test.js &gt; out</code> 編譯後，得出的結果為：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">[</span>generated bytecode <span class="token keyword">for</span> <span class="token keyword">function</span><span class="token operator">:</span> <span class="token constant">AAAAA</span> <span class="token punctuation">(</span><span class="token number">0x31bb2f7de971</span> <span class="token operator">&lt;</span>SharedFunctionInfo <span class="token constant">AAAAA</span><span class="token operator">></span><span class="token punctuation">)</span><span class="token punctuation">]</span>
+Bytecode length<span class="token operator">:</span> <span class="token number">41</span>
+Parameter count <span class="token number">1</span>
+Register count <span class="token number">2</span>
+Frame size <span class="token number">16</span>
+Bytecode age<span class="token operator">:</span> <span class="token number">0</span>
+   <span class="token number">62</span> <span class="token constant">S</span><span class="token operator">></span> <span class="token number">0x31bb2f7df776</span> @    <span class="token number">0</span> <span class="token operator">:</span> <span class="token number">17</span> <span class="token number">02</span>             LdaImmutableCurrentContextSlot <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
+         <span class="token number">0x31bb2f7df778</span> @    <span class="token number">2</span> <span class="token operator">:</span> c4                Star0
+         <span class="token number">0x31bb2f7df779</span> @    <span class="token number">3</span> <span class="token operator">:</span> 0c                LdaZero
+         <span class="token number">0x31bb2f7df77a</span> @    <span class="token number">4</span> <span class="token operator">:</span> c3                Star1
+   <span class="token number">62</span> <span class="token constant">E</span><span class="token operator">></span> <span class="token number">0x31bb2f7df77b</span> @    <span class="token number">5</span> <span class="token operator">:</span> <span class="token number">62</span> fa f9 <span class="token number">00</span>       CallUndefinedReceiver1 r0<span class="token punctuation">,</span> r1<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+   <span class="token number">73</span> <span class="token constant">S</span><span class="token operator">></span> <span class="token number">0x31bb2f7df77f</span> @    <span class="token number">9</span> <span class="token operator">:</span> <span class="token number">17</span> <span class="token number">02</span>             LdaImmutableCurrentContextSlot <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
+         <span class="token number">0x31bb2f7df781</span> @   <span class="token number">11</span> <span class="token operator">:</span> c4                Star0
+         <span class="token number">0x31bb2f7df782</span> @   <span class="token number">12</span> <span class="token operator">:</span> <span class="token number">13</span> <span class="token number">00</span>             LdaConstant <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+         <span class="token number">0x31bb2f7df784</span> @   <span class="token number">14</span> <span class="token operator">:</span> c3                Star1
+   <span class="token number">73</span> <span class="token constant">E</span><span class="token operator">></span> <span class="token number">0x31bb2f7df785</span> @   <span class="token number">15</span> <span class="token operator">:</span> <span class="token number">62</span> fa f9 <span class="token number">02</span>       CallUndefinedReceiver1 r0<span class="token punctuation">,</span> r1<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
+   <span class="token number">85</span> <span class="token constant">S</span><span class="token operator">></span> <span class="token number">0x31bb2f7df789</span> @   <span class="token number">19</span> <span class="token operator">:</span> <span class="token number">17</span> <span class="token number">02</span>             LdaImmutableCurrentContextSlot <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
+         <span class="token number">0x31bb2f7df78b</span> @   <span class="token number">21</span> <span class="token operator">:</span> c4                Star0
+         <span class="token number">0x31bb2f7df78c</span> @   <span class="token number">22</span> <span class="token operator">:</span> 0d <span class="token number">03</span>             LdaSmi <span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span>
+         <span class="token number">0x31bb2f7df78e</span> @   <span class="token number">24</span> <span class="token operator">:</span> c3                Star1
+   <span class="token number">85</span> <span class="token constant">E</span><span class="token operator">></span> <span class="token number">0x31bb2f7df78f</span> @   <span class="token number">25</span> <span class="token operator">:</span> <span class="token number">62</span> fa f9 <span class="token number">04</span>       CallUndefinedReceiver1 r0<span class="token punctuation">,</span> r1<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">4</span><span class="token punctuation">]</span>
+   <span class="token number">96</span> <span class="token constant">S</span><span class="token operator">></span> <span class="token number">0x31bb2f7df793</span> @   <span class="token number">29</span> <span class="token operator">:</span> <span class="token number">17</span> <span class="token number">02</span>             LdaImmutableCurrentContextSlot <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
+         <span class="token number">0x31bb2f7df795</span> @   <span class="token number">31</span> <span class="token operator">:</span> c4                Star0
+         <span class="token number">0x31bb2f7df796</span> @   <span class="token number">32</span> <span class="token operator">:</span> <span class="token number">13</span> <span class="token number">01</span>             LdaConstant <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span>
+         <span class="token number">0x31bb2f7df798</span> @   <span class="token number">34</span> <span class="token operator">:</span> c3                Star1
+   <span class="token number">96</span> <span class="token constant">E</span><span class="token operator">></span> <span class="token number">0x31bb2f7df799</span> @   <span class="token number">35</span> <span class="token operator">:</span> <span class="token number">62</span> fa f9 <span class="token number">06</span>       CallUndefinedReceiver1 r0<span class="token punctuation">,</span> r1<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">6</span><span class="token punctuation">]</span>
+         <span class="token number">0x31bb2f7df79d</span> @   <span class="token number">39</span> <span class="token operator">:</span> 0e                LdaUndefined
+  <span class="token number">114</span> <span class="token constant">S</span><span class="token operator">></span> <span class="token number">0x31bb2f7df79e</span> @   <span class="token number">40</span> <span class="token operator">:</span> a9                Return
+Constant <span class="token function">pool</span> <span class="token punctuation">(</span>size <span class="token operator">=</span> <span class="token number">2</span><span class="token punctuation">)</span>
+<span class="token number">0x31bb2f7df711</span><span class="token operator">:</span> <span class="token punctuation">[</span>FixedArray<span class="token punctuation">]</span> <span class="token keyword">in</span> OldSpace
+ <span class="token operator">-</span> map<span class="token operator">:</span> <span class="token number">0x3bc7231c0211</span> <span class="token operator">&lt;</span><span class="token function">Map</span><span class="token punctuation">(</span><span class="token constant">FIXED_ARRAY_TYPE</span><span class="token punctuation">)</span><span class="token operator">></span>
+ <span class="token operator">-</span> length<span class="token operator">:</span> <span class="token number">2</span>
+           <span class="token number">0</span><span class="token operator">:</span> <span class="token number">0x31bb2f7df731</span> <span class="token operator">&lt;</span>HeapNumber <span class="token operator">-</span><span class="token number">0.0</span><span class="token operator">></span>
+           <span class="token number">1</span><span class="token operator">:</span> <span class="token number">0x3bc7231c0561</span> <span class="token operator">&lt;</span>HeapNumber nan<span class="token operator">></span>
+Handler <span class="token function">Table</span> <span class="token punctuation">(</span>size <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">)</span>
+Source Position <span class="token function">Table</span> <span class="token punctuation">(</span>size <span class="token operator">=</span> <span class="token number">21</span><span class="token punctuation">)</span>
+<span class="token number">0x31bb2f7df7a1</span> <span class="token operator">&lt;</span>ByteArray<span class="token punctuation">[</span><span class="token number">21</span><span class="token punctuation">]</span><span class="token operator">></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>可以看到 3 就是直接 <code>LdaSmi</code>，代表是 Smi，而 -0 跟 NaN 是 <code>LdaConstant</code>，從 constant pool 載入進來，而這個 constant pool 裡面則寫著：</p>
+<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">Constant <span class="token function">pool</span> <span class="token punctuation">(</span>size <span class="token operator">=</span> <span class="token number">2</span><span class="token punctuation">)</span>
+<span class="token number">0x31bb2f7df711</span><span class="token operator">:</span> <span class="token punctuation">[</span>FixedArray<span class="token punctuation">]</span> <span class="token keyword">in</span> OldSpace
+ <span class="token operator">-</span> map<span class="token operator">:</span> <span class="token number">0x3bc7231c0211</span> <span class="token operator">&lt;</span><span class="token function">Map</span><span class="token punctuation">(</span><span class="token constant">FIXED_ARRAY_TYPE</span><span class="token punctuation">)</span><span class="token operator">></span>
+ <span class="token operator">-</span> length<span class="token operator">:</span> <span class="token number">2</span>
+           <span class="token number">0</span><span class="token operator">:</span> <span class="token number">0x31bb2f7df731</span> <span class="token operator">&lt;</span>HeapNumber <span class="token operator">-</span><span class="token number">0.0</span><span class="token operator">></span>
+           <span class="token number">1</span><span class="token operator">:</span> <span class="token number">0x3bc7231c0561</span> <span class="token operator">&lt;</span>HeapNumber nan<span class="token operator">></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>很明顯可以看到這兩個都是 heap number，不屬於 Smi。</p>
+<p>如果從理論上的角度來看也行啦，NaN 不能是 Smi，是因為 NaN 本來就是 IEEE 754 裡面定義的東西，而 -0 需要那個負號，這個在 int 中也沒有，所以也只能是個 double。</p>
+<p>但總之呢，未來若是碰到這個底層型別的疑惑，可以編譯成 bytecode 之後確認，一目瞭然。</p>
+<h2><span id="總結">總結</span></h2><p>這篇文章中我們從 React 原始碼中學到不少東西，分別是：</p>
+<ol>
+<li>Symbol 的用途，可以利用沒辦法反序列化的特性，來保證外界沒辦法構造出來</li>
+<li>各種非同步函式如 <code>requestIdleCallback</code>、<code>requestAnimationFrame</code>、<code>MessageChannel</code> 與 <code>setTimeout</code> 的觸發時機以及特性，還有 React 底層是怎麼安排 task 的。</li>
+<li>在規格上看來所有 JavaScript 的數字都是 64bit double，但在 V8 底層其實還是有分 Smi 跟 double，可以用 bytecode 來確認型別。</li>
+</ol>
+<p>以上內容都來自於我自己寫的<a target="_blank" rel="noopener" href="https://www.tenlong.com.tw/products/9786267757048">《JavaScript 重修就好》</a>這本書，書中還有提到更多有趣的案例，像是 Vue 又是怎麼實作非同步的，它的 <code>nextTick</code> 背後用的又是哪個函式？或是 IEEE 754 還定義了哪些東西，數字在使用時需要注意什麼地方等等。</p>
+<p>如果有興趣的話可以找來看看，有什麼問題或建議都可以透過<a target="_blank" rel="noopener" href="https://www.facebook.com/huli.blog">臉書粉專</a>聯絡我。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/JavaScript/">#JavaScript</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2025/09/27/chrome-built-in-prompt-api/">Chrome 內建的翻譯與 Prompt API</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2025 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2025/11/16/en/learn-advanced-javascript-from-react/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>
