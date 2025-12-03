@@ -35,7 +35,7 @@
 <meta property="og:locale" content="zh_TW">
 <meta property="og:image" content="https://blog.huli.tw/img/security-of-encrypt-or-hash-password-in-client-side/cover.png">
 <meta property="article:published_time" content="2023-01-10T00:10:44.000Z">
-<meta property="article:modified_time" content="2025-12-03T23:37:58.916Z">
+<meta property="article:modified_time" content="2025-12-03T23:40:50.341Z">
 <meta property="article:author" content="Huli">
 <meta property="article:tag" content="Security">
 <meta name="twitter:card" content="summary_large_image">
@@ -374,16 +374,16 @@
 <p>而底下的回答大部份都是覺得「有用 HTTPS 就好了，沒必要額外再實作一層加密，沒有什麼太大的意義」</p>
 <p>老實說我以前也是這樣認為的，而且過去在社群中就有出現過類似的討論。我那時候想說都已經有 HTTPS 了，而 HTTPS 本身的目的就是為了保障傳輸的安全，為什麼要自己再做加密？</p>
 <p>但這一兩年接觸資安以後，我的想法有了改變，我認為前端在傳輸前把密碼加密，是有其意義的，而接下來我會詳細說明我的理由。</p>
-<p>2025/12/04 更新：</p>
+<p>2025&#x2F;12&#x2F;04 更新：</p>
 <p>先寫結論在前面給懶得看完的人：</p>
 <ol>
-<li>前端加密或是 hash 密碼，唯一的目的就是「保護使用者的原始密碼不外流」，儘管 HTTPS 是安全的，但明文密碼依舊傳到了你的 server，誰知道你的 server log 會不會記下來，然後外洩被拿去別的服務撞庫。</li>
+<li>前端 hash 密碼，唯一的目的就是「保護使用者的原始密碼不外流」，儘管 HTTPS 是安全的，但明文密碼依舊傳到了你的 server，誰知道你的 server log 會不會記下來，然後外洩被拿去別的服務撞庫。</li>
 <li>如果要做的話，成本低的做法是前端搭配 server 傳來的 salt 先在使用者端把密碼 hash 一次，傳到 server 後，server 再加一次 salt 後 hash，所以前後端都要 salt + hash，防止彩虹表，也能讓 server 根本不知道 user 的原始密碼。</li>
 <li>若是想要更安全，「讓 server 不知道使用者原始密碼也能做驗證」這件事已經有更完整的方案了，如 <a target="_blank" rel="noopener" href="https://proton.me/blog/encrypted-email-authentication">Secure Remote Password (SRP) Protocol</a> 或是 <a target="_blank" rel="noopener" href="https://blog.cloudflare.com/opaque-oblivious-passwords/">OPAQUE</a></li>
 </ol>
 <span id="more"></span>
-<h2><span id="定義問題">定義問題</span></h2>
-<p>在進入正題之前，我想把問題定義得更明確一點，免得出現一堆張飛打岳飛，拿兩個完全不同的情境來比較的狀況。在原文底下，就有不少留言在討論的是不同的問題，把問題先定義清楚滿重要的。</p>
+
+<h2><span id="定義問題">定義問題</span></h2><p>在進入正題之前，我想把問題定義得更明確一點，免得出現一堆張飛打岳飛，拿兩個完全不同的情境來比較的狀況。在原文底下，就有不少留言在討論的是不同的問題，把問題先定義清楚滿重要的。</p>
 <p>首先，我們要比較的對象是：</p>
 <ol>
 <li>在使用 HTTPS 的前提下，打登入 API 時不做任何事直接傳送密碼的明文</li>
@@ -403,8 +403,7 @@
 <li>假設 HTTPS 被破解了，是不安全的，差在哪？</li>
 <li>假設 HTTPS 是安全的，差在哪？</li>
 </ol>
-<h2><span id="假設-https-不安全差在哪">假設 HTTPS 不安全，差在哪？</span></h2>
-<p>首先，可以先想一下怎樣的狀況會造成 HTTPS 不安全，攻擊者掌握了系統的哪些部分？</p>
+<h2><span id="假設-https-不安全差在哪">假設 HTTPS 不安全，差在哪？</span></h2><p>首先，可以先想一下怎樣的狀況會造成 HTTPS 不安全，攻擊者掌握了系統的哪些部分？</p>
 <p>底下簡單分為四種狀況討論：</p>
 <ol>
 <li>攻擊者掌控整台電腦，信任惡意憑證</li>
@@ -412,22 +411,19 @@
 <li>攻擊者可以在網路層監聽 request 並使用漏洞取得明文</li>
 <li>攻擊者直接針對 HTTPS server 進行攻擊</li>
 </ol>
-<h3><span id="攻擊者掌控整台電腦信任惡意憑證">攻擊者掌控整台電腦，信任惡意憑證</span></h3>
-<p>若是這種類型的狀況，那當然是有沒有加密都沒差，因為攻擊者都有其他更好的手段去取得你的密碼。</p>
-<h3><span id="攻擊者成功執行了中間人攻擊">攻擊者成功執行了中間人攻擊</span></h3>
-<p>那如果是「攻擊者成功執行了中間人攻擊（Man-In-The-Middle）」呢？你的電腦沒事，只是封包在傳輸的過程中被中間人攻擊。</p>
+<h3><span id="攻擊者掌控整台電腦信任惡意憑證">攻擊者掌控整台電腦，信任惡意憑證</span></h3><p>若是這種類型的狀況，那當然是有沒有加密都沒差，因為攻擊者都有其他更好的手段去取得你的密碼。</p>
+<h3><span id="攻擊者成功執行了中間人攻擊">攻擊者成功執行了中間人攻擊</span></h3><p>那如果是「攻擊者成功執行了中間人攻擊（Man-In-The-Middle）」呢？你的電腦沒事，只是封包在傳輸的過程中被中間人攻擊。</p>
 <p>在這樣的前提底下，沒加密的情形就能直接被獲取密碼，而有加密的情形攻擊者只能獲取到加密過的密文而非明文。但需要注意的是既然是叫中間人攻擊，那攻擊者除了監聽你的 request 以外，也能傳送偽造的 response 給你，把前端用來加密密碼的部分換掉。</p>
 <p>因此無論密碼是否加密，攻擊者都可以拿到明文，只是如果有加密的話，攻擊者取得密碼的成本較高（需要先找到在哪邊加密的，然後把那段改掉）。</p>
 <p>（話說 HTTPS 要被中間人攻擊的前提也很難滿足就是了，一樣要使用者主動信任惡意憑證，或是 server 端的憑證被入侵）</p>
-<h3><span id="攻擊者可以在網路層監聽-request-並使用漏洞取得明文">攻擊者可以在網路層監聽 request 並使用漏洞取得明文</span></h3>
-<p>這個狀況跟上一個的不同之處在於這個只能讀，不能寫。若是有辦法解密 request 的封包，就能夠看到明文。</p>
+<h3><span id="攻擊者可以在網路層監聽-request-並使用漏洞取得明文">攻擊者可以在網路層監聽 request 並使用漏洞取得明文</span></h3><p>這個狀況跟上一個的不同之處在於這個只能讀，不能寫。若是有辦法解密 request 的封包，就能夠看到明文。</p>
 <p>所以如果有把密碼先加密，攻擊者就無法取得密碼的明文。</p>
 <p>這邊需要注意的是儘管無法取得明文，攻擊者依然可以透過重送請求來登入你的帳號（先假設沒有其他機制），所以你帳號還是被盜了，只是攻擊者不知道你的密碼明文。</p>
 <p>這有差嗎？有！</p>
 <p>假設他知道了你的密碼明文，就可以拿你的這組帳號密碼去各個服務都試試看，若是你其他網站也用同一組帳號密碼，就會跟著淪陷（俗稱的撞庫攻擊）。</p>
 <p>因此在這個狀況底下，加密密碼的安全性顯然是更高的。</p>
 <p>此時你可能會想問的問題是：「那在什麼狀況下攻擊者能夠取得 HTTPS 的明文？真的有可能嗎？」</p>
-<p>這邊有一份美國衛生及公共服務部 HHS 所做的簡報：<a target="_blank" rel="noopener" href="https://www.hhs.gov/sites/default/files/securing-ssl-tls-in-healthcare-tlpwhite.pdf">SSL/TLS Vulnerabilities</a>，裡面有記錄一些 SSL/TLS 曾經有過的漏洞，所以取得 HTTPS 的明文確實是有可能的。</p>
+<p>這邊有一份美國衛生及公共服務部 HHS 所做的簡報：<a target="_blank" rel="noopener" href="https://www.hhs.gov/sites/default/files/securing-ssl-tls-in-healthcare-tlpwhite.pdf">SSL&#x2F;TLS Vulnerabilities</a>，裡面有記錄一些 SSL&#x2F;TLS 曾經有過的漏洞，所以取得 HTTPS 的明文確實是有可能的。</p>
 <p>不過光是知道「有可能」是不夠的，應該問的是「機率高嗎？」，在討論風險的時候，通常也會根據風險的高低以及嚴重程度來決定該怎麼處理這個風險。</p>
 <p>答案是「機率很低」，簡報裡的漏洞最近的已經是 2017 年的事情了，而且是使用一些舊的、有問題的加密演算法，除此之外還需要符合不少其他條件，才能執行攻擊，所以我認為機率確實是很低的。</p>
 <p>以 2016 年發表的 <a target="_blank" rel="noopener" href="https://drownattack.com/">DROWN(Decrypting RSA with Obsolete and Weakened eNcryption)</a> 來說，Server 要支援 SSLv2，而攻擊者要能抓到加密過的 TLS connection，符合這些條件以後，進行一大堆運算後就可以解開 900 個 connection 中的 1 個，而運算成本在當時是 440 美金，約 13k 台幣。</p>
@@ -435,19 +431,16 @@
 <blockquote>
 <p>假設攻擊者可以取得 HTTPS 的明文，那確實自己在應用層加密會更安全，但要符合這個假設的成本很高，發生機率很低</p>
 </blockquote>
-<h3><span id="攻擊者直接針對-https-server-進行攻擊">攻擊者直接針對 HTTPS server 進行攻擊</span></h3>
-<p>這個分類我指的是在 2014 年發生過的 <a target="_blank" rel="noopener" href="https://devco.re/blog/2014/04/11/openssl-heartbleed-how-to-hack-how-to-protect/">Heartbleed</a> 漏洞，攻擊者可以藉由 OpenSSL 的漏洞讀取到 server 的記憶體。</p>
+<h3><span id="攻擊者直接針對-https-server-進行攻擊">攻擊者直接針對 HTTPS server 進行攻擊</span></h3><p>這個分類我指的是在 2014 年發生過的 <a target="_blank" rel="noopener" href="https://devco.re/blog/2014/04/11/openssl-heartbleed-how-to-hack-how-to-protect/">Heartbleed</a> 漏洞，攻擊者可以藉由 OpenSSL 的漏洞讀取到 server 的記憶體。</p>
 <p>這個狀況跟上一個滿像的，如果有在 client 端先加密過密碼，那攻擊者在 server 上讀到的就是加密過後的，不知道密碼明文是什麼。</p>
 <p>所以結論跟上個一樣，就是加密密碼會更安全。</p>
-<h2><span id="中場總結">中場總結</span></h2>
-<p>剛剛我們討論了幾種「HTTPS 變得不安全」的狀況，從以往發生過的案例可以得知「HTTPS 變得不安全」是有可能的。若是攻擊者能夠讀到 HTTPS 傳輸的明文，那在應用層將密碼加密，就能防止攻擊者取得密碼的明文，因此會比沒有加密來得更安全。</p>
+<h2><span id="中場總結">中場總結</span></h2><p>剛剛我們討論了幾種「HTTPS 變得不安全」的狀況，從以往發生過的案例可以得知「HTTPS 變得不安全」是有可能的。若是攻擊者能夠讀到 HTTPS 傳輸的明文，那在應用層將密碼加密，就能防止攻擊者取得密碼的明文，因此會比沒有加密來得更安全。</p>
 <p>如果要講得更詳細，可以從兩個維度去切入，一個是嚴重性（severity），另一個是可能性（possibility）。</p>
 <p>以嚴重性來說，不管有沒有加密密碼，只要攻擊者有辦法拿到 request 的內容，你的帳號就已經淪陷了，而有沒有加密唯一的差別只有攻擊者是否能取得明文密碼，有的話就可以執行撞庫攻擊，拿密碼去試更多其他的網站。</p>
 <p>而可能性就是「HTTPS 的明文被拿到」這件事的可能性，從過往的經歷以及研究來看，雖然是有可能的，但在 2023 年的今天，機率是很低的。</p>
 <p>因此我們現階段的結論應該是：</p>
 <p>攻擊者若是可以繞過 HTTPS 拿到明文的 request，那在應用層將密碼加密，確實會比較安全，但要注意的是要達成這個前提非常困難，發生的機率極低。</p>
-<h2><span id="假設-https-是安全的">假設 HTTPS 是安全的</span></h2>
-<p>接下來我們討論第二種狀況，那就是假設 HTTPS 是安全的，沒有任何人可以從中間看到明文的內容，這應該也是留言區中大多數人假設的前提。</p>
+<h2><span id="假設-https-是安全的">假設 HTTPS 是安全的</span></h2><p>接下來我們討論第二種狀況，那就是假設 HTTPS 是安全的，沒有任何人可以從中間看到明文的內容，這應該也是留言區中大多數人假設的前提。</p>
 <p>在這種狀況下，會有哪些風險呢？</p>
 <p>有一個現實生活中會發生，而且也確實發生過的風險，那就是 logging。</p>
 <p>身為前端工程師，在前端加裝一些 error tracking 的服務是很合理的事情，若是我們直接實作一個「只要伺服器回傳 5xx，就把 request 記錄起來」的機制，如果好巧不巧哪天登入的 API 出現這個狀況，你就可以在 log 裡面看到使用者的明文密碼。</p>
@@ -456,8 +449,7 @@
 <p>我在網路上找到一篇跟我論點一樣的文章：<a target="_blank" rel="noopener" href="https://www.sjoerdlangkemper.nl/2020/02/12/the-case-for-client-side-hashing-logging-passwords-by-mistake/">The case for client-side hashing: logging passwords by mistake</a>，裡面有附上很多參考連結，都是以前各大公司不小心把密碼的明文記錄下來的案例。</p>
 <p>然後有個小地方稍微講一下，上面這篇做的是「在 client 端 hash」，跟我這篇一開始設定的「在 client 端做非對稱式加密」有點不同，hash 會更安全一點，確保在 server 真的沒人知道你的密碼明文是什麼。</p>
 <p>總之呢，在 client 端先把密碼加密或是 hash，可以避免在日誌中不小心出現使用者的密碼明文，這個顯然是個額外的優點。</p>
-<h2><span id="加密還是-hash">加密還是 hash？</span></h2>
-<p>文章開頭我有提到 hash 的狀況有些複雜，所以我先把情境設定在「對密碼做非對稱式加密」再傳輸，因為對上面我舉的那些例子而言，這兩種情境的差異不大。</p>
+<h2><span id="加密還是-hash">加密還是 hash？</span></h2><p>文章開頭我有提到 hash 的狀況有些複雜，所以我先把情境設定在「對密碼做非對稱式加密」再傳輸，因為對上面我舉的那些例子而言，這兩種情境的差異不大。</p>
 <p>舉例來說，HTTPS 被拿到明文內容，無論你對密碼做了非對稱式加密還是雜湊，在攻擊者無法取得伺服器端密鑰的前提之下，都是拿不到明文密碼的。</p>
 <p>那為什麼 hash 的狀況有些複雜呢？</p>
 <p>假設我們在前端先把密碼 hash 過後再傳到後端，那後端是要直接存進去資料庫嗎？如果直接存進去資料庫，哪天資料庫的內容曝光，攻擊者就拿到這些 hash 過的密碼了。</p>
@@ -477,58 +469,37 @@
 <li>明文密碼不會因為人為失誤被記錄到 log 中</li>
 </ol>
 <p>那如果真的比較好用，為什麼沒人在用？</p>
-<h2><span id="現實生活中到底有誰在前端做-hash-或是加密">現實生活中，到底有誰在前端做 hash 或是加密？</span></h2>
-<p>當我一開始碰到這個問題，講出「怎麼沒人在用」的時候，其實只是「我自己沒碰過有人這樣用」，但實際上我並不知道那些知名網站的登入是怎麼做的。</p>
+<h2><span id="現實生活中到底有誰在前端做-hash-或是加密">現實生活中，到底有誰在前端做 hash 或是加密？</span></h2><p>當我一開始碰到這個問題，講出「怎麼沒人在用」的時候，其實只是「我自己沒碰過有人這樣用」，但實際上我並不知道那些知名網站的登入是怎麼做的。</p>
 <p>因此呢，我就直接去看了幾個知名網站的登入機制，我們一起來看一下結果，為了方便觀看，我把跟帳號密碼無關的內容都拿掉了。</p>
-<p>我在測試的時候，基本上都是用 test 或是 <a href="mailto:test@test.com">test@test.com</a> 搭配簡單的密碼如 1234 在測試，然後觀察 request 的內容。</p>
+<p>我在測試的時候，基本上都是用 test 或是 <a href="mailto:&#x74;&#101;&#115;&#x74;&#x40;&#x74;&#101;&#x73;&#116;&#x2e;&#99;&#111;&#x6d;">&#x74;&#101;&#115;&#x74;&#x40;&#x74;&#101;&#x73;&#116;&#x2e;&#99;&#111;&#x6d;</a> 搭配簡單的密碼如 1234 在測試，然後觀察 request 的內容。</p>
 <p>先來看一下 FAANG 吧！</p>
-<h3><span id="faang">FAANG</span></h3>
-<h4><span id="facebook">Facebook</span></h4>
-<p>API 網址：<code>https://zh-tw.facebook.com/login</code></p>
+<h3><span id="faang">FAANG</span></h3><h4><span id="facebook">Facebook</span></h4><p>API 網址：<code>https://zh-tw.facebook.com/login</code></p>
 <p>請求內容：</p>
 <pre class="line-numbers language-none"><code class="language-none">email&#x3D;test@test.com
 encpass&#x3D;#PWD_BROWSER:5:1673256089:AbJQAJUvZZNvh2dZbeDqdu9dp7HWwyHOl3+0sCGjiHMMjvYdxJokpdHE&#x2F;O+E5LIbnakRmDWQfV40ZaB31MaNXFYo1b+RI+LHh6MAdDPa4PJ+BesDp4u8B4F4diVQ+q7idbEhT5wTNaU&#x3D;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
 <p>沒想到 Facebook 就是有實作前端加密的網站！後面那段 Base64 並不是直接把密碼 Base64，而是把加密過的密碼做 Base64，解出來是這樣：<code>\x01²P\x00\x95/e\x93o\x87gYmàêvï]§±ÖÃ!Î\x97\x7F´°!£\x88s\f\x8Eö\x1DÄ\x9A$¥ÑÄüï\x84ä²\x1B\x9D©\x11\x985\x90&#125;^4e wÔÆ\x8D\\V(Õ¿\x91#âÇ\x87£\x00t3Úàò~\x05ë\x03§\x8B¼\x07\x81xv%Pú®âu±!O\x9C\x135¥</code></p>
-<h4><span id="amazon">Amazon</span></h4>
-<p>API 網址：<code>https://www.amazon.com/ap/signin</code><br>
-請求內容：<code>email=test@test.com&amp;password=1234</code></p>
-<h4><span id="apple">Apple</span></h4>
-<p>API 網址：<code>https://idmsa.apple.com/appleauth/auth/signin</code><br>
-請求內容：<code>&#123;&quot;accountName&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;1234&quot;&#125;</code></p>
-<h4><span id="netflix">Netflix</span></h4>
-<p>API 網址：<code>https://www.netflix.com/tw/login</code><br>
-請求內容：<code>userLoginId=test@test.com&amp;password=1234</code></p>
-<h4><span id="google">Google</span></h4>
-<p>API 網址：<code>https://accounts.google.com/v3/signin/_/AccountsSignInUi/data/batchexecute</code></p>
+<h4><span id="amazon">Amazon</span></h4><p>API 網址：<code>https://www.amazon.com/ap/signin</code><br>請求內容：<code>email=test@test.com&amp;password=1234</code></p>
+<h4><span id="apple">Apple</span></h4><p>API 網址：<code>https://idmsa.apple.com/appleauth/auth/signin</code><br>請求內容：<code>&#123;&quot;accountName&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;1234&quot;&#125;</code></p>
+<h4><span id="netflix">Netflix</span></h4><p>API 網址：<code>https://www.netflix.com/tw/login</code><br>請求內容：<code>userLoginId=test@test.com&amp;password=1234</code></p>
+<h4><span id="google">Google</span></h4><p>API 網址：<code>https://accounts.google.com/v3/signin/_/AccountsSignInUi/data/batchexecute</code></p>
 <p>請求內容：</p>
 <pre class="line-numbers language-none"><code class="language-none">f.req&#x3D;[[[&quot;14hajb&quot;,&quot;[1,1,null,[1,null,null,null,[\&quot;1234\&quot;,null,true]]]]<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 <p>看來 FAANG 裡面，只有 Facebook 是有實作的。</p>
 <p>接著我突然好奇起其他常用服務的登入有沒有做，底下貼結果。</p>
-<h4><span id="github">GitHub</span></h4>
-<p>API 網址：<code>https://github.com/session</code><br>
-請求內容：<code>login=test@test.com&amp;password=1234</code></p>
-<h4><span id="microsoft">Microsoft</span></h4>
-<p>API 網址：<code>https://login.live.com/ppsecure/post.srf</code><br>
-請求內容：<code>login=test@test.com&amp;passwd=1234</code></p>
-<h4><span id="ibm-cloud">IBM cloud</span></h4>
-<p>API 網址：<code>https://cloud.ibm.com/login/doLogin</code><br>
-請求內容：<code>&#123;&quot;username&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;1234&quot;&#125;</code></p>
+<h4><span id="github">GitHub</span></h4><p>API 網址：<code>https://github.com/session</code><br>請求內容：<code>login=test@test.com&amp;password=1234</code></p>
+<h4><span id="microsoft">Microsoft</span></h4><p>API 網址：<code>https://login.live.com/ppsecure/post.srf</code><br>請求內容：<code>login=test@test.com&amp;passwd=1234</code></p>
+<h4><span id="ibm-cloud">IBM cloud</span></h4><p>API 網址：<code>https://cloud.ibm.com/login/doLogin</code><br>請求內容：<code>&#123;&quot;username&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;1234&quot;&#125;</code></p>
 <p>看來有實作的是少數，那資安廠商呢？資安廠商自己有做嗎？</p>
-<h3><span id="資安廠商">資安廠商</span></h3>
-<h4><span id="kaspersky">Kaspersky</span></h4>
-<p>API 網址：<code>https://eu.uis.kaspersky.com/v3/logon/proceed</code><br>
-請求內容：<code>&#123;&quot;login&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;12345678&quot;&#125;</code></p>
-<h4><span id="趨勢">趨勢</span></h4>
-<p>API 網址：<code>https://sso1.trendmicro.com/api/usersigninauth</code><br>
-請求內容：<code>&#123;&quot;email&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;12345678&quot;&#125;</code></p>
-<h4><span id="tenable">Tenable</span></h4>
-<p>API 網址：<code>https://cloud.tenable.com/session</code><br>
-請求內容：<code>&#123;&quot;username&quot;:&quot;test&quot;,&quot;password&quot;:&quot;1234&quot;&#125;</code></p>
-<h4><span id="proton">Proton</span></h4>
-<p>這個應該不算資安廠商，但突然很好奇強調隱私的 Proton 是怎麼做的，一看發現好像很複雜。</p>
+<h3><span id="資安廠商">資安廠商</span></h3><h4><span id="kaspersky">Kaspersky</span></h4><p>API 網址：<code>https://eu.uis.kaspersky.com/v3/logon/proceed</code><br>請求內容：<code>&#123;&quot;login&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;12345678&quot;&#125;</code></p>
+<h4><span id="趨勢">趨勢</span></h4><p>API 網址：<code>https://sso1.trendmicro.com/api/usersigninauth</code><br>請求內容：<code>&#123;&quot;email&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;12345678&quot;&#125;</code></p>
+<h4><span id="tenable">Tenable</span></h4><p>API 網址：<code>https://cloud.tenable.com/session</code><br>請求內容：<code>&#123;&quot;username&quot;:&quot;test&quot;,&quot;password&quot;:&quot;1234&quot;&#125;</code></p>
+<h4><span id="proton">Proton</span></h4><p>這個應該不算資安廠商，但突然很好奇強調隱私的 Proton 是怎麼做的，一看發現好像很複雜。</p>
 <p>在登入的時候會先把 username 送過去，拿到一些看起來是 key 的東西。</p>
 <p>API 網址：<code>https://account.proton.me/api/auth/info</code></p>
 <pre class="line-numbers language-none"><code class="language-none">&#123;&quot;Username&quot;:&quot;test@test.com&quot;&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 <pre class="line-numbers language-none"><code class="language-none">&#123;
   &quot;Code&quot;:1000,
   &quot;Modulus&quot;:&quot;-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA256\n\nu9K5yr97L9VV2ijOSI62tJcewUiRhQa8qJa24baNpGyw0lf3JLiF4fxUHqTErwF9UdoxE0z4Kb147naphylBFddyKsjhzHNcxk2rBw9haiPxD69BrVYm0n+LVlPqmjXFF7btr1H7oqHGX4b4Dy9omL&#x2F;KaZz&#x2F;Dco2NEhw0UBhEZbTAs6Ch01ur9XLbSOI7yb6MRsqCehfy82gDTdbPtXvqQsQjg5XoC2Ib2qTYFaU&#x2F;24mq&#x2F;gOaMbVuAGX0hBYzr5NpN9ol2XCdHOLg28Xe90+kisg39VV04axy7Ndvh489dC1CxjcWSSpXd6cPJyOn&#x2F;HH9aPeTZeucBllRGbPgwR6&#x2F;w&#x3D;&#x3D;\n-----BEGIN PGP SIGNATURE-----\nVersion: ProtonMail\nComment: https:&#x2F;&#x2F;protonmail.com\n\nwl4EARYIABAFAlwB1j0JEDUFhcTpUY8mAAD1GwEAoC91QCSfXPEuWM13NZvy\nvL9NQIABuSrVOvgJwMhUTnUBAPb4zbIdTYFOQNrPLvonJt2mmRNy4lGcW7uN\n5yHzJ18J\n&#x3D;Oykn\n-----END PGP SIGNATURE-----\n&quot;,
@@ -537,6 +508,7 @@ encpass&#x3D;#PWD_BROWSER:5:1673256089:AbJQAJUvZZNvh2dZbeDqdu9dp7HWwyHOl3+0sCGji
   &quot;Salt&quot;:&quot;dI7OcD+K4rGPBA&#x3D;&#x3D;&quot;,
   &quot;SRPSession&quot;:&quot;3fa6224285409b6af07c811971e05341&quot;
 &#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>接著輸入密碼登入時，會送出如下的 request，看起來也很複雜：</p>
 <pre class="line-numbers language-none"><code class="language-none">&#123;
   &quot;ClientProof&quot;:&quot;I9Nfd0Nd3OzODf2nt9zLxFHWogEwfRje8zjoeZnblyLfyzz23uXTjJ4qgRFomjIEEtZrlM1jTQa4wRIMGIIV7E6pMqq8c6wcc2tegP4Xt76S0EbnVtE1F9i0Wj46aCPUM0Mha3Zmgi9LKerrGlaftr2FBedjPFT9rPrbLqRQcFNMD33tn69gD&#x2F;p28q4RAr3&#x2F;7d&#x2F;tz7TYhytD5oxCAUwrkqiZOi0kg&#x2F;&#x2F;2mUJ9YNT2nWcgqUERoaU51NbNMcaPnMteEe1PlIJdiQbvNa5K07u8rk7itpBrGW2FP26bREp0UMTzNYM5HcDDkmp4dp9GoBjFJL9n0THUdt&#x2F;oRRJ&#x2F;Enj5WQ&#x3D;&#x3D;&quot;,
@@ -547,13 +519,12 @@ encpass&#x3D;#PWD_BROWSER:5:1673256089:AbJQAJUvZZNvh2dZbeDqdu9dp7HWwyHOl3+0sCGji
     &quot;qcA_CRYU6gSyHWdn&quot;:&quot;c6UZSKPo4Sfm&#x2F;3+DvQN72TTxyj+&#x2F;TplKT9edDiUI5wMfGUsoJs9FGerOtkoW8T49r7KOvqHkzS2+M2v8ra7J9l5kSf5jgC9ZvgZ8Ja5Xgg02nxgAABydOirGLoL4htFsYVtwLrNg8NeSEanLwYLCVaSqkjANRJks0eaKpUOd8xRhCFtUH&#x2F;GCbyg27oZfzDsqKXemKprOUsOh42NTqzEmruAkxs2x8mUsLy&#x2F;vXptVAdaiJLrsSRqD0YBGjvOp4W2&#x2F;0g6V2zfedJpJEzVwtSi1vXTC5bwxmEJlYdV9AiQECogAAJFxLQi7JjtmgFe4tNcv97JD0B8giZ6XS35swjz0vz0mOjVBUwmiDa8n54Y5kBaAoZe5pijdp2S4SOcRAknDIcD1nf0v7oSMOE9WtH&#x2F;sa+XI1D2s5lFKo&#x2F;iInf7r5R9src2hHFoy0b2XT0oCfLPwFX87yjaKbf7bbkjByx&#x2F;3dOgzEliAkS6nHK+fmeDDVM4EoZqVSKZHLg3QTcg4DKaICyDsotALr2UqI&#x2F;ARzkX4yhAXz5xHFaxl6hWAKLJPJcgk6il6oX0s0PCBNSY0Fi3vbQvXD4WalUx+LBNto6CUqeAIzVuAh8sCubzufoSORypE5WqfnuJzAlZ9sMEjaQycuRi497aV3jmjgx53UwO0OiZGxDTEMFBcov4P0g1blZ4vxmULhZU0RfdP31udLr6GTCAB90CM6Vk9w9CsYM+hmo3+JpEAtIVgLVVqcPikTbV+yaOJ1RknxBf3g06kTl0LQ+zBV6pG2rFVi8G4XT9L4FsIgxTNsl&#x2F;ryzs8vJU7K+HvyE1Lp2pAXrfcju7TAIqK&#x2F;FOXvp1c8Ay9O6d4fmd&#x2F;PZalnRDv5mQ6Gmd6JSNzNh6i6AibBuF13w3OBaulY3FGNU&#x2F;cH&#x2F;AXLBIqjSzf&#x2F;OySwkKkC9HBurSs3D0zqcH9BwUpmPEL8jbc8yPE+hPAim+tDo1BXCQNClxgGLaI6FXkuCiQ4AHiKsq0xs5b3WAFzcvBv1rc003RWxRegH&#x2F;2teIooKU9w1kDPQRaK8&#x2F;rIYe8u+BlBeZq4OwCXxx56JHfmTxtJwBi95KqsWzLGtY3ILcb+&#x2F;XkzSRmE2TWbkW1IXzRsl8F6NSJj7JnHA3UrQf4hxuwbaYxpKJrcHuHc8e1wxqXrUSKooCOUxwSBgxvLLT37eaByNTxpfWomxIsH671wuydnmMedWyNIqyaMtxBORuiWUiG4jbMC2BjrVptXJ7VWigf3Vy5OQlMOyTx8tLWi1qZODYyywMBAvHYQlFfSqmIrm4y4dmK&#x2F;srJE&#x2F;+daEnNS+kWF48Jm&#x2F;rQORO5AUwqWL+Lefg9pchcL1BnHOANcviO8pAkxLo8TiK7VLKI5&#x2F;xUsZQoQSlhRt27zMF+sIv+exY375HApiY+a1VQ6OqE4Nvba7O8ETLoLFg4a8Aj+W8erXFHW5F0vVIRphAve9orM4QYnAmOigFAiLb0Pxx124wUjFR9s5oP98hAtNL&#x2F;t+uGAXrb0oxiCfyHb9wa2Qb0x6o9FpuBIc5ZXId+cEXEvOdqhnUQ7ZuOi&#x2F;fX81hlqgUaiD&#x2F;A6P+zjAcREXdktd+hrhSXwCIKSBkp&#x2F;mNymnalQKJkLaNVT+W2sOWqXxTSTIytCQx36xABcj1BXRApntob6Qvche8QJLTjzr9bDpn+Mo59N9PSU51DPIj5Avre6ChTHEQvjz9s1IM2XroBX&#x2F;KFBnPj33aYQZyov4uxrVXxic+fiY+fLMF8x1ut&#x2F;eNWeQU6fn+rU5PEGQ9bbAsjVBZYA5H93ROhO5lnSxoEk5PHkgQ9WpxueckPjJIUGAs+O8QMRFicccfKjhNIc32rXTqbVqLyoz62riDn8Y18MUBoeI8ORyqZOKEEBFsi5dwqoq8t82NFdx5LFjsLdk4RmMXZ2uygNLk8gH2Yyfu3iOQS2bKtNCW42Xmo66Xu5kt8NwAneYQK0mTn6HUv94K10J4hY+Q&#x3D;&quot;
   &#125;
 &#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
 <p>補充：經討論串有人提醒後發現這是一個叫做 SRP（Secure Remote Password）的協議，Proton 有提供一個 <a target="_blank" rel="noopener" href="https://proton.me/support/infrastructure-and-threat-model">ProtonMail Security Features and Infrastructure</a>，裡面有記錄他們的安全措施，就有講到這個機制。</p>
 <p>看起來滿複雜要花不少時間研究，先放著，有興趣的可以參考：<a target="_blank" rel="noopener" href="https://blog.amis.com/srp-1f28676aa525">SRP—更健全的登入及資料傳輸保護協議</a></p>
 <p>雖然更安全，但成本應該又更高了。</p>
-<h3><span id="交易所與銀行">交易所與銀行</span></h3>
-<p>看完上面案例發現有做的是少數，因此我好奇更注重安全的加密貨幣交易所與傳統銀行有沒有做。</p>
-<h4><span id="binance">Binance</span></h4>
-<p>API 網址：<code>https://accounts.binance.com/bapi/accounts/v2/public/authcenter/login</code></p>
+<h3><span id="交易所與銀行">交易所與銀行</span></h3><p>看完上面案例發現有做的是少數，因此我好奇更注重安全的加密貨幣交易所與傳統銀行有沒有做。</p>
+<h4><span id="binance">Binance</span></h4><p>API 網址：<code>https://accounts.binance.com/bapi/accounts/v2/public/authcenter/login</code></p>
 <p>請求內容：</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript">
 <span class="token punctuation">&#123;</span>
@@ -561,28 +532,29 @@ encpass&#x3D;#PWD_BROWSER:5:1673256089:AbJQAJUvZZNvh2dZbeDqdu9dp7HWwyHOl3+0sCGji
   <span class="token string-property property">"password"</span><span class="token operator">:</span><span class="token string">"fe2e6b4138fcd7f27a32bc9af557d69a"</span><span class="token punctuation">,</span>
   <span class="token string-property property">"safePassword"</span><span class="token operator">:</span><span class="token string">"d404559f602eab6fd602ac7680dacbfaadd13630335e951f097af3900e9de176b6db28512f2e000b9d04fba5133e8b1c6e8df59db3a8ab9d60be4b97cc9e81db"</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h4><span id="coinbase">Coinbase</span></h4>
-<p>API 網址：<code>https://login.coinbase.com/api/v1/authenticate-credentials</code></p>
+
+<h4><span id="coinbase">Coinbase</span></h4><p>API 網址：<code>https://login.coinbase.com/api/v1/authenticate-credentials</code></p>
 <p>請求內容：</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span><span class="token string-property property">"email"</span><span class="token operator">:</span><span class="token string">"test@test.com"</span><span class="token punctuation">,</span> <span class="token string-property property">"password"</span><span class="token operator">:</span><span class="token string">"1234"</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-<h4><span id="kraken">kraken</span></h4>
-<p>API 網址：<code>https://www.kraken.com/api/internal/account/settings/tfa</code></p>
+
+<h4><span id="kraken">kraken</span></h4><p>API 網址：<code>https://www.kraken.com/api/internal/account/settings/tfa</code></p>
 <p>請求內容：</p>
 <pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token punctuation">&#123;</span><span class="token string-property property">"username"</span><span class="token operator">:</span><span class="token string">"test"</span><span class="token punctuation">,</span> <span class="token string-property property">"password"</span><span class="token operator">:</span><span class="token string">"1234"</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-<h4><span id="玉山銀行">玉山銀行</span></h4>
-<p>API 網址：<code>https://ebank.esunbank.com.tw/fco/fco08001/FCO08001_Home.faces</code></p>
+
+<h4><span id="玉山銀行">玉山銀行</span></h4><p>API 網址：<code>https://ebank.esunbank.com.tw/fco/fco08001/FCO08001_Home.faces</code></p>
 <p>請求內容：</p>
 <pre class="line-numbers language-none"><code class="language-none">loginform:custid&#x3D;A0000...
 loginform:name&#x3D;mxagZmaqygDx0XX6784Svw&#x3D;&#x3D;__NgZQcFfAx+lQmPza2eNpOA&#x3D;&#x3D;
 loginform:pxsswd&#x3D;8,lIRnuUxw&#x2F;yStOt9QIYG2U3Gn2XkG03x4Ey&#x2F;UU6JGtsbUxfRXoAv9CjE3EWerDN3tfx3dD&#x2F;B3ChLAPMSG2BA3jMXUCZC06y8UbQ5isKc9fCWZSSZAWWcOmJ7LdXw1ZhjV55hpw1upvAr9WEmZ0XF6x7if+dBxJ4KZ00d83qA9eA+3VaSk+JLhN8&#x2F;CFBfTKTfJEs3PDNsm12XzRUBb4YE1aPQosVX10mdvh3zY5lmkrKuq8gnuImEf3oLOk4EF3eVpr6jJiFzMKlHybvGdtKYS25+pgTS68wn3v023barbSmgivcv5atm0XsyXWDY2dKEtdQz+7A6R+AB0bExbQlRjqQ&#x3D;&#x3D;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
-<h4><span id="國泰世華">國泰世華</span></h4>
-<p>API 網址：<code>https://www.cathaybk.com.tw/MyBank/Quicklinks/Home/NormalSignin</code></p>
+
+
+<h4><span id="國泰世華">國泰世華</span></h4><p>API 網址：<code>https://www.cathaybk.com.tw/MyBank/Quicklinks/Home/NormalSignin</code></p>
 <p>請求內容：</p>
 <pre class="line-numbers language-none"><code class="language-none">CustID&#x3D;A000...
 UserId&#x3D;DC0C6E52BE2A2354C53401207F220F1B
 Password&#x3D;8cf5e1977f149ed0362629007a7f91d0efc7b12cb1895ba701c528a12b38d12f8148ca03ee671fe25d2a3a807be980f7728566e359a675734ce046899b147658388bb60f9b900e2ccc9adac280b54b5f2e28cb7eee1b634d0e1ed1c0c0c598c350f61eb003405559331a7f047add7289466bf42cfd5b9e774a1fa116af4fd7050adb8f174d42a8e2098a014a788bd2ffae3bf4ff7a8d8d7e2e8068402fda395da41be6e5d32f2d32cbee2afc26e82c58b60357b5cb186a3b9cf69df2deb9da8c9fde45337935180cb4e177109413d7a758d38bfc8334a4509d8d8fb6a37080f0e0086b4a5ef68f7809ca2ef97183b7f66d996873bb7dbfcee61d2da424b8b968<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
-<h4><span id="中國信託">中國信託</span></h4>
-<p>API 網址：<code>https://www.ctbcbank.com/IB/api/adapters/IB_Adapter/resource/preLogin</code></p>
+
+<h4><span id="中國信託">中國信託</span></h4><p>API 網址：<code>https://www.ctbcbank.com/IB/api/adapters/IB_Adapter/resource/preLogin</code></p>
 <p>請求內容：</p>
 <pre class="line-numbers language-none"><code class="language-none">&#123;
   &quot;rqData&quot;: &#123;
@@ -591,18 +563,18 @@ Password&#x3D;8cf5e1977f149ed0362629007a7f91d0efc7b12cb1895ba701c528a12b38d12f81
     &quot;userId&quot;: &quot;bfcdb9b2d6896a3bfb4a6542e8fb2689486d000b11bdc0c7bc336a6534aec74c|1b1a758bb26702bc0ac7cd660da2a72866f2cfdcf3668f2d39a5f8b006854f52a08f418b0a460b36374f95b7a310d73ea9994788698041f524ecd1f153448ab5d51f901a9a08ac2a9ee04c5c273ecb9d4ec1b6a62e9696c6126271e2f8c334fe17ce8b8538139363b90be75c1130cb251ec240bd26c920b52f5be9fc59094ce7d935d826242d69dc1ff7047a5abbf11d3c7de639a14bb10230912903cd948c05b3b3cb0cdb100f979640e291774e623a7109bde7b55bb8a6a373c0ca12820b072132ea61c845e60e26d09c7ee0fe23f7de286cbccb067a86fd1985c5b455f9ae46ce24dc8f52bcb05c205d6a462345162ae82c35e045bf3fd43a297c3edcfe17&quot;
   &#125;
 &#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h4><span id="美國銀行">美國銀行</span></h4>
-<p>API 網址：<code>https://m.globalcard.bankofamerica.com/pkmslogin.form</code></p>
+
+<h4><span id="美國銀行">美國銀行</span></h4><p>API 網址：<code>https://m.globalcard.bankofamerica.com/pkmslogin.form</code></p>
 <p>請求內容：</p>
 <pre class="line-numbers language-none"><code class="language-none">username&#x3D;fcc63767-1a43-4cc6-8c3e-1346350b5274
 password&#x3D;12345678<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<h4><span id="新加坡星展銀行">新加坡星展銀行</span></h4>
-<p>API 網址：<code>https://internet-banking.dbs.com.sg/IB/Welcome</code></p>
+
+<h4><span id="新加坡星展銀行">新加坡星展銀行</span></h4><p>API 網址：<code>https://internet-banking.dbs.com.sg/IB/Welcome</code></p>
 <p>請求內容：</p>
 <pre class="line-numbers language-none"><code class="language-none">USER_LOGON_NAME&#x3D;test123
 ENCRYPTED_PIN_BLOCK&#x3D;A8C48B7572A1A53C5A66E9B43365027C7FBF14BF461F480A46781E49648A8F70271A29C374F86FCD55A76ED17B2284B47C799B74475F29749D68631FF7E322177A21EEE8C41D8950638A2828C34A2653D7C9F69F5DA568E42D64CE89FCE8F024217B235835E6F8BC3C536F56361EDF459AFCE9A512BDBACAB2D25423209996C2E84A18EA8446685DAF9FAD4B1D6D8DF0F378EC27D9A81AD4D1A2B91BA3CFD838140A9BD48AD8D38D33B0093110BD1CA2C76F3DE4CBD969A9B0260DB890E9B1A99DC1193BFE9A1EDB3E56F71CB1CD8630558B242B040F733A4A40B2E17DE6DA03A58DEC8BB12DA87BB25971E2DBE5AF7AE6112266A3F9027B449BDF46D8DC0A1A<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<h2><span id="結論">結論</span></h2>
-<p>在隨機想到的 20 個網站中，有 7 個有在前端做加密或是 hash（我懶得看是哪個了，總之有做事就對了），名單是：</p>
+
+<h2><span id="結論">結論</span></h2><p>在隨機想到的 20 個網站中，有 7 個有在前端做加密或是 hash（我懶得看是哪個了，總之有做事就對了），名單是：</p>
 <ol>
 <li>Facebook</li>
 <li>Proton</li>
@@ -624,8 +596,7 @@ ENCRYPTED_PIN_BLOCK&#x3D;A8C48B7572A1A53C5A66E9B43365027C7FBF14BF461F480A46781E4
 <p>以上都是沒有在 client hash 時做不到的。</p>
 <p>而第二個結論是：「確實有些大公司有做這個機制，但是非大多數，不過在銀行業似乎是主流」</p>
 <p>這個結論上面有貼完整的資料了，一般的網站很少做這個機制，但還是有人做。</p>
-<p>2023-12-01 補充：<br>
-感謝 @game0416 於留言補充，台灣的銀行有做主要是因為法規的要求：<a target="_blank" rel="noopener" href="https://www.rootlaw.com.tw/LawArticle.aspx?LawID=A040390051065000-1110602&amp;ShowType=Ref&amp;FLNO=10000">金融機構辦理電子銀行業務安全控管作業基準</a></p>
+<p>2023-12-01 補充：<br>感謝 @game0416 於留言補充，台灣的銀行有做主要是因為法規的要求：<a target="_blank" rel="noopener" href="https://www.rootlaw.com.tw/LawArticle.aspx?LawID=A040390051065000-1110602&ShowType=Ref&FLNO=10000">金融機構辦理電子銀行業務安全控管作業基準</a></p>
 <p>第三個結論是：「雖然從技術上來看能夠增加安全性，但實際上是否實作，仍然要考慮其他因素」</p>
 <p>這因素就是我前面提過的「可能性」還有開頭我講先不談的「成本」。</p>
 <p>若是真的比較安全，為什麼一般網站不會實作這個機制？</p>
