@@ -37,7 +37,7 @@
 <meta property="og:image" content="https://blog.huli.tw/img/cors/part5/corb.png">
 <meta property="og:image" content="https://blog.huli.tw/img/cors/part5/corp-fail.png">
 <meta property="article:published_time" content="2021-02-18T15:20:13.000Z">
-<meta property="article:modified_time" content="2025-02-28T12:54:17.591Z">
+<meta property="article:modified_time" content="2026-02-23T08:57:49.880Z">
 <meta property="article:author" content="Huli">
 <meta property="article:tag" content="Front-end">
 <meta property="article:tag" content="Ajax">
@@ -462,8 +462,8 @@ window<span class="token punctuation">.</span>secret <span class="token operator
 <p>因此，稍微理解一下 Spectre 在幹嘛我覺得是很有必要的。如果想要完全理解這個攻擊，需要有滿多的背景知識，但這不是這一篇主要想講的東西，因此底下我會以非常簡化的模型來解釋 Spectre，想要完全理解的話可以參考上面的連結。</p>
 <h2><span id="超級簡化版的-spectre-攻擊解釋">超級簡化版的 Spectre 攻擊解釋</span></h2><p>再次強調，這是為了方便理解所簡化過的版本，跟原始的攻擊有一定出入，但核心概念應該是類似的。</p>
 <p>假設現在有一段程式碼（C 語言）長這樣子：</p>
-<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token class-name">uint8_t</span> arr1<span class="token punctuation">[</span><span class="token number">16</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span> 
-<span class="token class-name">uint8_t</span> arr2<span class="token punctuation">[</span><span class="token number">256</span><span class="token punctuation">]</span><span class="token punctuation">;</span> 
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token class-name">uint8_t</span> array1<span class="token punctuation">[</span><span class="token number">16</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span> 
+<span class="token class-name">uint8_t</span> array2<span class="token punctuation">[</span><span class="token number">256</span><span class="token punctuation">]</span><span class="token punctuation">;</span> 
 <span class="token keyword">unsigned</span> <span class="token keyword">int</span> array1_size <span class="token operator">=</span> <span class="token number">16</span><span class="token punctuation">;</span>
 
 <span class="token keyword">void</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token class-name">size_t</span> x<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
@@ -475,7 +475,7 @@ window<span class="token punctuation">.</span>secret <span class="token operator
 <span class="token class-name">size_t</span> x <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span>
 <span class="token function">run</span><span class="token punctuation">(</span>x<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>我宣告了兩個陣列，型態是 uint8_t，所以每個陣列的元素大小都會是 1 個 byte（8 bit）。而 arr1 的長度是 16，arr2 的長度是 256。</p>
+<p>我宣告了兩個陣列，型態是 uint8_t，所以每個陣列的元素大小都會是 1 個 byte（8 bit）。而 array1 的長度是 16，array2 的長度是 256。</p>
 <p>接下來我有一個 function 叫做 run，會吃一個數字 x，然後判斷 x 是不是比 array1_size 小，是的話我就先把 <code>array1[x]</code> 的值取出來，然後作為索引去存取 <code>array2</code>，再把拿到的值給 y。</p>
 <p>以上面的例子來說，<code>run(1)</code> 的話，就會執行：</p>
 <pre class="line-numbers language-C" data-language="C"><code class="language-C">uint8_t y &#x3D; array2[array1[1]];<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
@@ -492,8 +492,8 @@ window<span class="token punctuation">.</span>secret <span class="token operator
 <p>答案是，透過存取這三個東西的時間！因為在 CPU cache 裡面的東西讀取一定比較快，所以如果讀取 A 花了 10ms，B 花了 10ms，C 只花了 1ms，我們就知道 C 一定是在 CPU cache 裡面。這種透過其他線索來得知資訊的攻擊方法，叫做 side-channel attack，從其他管道來得知資訊。</p>
 <p>上面的方法我們透過時間來判斷，所以又叫做 timing-attack。</p>
 <p>結合上述知識之後，我們再回來看之前那段程式碼：</p>
-<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token class-name">uint8_t</span> arr1<span class="token punctuation">[</span><span class="token number">16</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span> 
-<span class="token class-name">uint8_t</span> arr2<span class="token punctuation">[</span><span class="token number">256</span><span class="token punctuation">]</span><span class="token punctuation">;</span> 
+<pre class="line-numbers language-c" data-language="c"><code class="language-c"><span class="token class-name">uint8_t</span> array1<span class="token punctuation">[</span><span class="token number">16</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span> 
+<span class="token class-name">uint8_t</span> array2<span class="token punctuation">[</span><span class="token number">256</span><span class="token punctuation">]</span><span class="token punctuation">;</span> 
 <span class="token keyword">unsigned</span> <span class="token keyword">int</span> array1_size <span class="token operator">=</span> <span class="token number">16</span><span class="token punctuation">;</span>
 
 <span class="token keyword">void</span> <span class="token function">run</span><span class="token punctuation">(</span><span class="token class-name">size_t</span> x<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
@@ -646,7 +646,7 @@ app<span class="token punctuation">.</span><span class="token function">use</spa
 <li>require-corp</li>
 </ol>
 <p>第一個是預設值，就是沒有任何限制，第二個則是跟我們前面提到的 CORP(Cross-Origin-Resource-Policy) 有關，如果用了這個 require-corp 的話，就代表告訴瀏覽器說：「頁面上所有我載入的資源，都必須有 CORP 這個 header 的存在（或是 CORS），而且是合法的」</p>
-<p>現在假設我們有個網站 <code>a.example.com</code>，我們想讓它變成 cross-rogin isolated state，因此幫他加上一個 header：<code>Cross-Origin-Embedder-Policy: require-corp</code>，然後網頁裡面引入一個資源：</p>
+<p>現在假設我們有個網站 <code>a.example.com</code>，我們想讓它變成 cross-origin isolated state，因此幫他加上一個 header：<code>Cross-Origin-Embedder-Policy: require-corp</code>，然後網頁裡面引入一個資源：</p>
 <pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>http://b.example.com/logo.jpg<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>接著我們在 b 那邊傳送正確的 header：</p>
@@ -848,7 +848,7 @@ app<span class="token punctuation">.</span><span class="token function">use</spa
     <div class="container">
         <div class="columns content">
             <div class="column is-narrow has-text-centered">
-                &copy; 2025 Huli&nbsp;
+                &copy; 2026 Huli&nbsp;
                 Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
                         target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
             </div>
