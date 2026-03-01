@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>感謝 AI 讓我這外行人也能做簡單的逆向工程 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<link href="https://blog.huli.tw/2026/03/01/reverse-engineering-with-ai-ghidra-mcp/" rel="alternate" hreflang="zh-TW" />
+
+
+<link href="https://blog.huli.tw/2026/03/01/reverse-engineering-with-ai-ghidra-mcp/" rel="alternate" hreflang="x-default" />
+
+
+<link href="https://blog.huli.tw/2026/03/01/en/reverse-engineering-with-ai-ghidra-mcp/" rel="alternate" hreflang="en" />
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2026/03/01/reverse-engineering-with-ai-ghidra-mcp/">
+    
+
+
+
+
+
+    <meta name="description" content="最近碰到一個場合拿到了個 Golang HTTP server 的 binary，需要把它拆開進一步研究，找到通往下一步的線索。 但關於逆向工程這件事情，我是很陌生的。我只會把 binary 丟到 Ghidra 裡面，接著就什麼都不會了，我連搜尋字串都不會。 不過現在 AI agent 已經進化得很快了，只要工具運用得當，像我這種的逆向外行人，也能簡單靠 AI 做基礎的逆向工程，這篇就來記錄一下步">
+<meta property="og:type" content="article">
+<meta property="og:title" content="感謝 AI 讓我這外行人也能做簡單的逆向工程">
+<meta property="og:url" content="https://blog.huli.tw/2026/03/01/reverse-engineering-with-ai-ghidra-mcp/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="最近碰到一個場合拿到了個 Golang HTTP server 的 binary，需要把它拆開進一步研究，找到通往下一步的線索。 但關於逆向工程這件事情，我是很陌生的。我只會把 binary 丟到 Ghidra 裡面，接著就什麼都不會了，我連搜尋字串都不會。 不過現在 AI agent 已經進化得很快了，只要工具運用得當，像我這種的逆向外行人，也能簡單靠 AI 做基礎的逆向工程，這篇就來記錄一下步">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://blog.huli.tw/img/reverse-engineering-with-ai-ghidra-mcp/p5.png">
+<meta property="article:published_time" content="2026-03-01T04:20:08.000Z">
+<meta property="article:modified_time" content="2026-03-01T12:44:59.482Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/reverse-engineering-with-ai-ghidra-mcp/p5.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="感謝 AI 讓我這外行人也能做簡單的逆向工程" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/recommend">推薦閱讀</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="目錄">
+                    目錄
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#環境準備">1&nbsp;&nbsp;<b>環境準備</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#前置作業">2&nbsp;&nbsp;<b>前置作業</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#開始使喚-ai-agent-做事">3&nbsp;&nbsp;<b>開始使喚 AI agent 做事</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#結語">4&nbsp;&nbsp;<b>結語</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Medium" href="https://hulitw.medium.com/">
+                
+                <i class="fab fa-medium"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+                <a class="navbar-item" href="/2026/03/01/en/reverse-engineering-with-ai-ghidra-mcp/">English</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        如果有什麼想回饋的（如對文章或部落格的感想），除了留言以外也能填表單跟我說：<a href="https://forms.gle/XuWyRC5qtSd2ANta8" target="_blank">表單連結</a>。若是對更多 JavaScript 知識有興趣，歡迎參考我的新書<a target="_blank" rel="noopener" href="https://www.tenlong.com.tw/products/9786267757048">《JavaScript 重修就好》</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            感謝 AI 讓我這外行人也能做簡單的逆向工程
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2026-03-01T04:20:08.000Z" itemprop="datePublished">2026年3月1日</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>最近碰到一個場合拿到了個 Golang HTTP server 的 binary，需要把它拆開進一步研究，找到通往下一步的線索。</p>
+<p>但關於逆向工程這件事情，我是很陌生的。我只會把 binary 丟到 Ghidra 裡面，接著就什麼都不會了，我連搜尋字串都不會。</p>
+<p>不過現在 AI agent 已經進化得很快了，只要工具運用得當，像我這種的逆向外行人，也能簡單靠 AI 做基礎的逆向工程，這篇就來記錄一下步驟。</p>
+<p>先寫在前面，我拿到的跟這次示範的都是比較小的程式，如果是更大或更複雜的我也不知道能不能跑。我也不會覺得 AI 可以完全取代人原本需要做的部分，但鐵定能讓部分任務變得更輕鬆。</p>
+<p>而像我這樣的外行人，原本能逆出的東西接近沒有，靠 AI 之後能給一些線索都好，就算是亂講的也有一些些參考價值，有總比沒有好嘛，亂講的我還能想辦法再去驗證。至於原本就會逆向的，我也不確定 AI 有沒有幫助，或者是他們會怎麼用，這個不在本篇的討論範圍。</p>
+<span id="more"></span>
+
+<h2><span id="環境準備">環境準備</span></h2><p>為了示範整體流程，先隨意讓 AI 寫了個有註冊、登入跟上傳檔案功能的 Golang server，檔案結構是：</p>
+<pre class="line-numbers language-none"><code class="language-none">.
+├── config
+│   └── config.go
+├── go.mod
+├── go.sum
+├── handlers
+│   ├── auth.go
+│   ├── avatar.go
+│   └── user.go
+├── main.go
+├── Makefile
+├── middleware
+│   └── auth.go
+├── models
+│   └── user.go
+├── routes
+│   └── routes.go
+└── uploads<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>內容的話，貼幾個最主要的檔案上來就好，一個是 route：</p>
+<pre class="line-numbers language-go" data-language="go"><code class="language-go"><span class="token keyword">package</span> routes
+
+<span class="token keyword">import</span> <span class="token punctuation">(</span>
+  <span class="token string">"database/sql"</span>
+
+  <span class="token string">"github.com/gin-gonic/gin"</span>
+
+  <span class="token string">"membership-api/config"</span>
+  <span class="token string">"membership-api/handlers"</span>
+  <span class="token string">"membership-api/middleware"</span>
+<span class="token punctuation">)</span>
+
+<span class="token keyword">func</span> <span class="token function">Setup</span><span class="token punctuation">(</span>db <span class="token operator">*</span>sql<span class="token punctuation">.</span>DB<span class="token punctuation">)</span> <span class="token operator">*</span>gin<span class="token punctuation">.</span>Engine <span class="token punctuation">&#123;</span>
+  r <span class="token operator">:=</span> gin<span class="token punctuation">.</span><span class="token function">Default</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+  authHandler <span class="token operator">:=</span> handlers<span class="token punctuation">.</span><span class="token function">NewAuthHandler</span><span class="token punctuation">(</span>db<span class="token punctuation">)</span>
+  userHandler <span class="token operator">:=</span> handlers<span class="token punctuation">.</span><span class="token function">NewUserHandler</span><span class="token punctuation">(</span>db<span class="token punctuation">)</span>
+  avatarHandler <span class="token operator">:=</span> handlers<span class="token punctuation">.</span><span class="token function">NewAvatarHandler</span><span class="token punctuation">(</span>db<span class="token punctuation">)</span>
+
+  authMiddleware <span class="token operator">:=</span> middleware<span class="token punctuation">.</span><span class="token function">AuthMiddleware</span><span class="token punctuation">(</span>config<span class="token punctuation">.</span>JWTSecret<span class="token punctuation">)</span>
+
+  api <span class="token operator">:=</span> r<span class="token punctuation">.</span><span class="token function">Group</span><span class="token punctuation">(</span><span class="token string">"/api"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#123;</span>
+    <span class="token comment">// 公開端點</span>
+    api<span class="token punctuation">.</span><span class="token function">POST</span><span class="token punctuation">(</span><span class="token string">"/register"</span><span class="token punctuation">,</span> authHandler<span class="token punctuation">.</span>Register<span class="token punctuation">)</span>
+    api<span class="token punctuation">.</span><span class="token function">POST</span><span class="token punctuation">(</span><span class="token string">"/login"</span><span class="token punctuation">,</span> authHandler<span class="token punctuation">.</span>Login<span class="token punctuation">)</span>
+
+    <span class="token comment">// 需登入端點</span>
+    api<span class="token punctuation">.</span><span class="token function">GET</span><span class="token punctuation">(</span><span class="token string">"/users/:id"</span><span class="token punctuation">,</span> authMiddleware<span class="token punctuation">,</span> userHandler<span class="token punctuation">.</span>GetUserByID<span class="token punctuation">)</span>
+    api<span class="token punctuation">.</span><span class="token function">GET</span><span class="token punctuation">(</span><span class="token string">"/me/messages"</span><span class="token punctuation">,</span> authMiddleware<span class="token punctuation">,</span> userHandler<span class="token punctuation">.</span>GetMyMessages<span class="token punctuation">)</span>
+    api<span class="token punctuation">.</span><span class="token function">POST</span><span class="token punctuation">(</span><span class="token string">"/me/avatar"</span><span class="token punctuation">,</span> authMiddleware<span class="token punctuation">,</span> avatarHandler<span class="token punctuation">.</span>Upload<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token keyword">return</span> r
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>再來是刻意埋的兩個漏洞，註冊時的 SQL injection：</p>
+<pre class="line-numbers language-go" data-language="go"><code class="language-go"><span class="token keyword">package</span> handlers
+
+<span class="token keyword">import</span> <span class="token punctuation">(</span>
+  <span class="token string">"database/sql"</span>
+  <span class="token string">"fmt"</span>
+  <span class="token string">"net/http"</span>
+  <span class="token string">"time"</span>
+
+  <span class="token string">"github.com/gin-gonic/gin"</span>
+  <span class="token string">"github.com/golang-jwt/jwt/v5"</span>
+
+  <span class="token string">"membership-api/config"</span>
+  <span class="token string">"membership-api/middleware"</span>
+  <span class="token string">"membership-api/models"</span>
+<span class="token punctuation">)</span>
+
+<span class="token keyword">type</span> RegisterRequest <span class="token keyword">struct</span> <span class="token punctuation">&#123;</span>
+  Username <span class="token builtin">string</span> <span class="token string">`json:"username" binding:"required"`</span>
+  Email    <span class="token builtin">string</span> <span class="token string">`json:"email" binding:"required"`</span>
+  Password <span class="token builtin">string</span> <span class="token string">`json:"password" binding:"required"`</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">type</span> LoginRequest <span class="token keyword">struct</span> <span class="token punctuation">&#123;</span>
+  Username <span class="token builtin">string</span> <span class="token string">`json:"username" binding:"required"`</span>
+  Password <span class="token builtin">string</span> <span class="token string">`json:"password" binding:"required"`</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">type</span> AuthHandler <span class="token keyword">struct</span> <span class="token punctuation">&#123;</span>
+  DB <span class="token operator">*</span>sql<span class="token punctuation">.</span>DB
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">func</span> <span class="token function">NewAuthHandler</span><span class="token punctuation">(</span>db <span class="token operator">*</span>sql<span class="token punctuation">.</span>DB<span class="token punctuation">)</span> <span class="token operator">*</span>AuthHandler <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token operator">&amp;</span>AuthHandler<span class="token punctuation">&#123;</span>DB<span class="token punctuation">:</span> db<span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">func</span> <span class="token punctuation">(</span>h <span class="token operator">*</span>AuthHandler<span class="token punctuation">)</span> <span class="token function">Register</span><span class="token punctuation">(</span>c <span class="token operator">*</span>gin<span class="token punctuation">.</span>Context<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> req RegisterRequest
+  <span class="token keyword">if</span> err <span class="token operator">:=</span> c<span class="token punctuation">.</span><span class="token function">ShouldBindJSON</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>req<span class="token punctuation">)</span><span class="token punctuation">;</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">&#123;</span>
+    c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusBadRequest<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"invalid request"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span>
+  <span class="token punctuation">&#125;</span>
+
+  passwordHash<span class="token punctuation">,</span> err <span class="token operator">:=</span> models<span class="token punctuation">.</span><span class="token function">HashPassword</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>Password<span class="token punctuation">)</span>
+  <span class="token keyword">if</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">&#123;</span>
+    c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusInternalServerError<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"failed to hash password"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token comment">// 刻意保留的 SQL injection 漏洞：使用字串拼接而非參數化查詢</span>
+  query <span class="token operator">:=</span> fmt<span class="token punctuation">.</span><span class="token function">Sprintf</span><span class="token punctuation">(</span><span class="token string">"INSERT INTO users (username, email, password_hash) VALUES ('%s', '%s', '%s')"</span><span class="token punctuation">,</span>
+    req<span class="token punctuation">.</span>Username<span class="token punctuation">,</span> req<span class="token punctuation">.</span>Email<span class="token punctuation">,</span> passwordHash<span class="token punctuation">)</span>
+  <span class="token boolean">_</span><span class="token punctuation">,</span> err <span class="token operator">=</span> h<span class="token punctuation">.</span>DB<span class="token punctuation">.</span><span class="token function">Exec</span><span class="token punctuation">(</span>query<span class="token punctuation">)</span>
+  <span class="token keyword">if</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">&#123;</span>
+    c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusConflict<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"username or email already exists"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span>
+  <span class="token punctuation">&#125;</span>
+
+  c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusCreated<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"message"</span><span class="token punctuation">:</span> <span class="token string">"registration successful"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>以及上傳檔案時的 path traversal：</p>
+<pre class="line-numbers language-go" data-language="go"><code class="language-go"><span class="token keyword">package</span> handlers
+
+<span class="token keyword">import</span> <span class="token punctuation">(</span>
+  <span class="token string">"database/sql"</span>
+  <span class="token string">"net/http"</span>
+  <span class="token string">"path/filepath"</span>
+
+  <span class="token string">"github.com/gin-gonic/gin"</span>
+
+  <span class="token string">"membership-api/config"</span>
+  <span class="token string">"membership-api/middleware"</span>
+<span class="token punctuation">)</span>
+
+<span class="token keyword">type</span> AvatarHandler <span class="token keyword">struct</span> <span class="token punctuation">&#123;</span>
+  DB <span class="token operator">*</span>sql<span class="token punctuation">.</span>DB
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">func</span> <span class="token function">NewAvatarHandler</span><span class="token punctuation">(</span>db <span class="token operator">*</span>sql<span class="token punctuation">.</span>DB<span class="token punctuation">)</span> <span class="token operator">*</span>AvatarHandler <span class="token punctuation">&#123;</span>
+  <span class="token keyword">return</span> <span class="token operator">&amp;</span>AvatarHandler<span class="token punctuation">&#123;</span>DB<span class="token punctuation">:</span> db<span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">func</span> <span class="token punctuation">(</span>h <span class="token operator">*</span>AvatarHandler<span class="token punctuation">)</span> <span class="token function">Upload</span><span class="token punctuation">(</span>c <span class="token operator">*</span>gin<span class="token punctuation">.</span>Context<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  userID<span class="token punctuation">,</span> ok <span class="token operator">:=</span> middleware<span class="token punctuation">.</span><span class="token function">GetUserID</span><span class="token punctuation">(</span>c<span class="token punctuation">)</span>
+  <span class="token keyword">if</span> <span class="token operator">!</span>ok <span class="token punctuation">&#123;</span>
+    c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusUnauthorized<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"unauthorized"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span>
+  <span class="token punctuation">&#125;</span>
+
+  file<span class="token punctuation">,</span> err <span class="token operator">:=</span> c<span class="token punctuation">.</span><span class="token function">FormFile</span><span class="token punctuation">(</span><span class="token string">"avatar"</span><span class="token punctuation">)</span>
+  <span class="token keyword">if</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">&#123;</span>
+    c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusBadRequest<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"missing avatar file"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token comment">// 刻意保留的 path traversal 漏洞：直接使用 file.Filename，未經 filepath.Clean 或 filepath.Base 過濾</span>
+  <span class="token comment">// 攻擊者可上傳 filename="../../../etc/passwd" 等路徑穿越到系統其他位置</span>
+  savePath <span class="token operator">:=</span> filepath<span class="token punctuation">.</span><span class="token function">Join</span><span class="token punctuation">(</span>config<span class="token punctuation">.</span>UploadDir<span class="token punctuation">,</span> file<span class="token punctuation">.</span>Filename<span class="token punctuation">)</span>
+  <span class="token keyword">if</span> err <span class="token operator">:=</span> c<span class="token punctuation">.</span><span class="token function">SaveUploadedFile</span><span class="token punctuation">(</span>file<span class="token punctuation">,</span> savePath<span class="token punctuation">)</span><span class="token punctuation">;</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">&#123;</span>
+    c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusInternalServerError<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"failed to save file"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token comment">// 更新 user 的 avatar_path</span>
+  <span class="token boolean">_</span><span class="token punctuation">,</span> err <span class="token operator">=</span> h<span class="token punctuation">.</span>DB<span class="token punctuation">.</span><span class="token function">Exec</span><span class="token punctuation">(</span><span class="token string">"UPDATE users SET avatar_path = ? WHERE id = ?"</span><span class="token punctuation">,</span> file<span class="token punctuation">.</span>Filename<span class="token punctuation">,</span> userID<span class="token punctuation">)</span>
+  <span class="token keyword">if</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">&#123;</span>
+    c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusInternalServerError<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"failed to update avatar"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span>
+  <span class="token punctuation">&#125;</span>
+
+  c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusOK<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"message"</span><span class="token punctuation">:</span> <span class="token string">"avatar uploaded"</span><span class="token punctuation">,</span> <span class="token string">"path"</span><span class="token punctuation">:</span> file<span class="token punctuation">.</span>Filename<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>寫完之後呢，用這個指令去 build，把該拿的都拿掉，模擬更真實的情境：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token assign-left variable">CGO_ENABLED</span><span class="token operator">=</span><span class="token number">0</span> go build <span class="token parameter variable">-ldflags</span><span class="token operator">=</span><span class="token string">"-s -w"</span> <span class="token parameter variable">-trimpath</span> <span class="token parameter variable">-o</span> dist/membership-api <span class="token builtin class-name">.</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h2><span id="前置作業">前置作業</span></h2><p>因為我們的 binary 是 stripped 的，相關符號都被拿掉了，因此找個好用的 plugin 可以更方便幫我們還原 Golang 相關的東西，我選的是這個：<a target="_blank" rel="noopener" href="https://github.com/mooncat-greenpy/Ghidra_GolangAnalyzerExtension">https://github.com/mooncat-greenpy/Ghidra_GolangAnalyzerExtension</a></p>
+<p>在分析的時候記得把相關選項勾上：</p>
+<p><img src="/img/reverse-engineering-with-ai-ghidra-mcp/p1.png" alt="analysis"></p>
+<p>分析完以後，在 Ghidra 中其實就能看到更詳細的資訊了：</p>
+<p><img src="/img/reverse-engineering-with-ai-ghidra-mcp/p2.png" alt="golang analysis"></p>
+<p><img src="/img/reverse-engineering-with-ai-ghidra-mcp/p3.png" alt="c code"></p>
+<p>但這樣也還是手動去看嘛，像我這種根本不會操作 Ghidra 的人，只會把 binary 丟進去而已，要我看我也不知道怎麼看。</p>
+<p>因此我們再來裝個真正讓 AI 跟 Ghidra 搭上線的東西：<a target="_blank" rel="noopener" href="https://github.com/LaurieWired/GhidraMCP">GhidraMCP</a>，這個有大概兩三個版本用的人好像都滿多，我就隨意挑了一個看起來文件寫得比較好，比較方便跑起來的。</p>
+<p>裝好並且在 Ghidra 啟用之後，在 AI 那邊配置好 MCP，例如說我用的是 Cursor，就這樣配：</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
+  <span class="token property">"mcpServers"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token property">"ghidra"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+      <span class="token property">"command"</span><span class="token operator">:</span> <span class="token string">"python"</span><span class="token punctuation">,</span>
+      <span class="token property">"args"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+        <span class="token string">"/app/GhidraMCP-release-1-4/bridge_mcp_ghidra.py"</span><span class="token punctuation">,</span>
+        <span class="token string">"--ghidra-server"</span><span class="token punctuation">,</span>
+        <span class="token string">"http://127.0.0.1:8080/"</span>
+      <span class="token punctuation">]</span>
+    <span class="token punctuation">&#125;</span>
+  <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>到這一步為止，前置作業就準備好了。</p>
+<p>話說我拿來示範的是 Cursor，但其實只要是 AI agent 都行，你用 codex、claude code、open code 什麼的都一樣，能接 MCP 就都可以。</p>
+<h2><span id="開始使喚-ai-agent-做事">開始使喚 AI agent 做事</span></h2><p>接下來就是用嘴逆向的時候了，我就只是這樣先跟他講而已：</p>
+<blockquote>
+<p>我現在正在逆向一個 golang 的 binary，請幫我使用 ghidra MCP 協助，幫我看一下他是什麼樣的程式，有哪些功能</p>
+</blockquote>
+<p>他就會開始自己呼叫 MCP，搜尋他想要的東西：</p>
+<p><img src="/img/reverse-engineering-with-ai-ghidra-mcp/p4.png" alt="mcp call"></p>
+<p>最後給出了這個 binary 用到的 library：</p>
+<p><img src="/img/reverse-engineering-with-ai-ghidra-mcp/p5.png" alt="reversed libraty"></p>
+<p>以及 API 路由：</p>
+<p><img src="/img/reverse-engineering-with-ai-ghidra-mcp/p6.png" alt="reversed api route"></p>
+<p>認證相關的邏輯：</p>
+<p><img src="/img/reverse-engineering-with-ai-ghidra-mcp/p7.png" alt="auth logic"></p>
+<p>還有推測出的檔案結構：</p>
+<p><img src="/img/reverse-engineering-with-ai-ghidra-mcp/p8.png" alt="file structure"></p>
+<p>接著我就讓他根據推測出來的結構，幫我再把反編譯得到的 C 弄回去 Golang，他就列了幾個 todo 之後開始他的工作：</p>
+<p><img src="/img/reverse-engineering-with-ai-ghidra-mcp/p9.png" alt="c to golang"></p>
+<p>結果它逆向出來的 routes.go 長這樣：</p>
+<pre class="line-numbers language-go" data-language="go"><code class="language-go"><span class="token keyword">package</span> routes
+
+<span class="token keyword">import</span> <span class="token punctuation">(</span>
+  <span class="token string">"database/sql"</span>
+
+  <span class="token string">"github.com/gin-gonic/gin"</span>
+  <span class="token string">"membership-api/handlers"</span>
+  <span class="token string">"membership-api/middleware"</span>
+<span class="token punctuation">)</span>
+
+<span class="token keyword">func</span> <span class="token function">Setup</span><span class="token punctuation">(</span>db <span class="token operator">*</span>sql<span class="token punctuation">.</span>DB<span class="token punctuation">)</span> <span class="token operator">*</span>gin<span class="token punctuation">.</span>Engine <span class="token punctuation">&#123;</span>
+  r <span class="token operator">:=</span> gin<span class="token punctuation">.</span><span class="token function">Default</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+  authHandler <span class="token operator">:=</span> <span class="token operator">&amp;</span>handlers<span class="token punctuation">.</span>AuthHandler<span class="token punctuation">&#123;</span>DB<span class="token punctuation">:</span> db<span class="token punctuation">&#125;</span>
+  userHandler <span class="token operator">:=</span> <span class="token operator">&amp;</span>handlers<span class="token punctuation">.</span>UserHandler<span class="token punctuation">&#123;</span>DB<span class="token punctuation">:</span> db<span class="token punctuation">&#125;</span>
+  avatarHandler <span class="token operator">:=</span> <span class="token operator">&amp;</span>handlers<span class="token punctuation">.</span>AvatarHandler<span class="token punctuation">&#123;</span>DB<span class="token punctuation">:</span> db<span class="token punctuation">,</span> UploadPath<span class="token punctuation">:</span> <span class="token string">"uploads"</span><span class="token punctuation">&#125;</span>
+
+  <span class="token comment">// 公開路由 - 不需要認證</span>
+  api <span class="token operator">:=</span> r<span class="token punctuation">.</span><span class="token function">Group</span><span class="token punctuation">(</span><span class="token string">"/api"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#123;</span>
+    api<span class="token punctuation">.</span><span class="token function">POST</span><span class="token punctuation">(</span><span class="token string">"/register"</span><span class="token punctuation">,</span> authHandler<span class="token punctuation">.</span>Register<span class="token punctuation">)</span>
+    api<span class="token punctuation">.</span><span class="token function">POST</span><span class="token punctuation">(</span><span class="token string">"/login"</span><span class="token punctuation">,</span> authHandler<span class="token punctuation">.</span>Login<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token comment">// 需要認證的路由</span>
+  apiAuth <span class="token operator">:=</span> r<span class="token punctuation">.</span><span class="token function">Group</span><span class="token punctuation">(</span><span class="token string">"/api"</span><span class="token punctuation">)</span>
+  apiAuth<span class="token punctuation">.</span><span class="token function">Use</span><span class="token punctuation">(</span>middleware<span class="token punctuation">.</span><span class="token function">AuthMiddleware</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token punctuation">&#123;</span>
+    apiAuth<span class="token punctuation">.</span><span class="token function">GET</span><span class="token punctuation">(</span><span class="token string">"/users/:id"</span><span class="token punctuation">,</span> userHandler<span class="token punctuation">.</span>GetUserByID<span class="token punctuation">)</span>
+    apiAuth<span class="token punctuation">.</span><span class="token function">GET</span><span class="token punctuation">(</span><span class="token string">"/my-messages"</span><span class="token punctuation">,</span> userHandler<span class="token punctuation">.</span>GetMyMessages<span class="token punctuation">)</span>
+    apiAuth<span class="token punctuation">.</span><span class="token function">POST</span><span class="token punctuation">(</span><span class="token string">"/avatar"</span><span class="token punctuation">,</span> avatarHandler<span class="token punctuation">.</span>Upload<span class="token punctuation">)</span>
+  <span class="token punctuation">&#125;</span>
+
+  <span class="token keyword">return</span> r
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>程式碼的結構跟原始的有些微不同，代表沒有作弊（？），話說我是讓他在不同 context 底下跑的，所以他確實是看不到原本的 Golang 原始碼沒錯。</p>
+<p>總之，反推回來的程式碼清晰可讀，但有小部分錯誤，例如說 <code>/my-messages</code> 這個不存在，應該是 <code>/me/messages</code> 才對。<code>/avatar</code> 也應該是 <code>/me/avatar</code>，看來有部分地方應該被偷懶跳過了。</p>
+<p>而註冊的地方則是這樣：</p>
+<pre class="line-numbers language-go" data-language="go"><code class="language-go"><span class="token keyword">func</span> <span class="token punctuation">(</span>h <span class="token operator">*</span>AuthHandler<span class="token punctuation">)</span> <span class="token function">Register</span><span class="token punctuation">(</span>c <span class="token operator">*</span>gin<span class="token punctuation">.</span>Context<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">var</span> req RegisterRequest
+  <span class="token keyword">if</span> err <span class="token operator">:=</span> c<span class="token punctuation">.</span><span class="token function">ShouldBindJSON</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>req<span class="token punctuation">)</span><span class="token punctuation">;</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">&#123;</span>
+    c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusBadRequest<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"invalid request"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span>
+  <span class="token punctuation">&#125;</span>
+
+  hashedPassword<span class="token punctuation">,</span> err <span class="token operator">:=</span> bcrypt<span class="token punctuation">.</span><span class="token function">GenerateFromPassword</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token function">byte</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>Password<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">10</span><span class="token punctuation">)</span>
+  <span class="token keyword">if</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">&#123;</span>
+    c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusInternalServerError<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"failed to hash password"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span>
+  <span class="token punctuation">&#125;</span>
+
+  query <span class="token operator">:=</span> <span class="token string">`INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)`</span>
+  <span class="token boolean">_</span><span class="token punctuation">,</span> err <span class="token operator">=</span> h<span class="token punctuation">.</span>DB<span class="token punctuation">.</span><span class="token function">ExecContext</span><span class="token punctuation">(</span>c<span class="token punctuation">.</span>Request<span class="token punctuation">.</span><span class="token function">Context</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> query<span class="token punctuation">,</span> req<span class="token punctuation">.</span>Username<span class="token punctuation">,</span> req<span class="token punctuation">.</span>Email<span class="token punctuation">,</span> <span class="token function">string</span><span class="token punctuation">(</span>hashedPassword<span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token keyword">if</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">&#123;</span>
+    c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusConflict<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"username or email already exists"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span>
+  <span class="token punctuation">&#125;</span>
+
+  c<span class="token punctuation">.</span><span class="token function">JSON</span><span class="token punctuation">(</span>http<span class="token punctuation">.</span>StatusCreated<span class="token punctuation">,</span> gin<span class="token punctuation">.</span>H<span class="token punctuation">&#123;</span><span class="token string">"message"</span><span class="token punctuation">:</span> <span class="token string">"registration successful"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>原本故意留做 SQL injection 的地方，現在反倒被修好了，代表他逆向出來的是錯的。</p>
+<p>不過檔案上傳的那個 path traversal 還在，而且他有輕鬆找出來：</p>
+<p><img src="/img/reverse-engineering-with-ai-ghidra-mcp/p10.png" alt="vulnerability"></p>
+<p>上面的結果因為我額度快用完了，所以是用 Cursor 自己出的 composer 1.5 模型，沒這麼聰明。</p>
+<p>我換成 Opus 4.6 以後，同樣的 prompt 它還原完成之後還順便幫我做了個資安檢查，該找的漏洞有找出來，只是 route 的部分依舊有錯，<code>/me</code> 變成了 <code>/my</code>，我以為這些應該是可以完整被還原的？</p>
+<p><img src="/img/reverse-engineering-with-ai-ghidra-mcp/p11.png" alt="opus findings"></p>
+<h2><span id="結語">結語</span></h2><p>得益於 AI agent 的進化外加 MCP 的機制，讓 agent 可以自由操作許多不同的軟體來幫助自動化。</p>
+<p>老實說，我在逆向這件事情上有體驗到那些所謂的 vibe coder 在做產品時的喜悅，也就是：「沒想到不會寫 code 的我也可以弄出一個網站，雖然我不知道原理，但東西好像做出來了」。</p>
+<p>但 vibe coding 會有許多不會寫 code 沒辦法發現的小問題，純靠 AI 逆向我想也是相同的。就像我一開始用 composer 1.5，出來的結果是錯的一樣。但換個方式想，整體流程跟 API endpoints 這些都是對的，也算是收穫不少了。</p>
+<p>原本靠自己的話是 0 分，靠 AI 可以先拿到保底 60 分，怎麼想都很賺。</p>
+<p>時代在進化，工具在進步，這篇想記錄一下自己靠著這些工具，用 AI agent 做簡單的逆向工程的流程。雖然說最後跑出來的結果還是有些許錯誤，但對於一個 web server 來說，拿到 binary 逆向之後得到的東西可以再結合動態測試去驗證，就算有點小錯誤，還是對於整體測試幫助很大。</p>
+<p>這次跑完之後，我還是會覺得逆向工程很難，也還是覺得懂逆向的人很厲害。畢竟我這次跑的是小的 binary，大的我就不確定會怎樣了。</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2025/11/16/learn-advanced-javascript-from-react/">從 React 中學習 JavaScript 底層運作</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">評論</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>繁體中文</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2026/03/01/en/reverse-engineering-with-ai-ghidra-mcp/" class="dropdown-item">
+                    English
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>
