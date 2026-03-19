@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Learn Internal Threats, Key Management, and JWT from the Coupang Data Breach - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<link href="https://blog.huli.tw/2026/03/19/en/coupang-insider-kms-and-jwt/" rel="alternate" hreflang="en" />
+
+
+<link href="https://blog.huli.tw/2026/03/19/coupang-insider-kms-and-jwt/" rel="alternate" hreflang="x-default" />
+
+
+<link href="https://blog.huli.tw/2026/03/19/coupang-insider-kms-and-jwt/" rel="alternate" hreflang="zh-TW" />
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2026/03/19/en/coupang-insider-kms-and-jwt/">
+    
+
+
+
+
+
+    <meta name="description" content="Since November last year, the data breach incident at Coupang has attracted considerable attention, partly due to the reportedly massive amount of leaked data, and partly because the company has a pre">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Learn Internal Threats, Key Management, and JWT from the Coupang Data Breach">
+<meta property="og:url" content="https://blog.huli.tw/2026/03/19/en/coupang-insider-kms-and-jwt/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="Since November last year, the data breach incident at Coupang has attracted considerable attention, partly due to the reportedly massive amount of leaked data, and partly because the company has a pre">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/coupang-insider-kms-and-jwt/cover-en.png">
+<meta property="article:published_time" content="2026-03-19T02:28:05.000Z">
+<meta property="article:modified_time" content="2026-03-19T11:36:59.476Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/coupang-insider-kms-and-jwt/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Learn Internal Threats, Key Management, and JWT from the Coupang Data Breach" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#how-did-they-get-in">1&nbsp;&nbsp;<b>How Did They Get In?</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#key-management-lifecycle">2&nbsp;&nbsp;<b>Key Management Lifecycle</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#safer-key-management-methods">3&nbsp;&nbsp;<b>Safer Key Management Methods</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#additional-risks-of-using-jwt-tokens">4&nbsp;&nbsp;<b>Additional Risks of Using JWT Tokens</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#conclusion">5&nbsp;&nbsp;<b>Conclusion</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-en.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2026/03/19/coupang-insider-kms-and-jwt/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Learn Internal Threats, Key Management, and JWT from the Coupang Data Breach
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2026-03-19T02:28:05.000Z" itemprop="datePublished">19 March 2026</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>Since November last year, the data breach incident at Coupang has attracted considerable attention, partly due to the reportedly massive amount of leaked data, and partly because the company has a presence in Taiwan. As the investigation progresses, more and more details have emerged, even being described as like a movie plot, with efforts to retrieve hard drives from rivers.</p>
+<p>Recently, I went back to review the reports from Korea and found them quite detailed, so I decided to write an article discussing how this whole incident technically occurred and what security aspects we should pay attention to.</p>
+<span id="more"></span>
+
+<h2><span id="how-did-they-get-in">How Did They Get In?</span></h2><p>First, let’s briefly summarize the events of the incident to provide a basic context before diving into the finer details.</p>
+<p>Currently, there are two official statements from Taiwan:</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://tw.coupangcorp.com/archives/5789/">Coupang Taiwan’s Latest Statement on the Recent Cybersecurity Incident in Coupang Korea</a> (Published on 2025-12-25)</li>
+<li><a target="_blank" rel="noopener" href="https://tw.coupangcorp.com/archives/5954/">Coupang Taiwan: Update on the Data Breach Announced on November 29, 2025</a> (Published on 2026-02-24)</li>
+</ol>
+<p>However, more details can be found in this official statement available only in English and Korean: <a target="_blank" rel="noopener" href="https://www.aboutcoupang.com/English/news/news-details/2025/update-on-coupang-korea-cybersecurity-incident/">Update on Coupang Korea Cybersecurity Incident</a> (Published on 2025-12-29)</p>
+<p>For those interested in more technical details, you will need to refer to the investigation report released by the Ministry of Science and ICT (MSIT) in Korea on February 10, which is extremely detailed: <a target="_blank" rel="noopener" href="https://www.msit.go.kr/eng/bbs/view.do;jsessionid=iMyzX8C42zedbf27PtWxq844qjcyYy0VOCt74FEO.AP_msit_2?sCode=eng&mPid=2&mId=4&bbsSeqNo=42&nttSeqNo=1221&utm_source=perplexity">Investigation Results on the Data Breach by a Former Coupang Employee</a>. The technical details cited in this article will also come from this report.</p>
+<p>The incident began on November 16, 2025, when Coupang received an email from the attacker, claiming that a large amount of personal data had been leaked due to a system vulnerability, along with relevant screenshots as proof.</p>
+<p>Coupang immediately launched an investigation and began reviewing logs, discovering that data had indeed been stolen, leading to the news everyone has seen. The incident has now largely come to a close, and the relevant results can be found through official statements and news reports. This article will not discuss the results but will focus solely on the technical details.</p>
+<p>Therefore, the question we are concerned with is: “How did this attacker get in?” Let’s first look at their identity.</p>
+<blockquote>
+<p>The attacker was identified as a former Coupang software developer (Staff Back-end Engineer) who, while employed at Coupang, was responsible for designing and developing user authentication systems for backup in the event of system failures.</p>
+</blockquote>
+<p>The attacker was a former employee and was responsible for developing auth-related systems. The person who sent the email at the beginning is also this individual, but the report and news do not explain why they chose to expose their own attack.</p>
+<p>In a normal login process, after verifying the username and password, the system issues an “electronic access badge” (as stated in the report), and then the server uses a signing key to verify whether this badge is legitimate. While working at Coupang, the attacker directly obtained this signing key, allowing them to locally sign a legitimate badge and log in as anyone.</p>
+<p>This electronic access badge sounds a lot like a JWT token. I tried it myself on Coupang’s Taiwan website and found that the token used for identity verification is indeed a JWT token (CT_AT_TW). When decoded, it looks like this:</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
+  <span class="token property">"aud"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token string">"https://www.tw.coupang.com"</span>
+  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token property">"client_id"</span><span class="token operator">:</span> <span class="token string">"4cb7da11-c6d6-4ca3-875f-332cf489d5d"</span><span class="token punctuation">,</span>
+  <span class="token property">"exp"</span><span class="token operator">:</span> <span class="token number">1773067653</span><span class="token punctuation">,</span>
+  <span class="token property">"ext"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token property">"LSID"</span><span class="token operator">:</span> <span class="token string">"a3788aeb-239c-453d-cd90-72ac345aa431"</span><span class="token punctuation">,</span>
+    <span class="token property">"fiat"</span><span class="token operator">:</span> <span class="token number">1773064052</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token property">"iat"</span><span class="token operator">:</span> <span class="token number">1773064052</span><span class="token punctuation">,</span>
+  <span class="token property">"iss"</span><span class="token operator">:</span> <span class="token string">"https://mauth.tw.coupang.net/"</span><span class="token punctuation">,</span>
+  <span class="token property">"jti"</span><span class="token operator">:</span> <span class="token string">"043c2c37-c373-4b75-abbc-ad8e646bb490"</span><span class="token punctuation">,</span>
+  <span class="token property">"nbf"</span><span class="token operator">:</span> <span class="token number">1773064052</span><span class="token punctuation">,</span>
+  <span class="token property">"scp"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token string">"openid"</span><span class="token punctuation">,</span>
+    <span class="token string">"offline"</span><span class="token punctuation">,</span>
+    <span class="token string">"core"</span><span class="token punctuation">,</span>
+    <span class="token string">"core-shared"</span><span class="token punctuation">,</span>
+    <span class="token string">"pay"</span>
+  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token property">"sub"</span><span class="token operator">:</span> <span class="token string">"556683653781741"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Although I don’t know the internal technical implementation details of Coupang and can’t be 100% sure it’s a JWT token, since the mechanism of signing tokens for identity verification is most suitable with JWT tokens, let’s assume it’s a JWT token for now. Even if something else is used behind the scenes, the process should be similar.</p>
+<p>At this point, it’s already quite clear how the attacker got in: they obtained the signing key (or you could also say the JWT secret) while still employed, so after leaving the company, they used this signing key to sign tokens themselves. The server verified it as legitimate and let them through, allowing them to log into someone else’s account. Once logged in, they could access personal information on pages like “my profile.”</p>
+<p>So this is actually not an external attack; it wasn’t an external hacker exploiting a vulnerability in the auth system. Instead, it’s an insider threat, where a former employee used internal information obtained during their employment to breach the system.</p>
+<p>Next, we can look at this issue from two angles: why an internal key was accessible to a developer, and the risks of using JWT tokens as an auth verification mechanism.</p>
+<h2><span id="key-management-lifecycle">Key Management Lifecycle</span></h2><p>Keys are important; everyone knows this. The lifecycle of a key actually consists of several stages:</p>
+<ol>
+<li>Key Generation </li>
+<li>Key Storage </li>
+<li>Key Distribution</li>
+<li>Key Usage</li>
+<li>Key Rotation</li>
+<li>Key Destruction</li>
+</ol>
+<p>The first step is to generate a secret key and ensure that the generation method is secure. This step usually emphasizes using secure algorithms, sufficiently random entropy, and a secure environment, etc. A problematic example would be using an insecure random number generator (like <code>Math.random()</code>) or generating the key in an insecure environment, such as on a developer’s local machine.</p>
+<p>After generation, a secure location must be chosen for storage, such as an HSM or KMS. A counterexample would be storing it in plaintext on a specific machine.</p>
+<p>Next, when the system needs to use this key, it must be able to securely transfer the key from the storage location to the usage location. A counterexample would be transmitting the key directly over HTTP on an internal network, where anyone intercepting the packets could see the plaintext key.</p>
+<p>When using the key, it must be used correctly. The key should only be used for its intended purpose, and access should be restricted to those who can use it. For example, if I generate one key and every system uses the same one, that is an incorrect usage method. If it gets stolen, every system is compromised. There should be one key for auth, one for payment, or even multiple keys within the same system.</p>
+<p>From Coupang’s public statement, it can be seen that although their auth key was leaked, payment-related services were unaffected, and no data was leaked. The investigation report from Korea also indicated that the impact was limited to pages like “My Information,” excluding payment-related information.</p>
+<p>Finally, regarding key retirement, key rotation should be performed regularly to replace keys and limit the attack time window. After a key is completely destroyed, it must be ensured that it cannot be recovered, and that key should not be used again.</p>
+<p>In this lifecycle, any step with an issue could lead to key leakage.</p>
+<p>In the case of Coupang, since a former employee could access the key, it suggests that there was an error in the first two steps. The investigation report pointed out that the current employee’s computer also had this key:</p>
+<blockquote>
+<p>A forensic examination of laptops used by current developers confirmed that the signing key, which was required to be stored exclusively within the key management system, had also been stored locally on developer laptops (via hardcoding).</p>
+</blockquote>
+<p>Many companies, when managing keys, may only consider half of the process. For example, they might know to use some Secret Manager or vault to store keys and securely transmit them for system use, but overlook other steps, such as key generation.</p>
+<p>How was this key generated? Many companies might have a developer generate a key locally and then pass it to SRE, who configures it in the vault. In this process, the key has already been known to at least two internal employees, and there isn’t much logging available to check, as this occurs before the key is placed in the vault.</p>
+<p>When the key is managed elsewhere, it is possible for SREs to have the permission to directly view the plaintext of the key and steal it. However, the vault system should have an access log that can be traced back. But if the logging occurs before the key is placed in, there will be no record, creating a security vulnerability.</p>
+<p>Although the risk of insiders is relatively lower compared to other categories, as internal malfeasance is usually easier to detect and can lead to legal consequences, once it occurs, it can still cause significant damage to the company’s reputation, just like the recent Coupang incident.</p>
+<h2><span id="safer-key-management-methods">Safer Key Management Methods</span></h2><p>Earlier, it was mentioned that many companies have no issues with key storage, but they do not do well in the key generation phase, allowing insiders to directly obtain the key, thus introducing internal risks.</p>
+<p>Therefore, the safest method is “no one knows what this key is.”</p>
+<p>“Anyone” includes SREs, CISO, CEO, or developers; no one knows what the key actually is.</p>
+<p>For example, if you originally allowed SREs to generate the key themselves and then place it in AWS Secret Manager, you could change it to directly use the AWS Secret Manager’s <a target="_blank" rel="noopener" href="https://docs.aws.amazon.com/secretsmanager/latest/userguide/create_secret.html">create-secret</a> command to generate a key and store it:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">aws secretsmanager create-secret <span class="token punctuation">\</span>
+  <span class="token parameter variable">--name</span> jwt-secret <span class="token punctuation">\</span>
+  --generate-secret-string <span class="token string">'&#123;"PasswordLength":64&#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>(This is just an example using AWS; similar services from other clouds should be about the same.)</p>
+<p>In this way, when the key is generated, no one will know its contents.</p>
+<p>Although this method is already safer than the previous one, upon closer inspection, there are still a few issues.</p>
+<p>First, the key stored in AWS Secret Manager can be read; if you have the <code>secretsmanager:GetSecretValue</code> permission, you can read it. So if an SRE has this permission or sets it for themselves through other means, they can still access it.</p>
+<p>Second, since the system needs to use this key, it must be readable. If a developer modifies a piece of code to dump the key’s contents into the log during CI or system startup, they can still know the plaintext of the key.</p>
+<p>Both of these methods will leave records, such as AWS permission change logs, key read logs, and code commit logs, etc. Moreover, the attack premise of the second method is not low; usually, code needs to go through PR review before being pushed to production, and it may also be directly caught by DLP when printed.</p>
+<p>But regardless of whether evidence is left behind, the point is that if an insider is determined to do harm, they can still obtain it.</p>
+<p>One solution is to start with key rotation. When personnel who can access the key leave, remember to rotate all related keys to prevent leakage. Although we cannot prevent current employees from doing harm, at least we ensure that they automatically lose all permissions after leaving, and any information or keys they accessed while employed can no longer be used.</p>
+<p>If you want to be even safer, even current employees should not be allowed to touch the key. This means removing the premise that “the system needs to obtain the key to encrypt and decrypt,” and instead, moving the encryption and decryption process to another trusted location.</p>
+<p>This is what KMS (Key Management Service) commonly does.</p>
+<p>In this type of service, you cannot obtain the key; it only exposes a few APIs to you, such as:</p>
+<ol>
+<li>Encrypt</li>
+<li>Decrypt</li>
+<li>Sign</li>
+<li>Verify</li>
+</ol>
+<p>So when you need to encrypt or decrypt, you call the KMS API and wait for the result. In this process, you do not need the key at all; from key generation to usage, everything is done within KMS.</p>
+<p>In simple terms, it is about isolating these key-related operations into a subsystem.</p>
+<p>However, merely isolating it into a subsystem does not fundamentally solve the problem; this subsystem will encounter the same issue: what if the KMS is compromised? Will the key be leaked?</p>
+<p>If you want to ensure that the key is truly not leaked (as completely as possible, but certainly not 100%), the ultimate solution is to hand over key management to specialized hardware, namely HSM (Hardware Security Module). These hardware devices are specifically designed to protect keys and even consider the risk of physical attacks, similar to what you see in movies, where a safe detects an intrusion attempt and self-destructs.</p>
+<p>However, enterprise-grade HSMs typically start at hundreds of thousands of TWD. Besides purchasing HSMs, cloud service KMS can also be paired with Cloud HSM. For example, AWS’s <a target="_blank" rel="noopener" href="https://docs.aws.amazon.com/pdfs/kms/latest/cryptographic-details/kms-crypto-details.pdf">KMS documentation</a> states:</p>
+<blockquote>
+<p>If the Origin is AWS_KMS, after the ARN is created, a request to an AWS KMS HSM is made over an authenticated session to provision a hardware security module (HSM) backing key (HBK).</p>
+</blockquote>
+<p>Speaking of Secret Manager and KMS, the concepts are somewhat similar in certain aspects, so let’s briefly discuss the differences.</p>
+<p>Secret Manager is solely responsible for managing secrets, which can be tokens for calling third-party APIs or passwords for logging into certain services. These are all secrets, but they are not necessarily “keys,” as the term “key” specifically refers to cryptographic keys.</p>
+<p>Key Management Service, on the other hand, is dedicated to managing keys, providing APIs related to encryption, decryption, and digital signatures, revolving around keys. Therefore, it also considers the generation of keys and their entire lifecycle, which is the difference between Secret Manager and KMS.</p>
+<p>In simple terms, Secret Manager addresses “how to securely store secret information,” while KMS addresses “how to securely manage and use cryptographic keys.”</p>
+<p>However, why do we put so much effort into protecting this key? That’s because, in the case of a JWT token, once the private key is taken, it can directly forge the identity of any user to log in… etc. Isn’t that a bit strange?</p>
+<h2><span id="additional-risks-of-using-jwt-tokens">Additional Risks of Using JWT Tokens</span></h2><p>In this classic article from 2016, <a target="_blank" rel="noopener" href="http://cryto.net/~joepie91/blog/2016/06/13/stop-using-jwt-for-sessions/">Stop using JWT for sessions</a>, three terms are defined:</p>
+<ol>
+<li>Stateless JWT: session data is stored directly in the JWT</li>
+<li>Stateful JWT: only session ID is stored in the JWT</li>
+<li>Session token&#x2F;cookie: traditional method, cookie stores session ID</li>
+</ol>
+<p>What I want to discuss this time is mainly the first type.</p>
+<p>In the first scenario, since the user’s data is stored directly in the JWT, if the JWT can be forged, it can lead to serious problems, just like this incident with Coupang.</p>
+<p>However, if we use the traditional method or the second type, where we only store the session ID, since this is a random string, under unpredictable circumstances, attackers cannot do much more. Therefore, even if they obtain the key, they cannot directly forge identities.</p>
+<p>In other words, the stateless JWT approach actually has a risk: if the key is stolen, it’s game over, so protecting the key becomes very important.</p>
+<p>Another point to note is that if asymmetric encryption is used, in addition to protecting the private key, the public key also needs to be protected.</p>
+<p>Huh? Why does the public key need protection?</p>
+<p>Because the system uses the public key for verification, and this public key is usually placed at a fixed URL, such as .well-known&#x2F;jwks.json.</p>
+<p>If this URL is compromised, attackers can generate a new key pair and replace the public key, allowing them to pass with their own signed JWT token. Although all keys signed through legitimate channels will fail and the system will definitely raise an alarm, attackers still have a time window to successfully forge identities.</p>
+<p>Therefore, both the private key and the public key need to be protected.</p>
+<h2><span id="conclusion">Conclusion</span></h2><p>In the past, the first reaction to security incidents was often external hacker intrusions, but this time we saw a real case of an insider. The identity of “internal employees” inherently has more privileges and access to more information, and “internal developers” have even more access, especially if they are “developers of the internal auth system.”</p>
+<p>Even after leaving the company, they still know more internal details than others and can more easily exploit vulnerabilities from the outside (for example, by stealing a piece of code and exploiting a vulnerability to gain access, or using known but unpatched vulnerabilities, etc.).</p>
+<p>From the investigation report in Korea, we, as outsiders, can also get a glimpse of the technical details, trying to piece together which systems had issues and how to improve.</p>
+<p>I believe many companies have some issues in generating keys; I’ve seen many cases where developers or SREs generate them and then store them in Secret Manager. Many companies also lack the resources to set up a KMS (or some may not have thought about it or realized the need to do so). These are all risks and will be discussed under the framework of risk management. Many companies currently choose to accept the risk, acknowledging its existence but deciding not to address it due to the low probability of occurrence.</p>
+<p>If there is indeed a former employee who manages to sneak out some data, similar incidents are likely to happen again.</p>
+<p>While observing this incident, I couldn’t help but think of my previous experience working in cryptocurrency-related insurance, as managing keys is crucial for exchanges, especially the private keys of wallets, which directly relate to large sums of money. At that time, I also looked into many methods for protecting private keys, took a lot of notes, and learned many technical terms. The HSM, KMS mentioned in this article, or the DEK (Data Encryption Key), KEK (Key Encryption Key), and envelope encryption that weren’t mentioned, are all quite interesting.</p>
+<p>If I can retrieve the notes I wrote in the past and the memories that are gradually fading, I will come back to write another article later.</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2026/03/01/en/reverse-engineering-with-ai-ghidra-mcp/">Using AI to Do Simple Reverse Engineering</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2026/03/19/coupang-insider-kms-and-jwt/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>
