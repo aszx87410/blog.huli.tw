@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="en">
+<head>
+    <meta charset="utf-8">
+<title>Reunderstanding the Power of AI Through Reverse Engineering - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<link href="https://blog.huli.tw/2026/04/18/en/ai-reverse-engineering-op/" rel="alternate" hreflang="en" />
+
+
+<link href="https://blog.huli.tw/2026/04/18/ai-reverse-engineering-op/" rel="alternate" hreflang="x-default" />
+
+
+<link href="https://blog.huli.tw/2026/04/18/ai-reverse-engineering-op/" rel="alternate" hreflang="zh-TW" />
+    
+
+
+
+
+    
+<link rel="canonical" href="https://blog.huli.tw/2026/04/18/en/ai-reverse-engineering-op/">
+    
+
+
+
+
+
+    <meta name="description" content="Previously, I wrote a post titled Using AI to Do Simple Reverse Engineering, describing how I combined an AI agent with Ghidra MCP to reverse engineer a stripped Golang binary. Although there were som">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Reunderstanding the Power of AI Through Reverse Engineering">
+<meta property="og:url" content="https://blog.huli.tw/2026/04/18/en/ai-reverse-engineering-op/index.html">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="Previously, I wrote a post titled Using AI to Do Simple Reverse Engineering, describing how I combined an AI agent with Ghidra MCP to reverse engineer a stripped Golang binary. Although there were som">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.huli.tw/img/ai-reverse-engineering-op/cover-en.png">
+<meta property="article:published_time" content="2026-04-18T02:46:30.000Z">
+<meta property="article:modified_time" content="2026-04-18T12:22:56.016Z">
+<meta property="article:author" content="Huli">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://blog.huli.tw/img/ai-reverse-engineering-op/cover-en.png">
+
+
+
+<link rel="alternative" href="/atom.xml" title="Reunderstanding the Power of AI Through Reverse Engineering" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=4.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/en">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/en/archives">Archive</a>
+            
+            <a class="navbar-item "
+               href="/en/categories">Categories</a>
+            
+            <a class="navbar-item "
+               href="/en/about">About</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            <div class="navbar-item is-hoverable has-dropdown is-hidden-mobile is-hidden-tablet-only toc">
+                <a class="navbar-item" title="Table of Contents">
+                    Table of Contents
+                </a>
+                <div class="navbar-dropdown">
+                    
+                    
+                    
+                    
+                    <a class="navbar-item" href="#selected-cases">1&nbsp;&nbsp;<b>Selected Cases</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#case-1-cocos2d-game">1.1&nbsp;&nbsp;Case 1: Cocos2d Game</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#case-2-another-cocos2d-game">1.2&nbsp;&nbsp;Case 2: Another Cocos2d Game</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#case-3-unity-game">1.3&nbsp;&nbsp;Case 3: Unity Game</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#case-four-another-unity-game">1.4&nbsp;&nbsp;Case Four: Another Unity Game</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#case-five-obfuscated-app">1.5&nbsp;&nbsp;Case Five: Obfuscated App</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#case-six-bank-level-app">1.6&nbsp;&nbsp;Case Six: Bank-Level App</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#case-seven-a-packaged-game">1.7&nbsp;&nbsp;Case Seven: A Packaged Game</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#my-ai-usage-and-costs">2&nbsp;&nbsp;<b>My AI Usage and Costs</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#the-limitations-of-ai">3&nbsp;&nbsp;<b>The Limitations of AI</b></a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#some-insights">4&nbsp;&nbsp;<b>Some Insights</b></a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#it-turns-out-i-limited-ai">4.1&nbsp;&nbsp;It Turns Out I Limited AI</a>
+                    
+                    
+                    
+                    <a class="navbar-item" href="#the-balance-of-offense-and-defense">4.2&nbsp;&nbsp;The Balance of Offense and Defense</a>
+                    
+                    
+                    <hr class="navbar-divider">
+                    
+                    
+                    <a class="navbar-item" href="#summary">5&nbsp;&nbsp;<b>Summary</b></a>
+                    
+                </div>
+            </div>
+            
+            
+            <a class="navbar-item" target="_blank" title="Twitter" href="https://twitter.com/aszx87410">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-en.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+               <a class="navbar-item" href="/2026/04/18/ai-reverse-engineering-op/">中文</a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+      
+      <div data-nosnippet class="self-notice">
+        If you have any thoughts on my blog or articles and you want to let me know, you can either post a comment below(public) or tell me via this <a href="https://forms.gle/SjJZ4cnNs6NnjXQG8" target="_blank">feedback form</a>
+      </div>
+      
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            Reunderstanding the Power of AI Through Reverse Engineering
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2026-04-18T02:46:30.000Z" itemprop="datePublished">18 April 2026</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/en/categories/Security/">Security</a>
+        </span>
+        
+        
+        
+        <spen data-nosnippet class="column is-narrow">(Translated by ChatGPT)</span>
+        
+    </div>
+    
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>Previously, I wrote a post titled <a href="https://blog.huli.tw/2026/03/01/en/reverse-engineering-with-ai-ghidra-mcp/">Using AI to Do Simple Reverse Engineering</a>, describing how I combined an AI agent with Ghidra MCP to reverse engineer a stripped Golang binary. Although there were some minor errors in the results, the overall direction was correct.</p>
+<p>Nearly two months have passed, and during this time, I used AI to reverse engineer more things, including many that I thought AI couldn’t handle. However, AI slapped me in the face, revealing that I was the ignorant one.</p>
+<p>This article documents what AI can achieve and concludes with how this experience has changed my perspective on AI.</p>
+<span id="more"></span>
+<h2><span id="selected-cases">Selected Cases</span></h2>
+<p>The following cases are all Android applications unless otherwise specified.</p>
+<h3><span id="case-1-cocos2d-game">Case 1: Cocos2d Game</span></h3>
+<p>After AI unpacked the APK, it used jadx to decompile the Java and found that the game logic was not included.</p>
+<p>Upon observation, it was discovered that the game was written in Cocos2d, with a large number of encrypted JavaScript and JSON files under the assets directory, as well as a <code>libcocos2djs.so</code>.</p>
+<p>The next step was to parse the symbols within <code>libcocos2djs.so</code>, where some encryption and decryption functions were indeed found. However, since this SO file was 35 MB, AI deemed it too large and chose to reverse engineer from the decryption functions instead, identifying that the encryption algorithm was Blowfish.</p>
+<p>Next, I traced who called the function that set the key, and after decompiling that segment, I restored the key, which was constructed in the original code by concatenating strings one by one:</p>
+<pre class="line-numbers language-c" data-language="c"><code class="language-c">std<span class="token operator">::</span>string key<span class="token punctuation">;</span>
+key<span class="token punctuation">.</span><span class="token function">push_back</span><span class="token punctuation">(</span><span class="token char">'7'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// MOV W8, 0x37</span>
+key<span class="token punctuation">.</span><span class="token function">push_back</span><span class="token punctuation">(</span><span class="token char">'2'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// MOV W8, 0x32</span>
+key<span class="token punctuation">.</span><span class="token function">push_back</span><span class="token punctuation">(</span><span class="token char">'c'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// MOV W8, 0x63</span>
+key<span class="token punctuation">.</span><span class="token function">push_back</span><span class="token punctuation">(</span><span class="token char">'d'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// MOV W8, 0x64</span>
+<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>（<span class="token number">32</span> in total）<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>This is particularly noteworthy because before attempting this method, AI first scanned the code to see if there were any strings resembling the key, but found none. By this point, AI understood that since the key was added one by one, it was not continuous in the code and could not be directly scanned.</p>
+<p>Then, I wrote a Python script to decrypt all resources, ultimately obtaining the JavaScript and restoring the game logic and client-side configuration.</p>
+<p>This case primarily involved pure static analysis, where AI used static analysis alone to find the encryption and decryption functions as well as the key-setting location, then decompiled back to derive the key’s content and decrypted the game resources.</p>
+<h3><span id="case-2-another-cocos2d-game">Case 2: Another Cocos2d Game</span></h3>
+<p>Similarly, after unpacking and using jadx, it was found that the DEX had a shell added. However, this game was also observed to be Cocos2d, so the DEX was set aside for now, and AI first looked at <code>libcocos2djs.so</code>, where a suspicious key was found.</p>
+<p>However, since this key could not decrypt the encrypted JSC, AI took a different approach and used Unicorn Engine to simulate the execution of this SO, but there was no progress, as it got stuck after running for a while.</p>
+<p>Since static analysis did not yield results, AI switched to dynamic analysis, installing an Android emulator and Frida to hook multiple parameters. Both <code>Memory.scanSync</code> and <code>fopen</code> failed, and later AI looked for the functions exported by <code>libcocos2djs.so</code>, discovering that <code>xxtea_decrypt</code> was public, so AI hooked <code>xxtea_decrypt</code>.</p>
+<p>After running the game, AI obtained the correct key and restored the encrypted JSC files, which also contained the game logic and configuration.</p>
+<p>After reaching this point, since the game had already been restored, AI stopped. I wanted to continue testing its capabilities, so I said to it, “Why don’t you try to unpack that shell?” As a result, the protection of that shell was quite weak, and after running it, frida-dexdump quickly dumped all the DEX.</p>
+<p>This case switched from static analysis to dynamic analysis with hooking, and also conveniently unpacked a shell (although the shell was quite weak).</p>
+<h3><span id="case-3-unity-game">Case 3: Unity Game</span></h3>
+<p>After unpacking the APK, there were three SO files: libil2cpp, libunity, and libxlua. It was speculated that the core logic was at the Lua layer. AI then used Il2CppDumper to unpack the global-metadata, extracting some C# files and DLLs. After decompiling with ILSpy, it was found that they were all classes with empty implementations (seemingly how IL2CPP works?).</p>
+<p>Using jadx to decompile Java also yielded some SDKs, with no game logic, so AI focused on finding the Lua files.</p>
+<p>Using UnityPy to scan all asset bundles for TextAssets, AI only found four Lua scripts, none of which contained the core game logic. From the C# code AI obtained earlier, AI found some strings indicating that the game had a hot update system. AI attempted to download using the URLs and AES key and IV found within, but all returned 404 errors and could not be downloaded.</p>
+<p>Later, AI turned back to the asset bundle and found a bundle containing 3000 TextAssets (which AI didn’t check the first time). From the file names, AI confirmed they were encrypted Lua scripts.</p>
+<p>Upon observation, AI noticed that many of these files had the same first 6 bytes, speculating that they were the beginning of Lua 5.3 compiled bytecode. AI attempted to reverse-engineer the key using XOR but found it impossible to decrypt. Then AI tried several different encryption methods, various AES modes, but still couldn’t decrypt it.</p>
+<p>Next, AI decompiled libil2cpp and saw that the decryption process indeed used XOR, and the key was a 6-byte sequence that repeated. In C#, AI couldn’t find it using a static method with global-metadata, and AI hit a roadblock, so I intervened.</p>
+<p>I asked him, “Would dynamic analysis be faster?”</p>
+<p>The AI provided two options: one was Frida hook, and the other was Unicorn simulation. I chose the latter, and during the script writing, the AI cleverly cracked it using a different method. It said it observed those files and found that the first 54 bytes of half of them were identical, and they were a repeating sequence of 6 bytes: <code>c3 70 43 22 34 a6</code>.</p>
+<p>If the key is a 6-byte repeating XOR, then the repetition in the ciphertext indicates that the plaintext is also repeated. What Lua file would have so many identical characters at the beginning?</p>
+<p>The AI boldly guessed: “Comments.” Lua comments start with <code>--</code>, and many frameworks have a habit of placing a long comment starting with <code>-----</code> as a separator. Based on this assumption, it XORed to obtain the key, then decrypted the Lua scripts, discovering that everything was unlocked, revealing readable source code.</p>
+<p>The key to this case is that the AI is observant and employs various methods to attempt decryption. Below is the process the AI followed while solving this case, showing that it tried many methods in between but none worked, so it moved on to the next method:</p>
+<pre class="line-numbers language-none"><code class="language-none">XAPK unpack
+  ↓
+Il2CppDumper + ILSpy + JADX  ← standard workflow, nothing unusual
+  ↓
+UnityPy scan → only 4 tool scripts found  ← assumed core logic is server-side
+  ↓
+Locate AppConfig → obtained CDN URL and AES key
+  ↓
+Attempt download → all 404  ← dead end
+  ↓
+Re-examine AssetBundle → found encrypted files!
+  ↓
+Inspect ciphertext → noticed repeating 6-byte pattern
+  ↓
+❌ Wrong assumption: Lua bytecode → derived incorrect keystream
+  ↓
+❌ Tried AES-CBC&#x2F;ECB&#x2F;OFB&#x2F;CTR&#x2F;CFB → none matched
+❌ Tried RC4 → no match
+❌ Tried .NET Random (10K seeds) → no match
+  ↓
+Reverse engineered libil2cpp.so → confirmed it&#39;s simple repeating XOR (not a stream cipher)
+  ↓
+❌ Tried statically finding ENCRYPT_BYTES → failed
+❌ Tried metadata defaultValues → failed
+❌ Tried ELF GOT&#x2F;RELA → too deep
+  ↓
+Revisited ciphertext patterns → 1500 files share a 62-byte prefix
+  ↓
+💡 Hypothesis: plaintext is repeated &#39;-&#39; (0x2d) → XOR to recover key → decryption succeeded!<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3><span id="case-four-another-unity-game">Case Four: Another Unity Game</span></h3>
+<p>Similar to the previous one, it was also discovered to be Unity + Lua, but this time the decryption method was simpler. After dumping the C#, AI searched using “encrypt” as a keyword and directly found the LuaEncryption key and the custom asset bundle offset, needing to skip the first 12 bytes.</p>
+<p>Next, AI skipped 12 bytes and used the key to XOR, obtaining the Lua bytecode (this time it was bytecode, not source code), which was then concatenated into a large asset.</p>
+<p>Next, the AI wrote a Python script:</p>
+<ol>
+<li>Skip the first 12 bytes of the custom header</li>
+<li>Scan all positions marked with <code>UnityFS\x00</code></li>
+<li>Cut into independent bundles by offset</li>
+<li>Parse each bundle using UnityPy</li>
+<li>Extract all <code>.lua.bytes</code> files</li>
+<li>Decrypt each file using the key with XOR</li>
+</ol>
+<p>This resulted in over 7000 Lua JIT bytecodes, which were then all fed into ljd to recover, yielding much more readable Lua source code, totaling 10 million lines.</p>
+<p>This case is similar to the first one; static analysis handled everything, directly finding the encryption key and method, recovering all resources.</p>
+<h3><span id="case-five-obfuscated-app">Case Five: Obfuscated App</span></h3>
+<p>This is a common app that has undergone some protection. The Java layer has been obfuscated to make it difficult to reverse, and the encryption and decryption logic is placed in the so files, accessed via JNI. When sending requests, it goes through some encryption plus a signature; if the algorithm cannot be cracked, it cannot be used outside the app.</p>
+<p>The AI discovered that after obfuscation, it wrote a de-obfuscation script that restored several core class names, then began to reverse-engineer that section of the so file, using capstone + lief to disassemble the arm64-v8a version, restoring it to pseudo-C.</p>
+<p>With this code, further analysis was possible, ultimately restoring the encryption and decryption algorithms along with the key.</p>
+<p>So, despite the obfuscation, the AI could derive some methods to attempt restoration through observation. Even if it couldn’t restore everything, the AI’s ability to read obfuscated code is far superior to that of a human.</p>
+<h3><span id="case-six-bank-level-app">Case Six: Bank-Level App</span></h3>
+<p>After trying the above cases, I decided to challenge the boss: a bank-level app.</p>
+<p>Banks usually have stricter requirements for information security, so there will definitely be a lot of encryption, obfuscation, and packing, along with various anti-root and anti-hook mechanisms. Therefore, “bank-level” refers to similar specifications.</p>
+<p>The goal is clear: to be able to open the app on a rooted emulator and hook to see the request content. Achieving this means that the internal protection mechanisms have been bypassed.</p>
+<p>This bank-level app is packaged with what is commonly known as a commercial shell (meaning a shell specifically made by a certain company; these commercial solutions can be quite expensive, costing hundreds of thousands of TWD per year), with the main logic contained in a so file.</p>
+<p>The AI first used <code>objdump -h</code> to check the section headers and found two non-standard sections. Then, more than half of the <code>.text</code> section was encrypted and could not be disassembled, and the <code>.rodata</code> section was also completely encrypted. However, from other clues, it had already inferred which company’s shell it was.</p>
+<p>Next, the AI began trying to remove the shell of the so file, experimenting with several methods that all failed, such as attempting to brute-force the key.</p>
+<p>After several failed attempts, it started to solve some areas that could be resolved. After trying a few methods, it understood how the shell operated and successfully removed it.</p>
+<p>Once the shell was removed, it could see what was inside and the protective measures in place. At the native layer, there were these protections:</p>
+<ul>
+<li>Anti-injection detection: Scanning <code>/proc/self/maps</code> for memory mappings like <code>frida-agent</code>, <code>frida-gadget</code>, etc.</li>
+<li>Thread name scanning: Reading <code>/proc/self/task/*/comm</code> to find Frida characteristic threads like <code>pool-frida</code>.</li>
+<li>Anti-debug: <code>ptrace(PTRACE_TRACEME)</code> self-attach to prevent debuggers.</li>
+<li>String matching: Searching for Frida keywords in memory using functions like <code>strstr</code>, <code>strncmp</code>, etc.</li>
+<li>SO shell: The <code>.text</code> segment is encrypted, dynamically decrypted at runtime, making static analysis impossible.</li>
+</ul>
+<p>At the Java layer, there were these:</p>
+<ul>
+<li>Root detection: <code>File.exists()</code> checks for paths like su, magisk, supersu, etc.</li>
+<li>Emulator detection.</li>
+<li>SystemProperties detection.</li>
+<li>Anti-debug.</li>
+<li>SSL Pinning.</li>
+</ul>
+<p>The bypass method was to hook various methods in advance, making them undetectable, and then the native layer would pass the results to Java, where patching could also be done. Since it was already aware of the detection methods, it could handle them accordingly.</p>
+<p>As for the obfuscation at the Java layer, the AI wrote a 1000-line Python script based on various rules to restore the strings, resulting in highly readable strings.</p>
+<p>In summary, it was successful in the end; the app could be opened, and requests could be hooked, with all protective measures bypassed.</p>
+<h3><span id="case-seven-a-packaged-game">Case Seven: A Packaged Game</span></h3>
+<p>Since learning that AI could also remove shells, I thought perhaps there was nothing that AI couldn’t crack, so I looked for another packaged game.</p>
+<p>This game’s difficulty was higher than the previous one; it also used a commercial shell and implemented double encryption. Its dex was first encrypted with one so file, and then that so file was encrypted with another so file, while the entry point’s so file itself was also shelled, preventing decryption.</p>
+<p>I let the AI try for a day, but in the end, it didn’t yield any results. Even though I found other articles online that had already removed the shell, it still couldn’t fully crack it; the shell of the so file remained intact, and it encountered some obstacles.</p>
+<p>However, after I directed the AI to change its approach, it discovered that the main logic of this Unity game was actually in Lua. Although the resources in Lua were encrypted, after observing the encrypted hex, it quickly identified the pattern and managed to decrypt it.</p>
+<p>So, although the Java layer’s code wasn’t fully decrypted and the shell wasn’t removed, the core game logic was obtained.</p>
+<p>This should count as a success, right? Given more time, more reference materials, and better tools, I believe it could also remove that shell.</p>
+<h2><span id="my-ai-usage-and-costs">My AI Usage and Costs</span></h2>
+<p>I used Cursor paired with Claude Opus 4.6 high thinking, without installing any skills, and the prompt was very simple:</p>
+<blockquote>
+<p>There is an apk under the xxx folder, reverse it to restore it to the original code.</p>
+</blockquote>
+<p>If it got stuck on something midway, I would give it some instructions, for example, when encountering a shelled file:</p>
+<blockquote>
+<p>How did it achieve static analysis resistance? What kind of encryption method is used, and when will it be decrypted? Try to see if you can remove the shell.</p>
+</blockquote>
+<p>Sometimes, I would give more specific instructions:</p>
+<blockquote>
+<p>Let’s plan what to do next; I’m going to sleep soon.</p>
+<ol>
+<li>Restore the .so to C.</li>
+<li>Check what other protections the apk has and how to crack them.</li>
+<li>Restore the Java from the obfuscated code; at least understand the logic or observe which patterns indicate it’s Android’s own lib.</li>
+</ol>
+<p>These are the main tasks. I want you to have a thorough understanding of the protection methods of this apk, as if you have the source code, and come up with a cracking method.</p>
+</blockquote>
+<p>I granted it all permissions, and it installed all the tools itself. It usually starts with static analysis, and when it gets stuck for a long time, I switch it to dynamic analysis, installing an Android emulator with Frida hook.</p>
+<p>I observe what the AI is doing, and if I feel it’s straying too far from the direction, I intervene and give suggestions (though this happens rarely). After the AI finishes, I ask it to summarize what it did, where it got stuck, and how it resolved those issues.</p>
+<p>After reversing many apps, I summarize these experiences into skills, allowing for faster speeds next time.</p>
+<p>The time taken to reverse each app varies, but most are around 30 minutes. I haven’t calculated the tokens in detail, but under Cursor’s billing, reversing an app costs less than 5 dollars.</p>
+<p>However, I also tried using Claude Code once, and one Unity game took 40 million tokens, which translates to about 27 dollars.</p>
+<p>Therefore, a more fair statement would be that, purely based on token usage, I guess the average falls around 30 dollars. As for why using Cursor is so cheap, I don’t know; it’s clearly the same model.</p>
+<h2><span id="the-limitations-of-ai">The Limitations of AI</span></h2>
+<p>Although it is said that everything that can be solved has been solved, some things are only perceived to be solved, but in reality, they are not done well at all.</p>
+<p>For example, after decompiling a game’s APK, it usually uses some tools to extract DLL files and then restore them to C#. Typically, my instruction is to “restore the source code,” but sometimes it only restores to the interface, with only method definitions and parameters, lacking the implementation logic.</p>
+<p>Next comes the part where AI can easily deceive you. Even if it only has the interface, it can guess the operational logic based on these names and structures, so if you ask it to write a report analyzing what is present, it can write convincingly.</p>
+<p>If you don’t follow up on the details, you might think it has truly restored the source code, but that’s not the case.</p>
+<p>This is a place that requires great caution. I always follow up with it, asking, “So, did you get the source code? Let’s take a look at the implementation of the login system; we need to see the implementation for it to count,” forcing it to dig deeper and restore what I want.</p>
+<p>This confirmation process is very important; without this step, it becomes incomplete, and you can be deceived by AI. Conversely, if you confirm properly, the output from AI will definitely satisfy you.</p>
+<h2><span id="some-insights">Some Insights</span></h2>
+<h3><span id="it-turns-out-i-limited-ai">It Turns Out I Limited AI</span></h3>
+<p>My previous understanding of AI was: “Reversing some small things is definitely no problem, but it probably can’t unpack,” but later AI proved me wrong.</p>
+<p>That’s when I realized I was the limiter of AI.</p>
+<p>I hadn’t tried it myself, but I thought AI couldn’t do it. In the past, during software development, I had similar thoughts; some tasks I did myself because I felt AI couldn’t handle them. For example, needing to modify multiple projects simultaneously, or a larger feature that required a deep understanding of the overall architecture, I would think AI couldn’t do it, so I might as well do it myself.</p>
+<p>But later, as I started delegating more and more tasks to AI, I found that it could handle most of them, reaffirming that I was the limiter of AI. No wonder some people say that in certain fields, those who don’t understand use AI better because they don’t assume AI can’t do something and let it try everything; if it can’t do it, then they address it.</p>
+<p>Returning to the topic of AI reversing, I observed the processes of AI reversing so many apps and found that, at its core, they are all the same: making various attempts and observing the output, then improving based on the output or trying a different approach.</p>
+<p>For example, once Frida hooks are set up, if the hook fails, it will modify based on the error log. If the app closes itself after the hook, it will change the timing of the hook or test which part is being detected, then make adjustments.</p>
+<p>Perhaps, as long as you can provide AI with an environment where it can thrive, ensure it can see enough logs and validate correctness, and give it enough time, there is nothing that cannot be reversed. I later also tried desktop apps and wasm, and they worked too.</p>
+<p>Even if it’s packed, as long as you let AI observe and track, just like the human reversing process, it can slowly observe, take action, adjust based on results, and then try again, repeatedly, until it succeeds.</p>
+<p>Although I already knew AI was strong, I didn’t expect it to be this powerful. As I mentioned before in <a href="https://blog.huli.tw/2023/04/27/en/android-apk-decompile-intro-1/">a previous post</a>, I have a bit of knowledge about reverse engineering, but when it comes to the native layer, I am completely lost, while AI has surpassed my capabilities, accomplishing things I couldn’t do, even things I thought it couldn’t do.</p>
+<p>After this exploration, my perspective on AI’s capabilities has completely changed, and I have given more thought to the idea of “AI replacing software engineers.” If what I said earlier, “there is nothing that cannot be reversed,” is true, can this also be applied to software development? If AI can plan, write code, test, and validate results on its own, could it continuously run and produce a complete application with good quality?</p>
+<p>Let’s save this topic for later; there are other angles we can explore together.</p>
+<h3><span id="the-balance-of-offense-and-defense">The Balance of Offense and Defense</span></h3>
+<p>As long as it is something on the client side, there are no secrets.</p>
+<p>Obfuscation or packing is just a way to delay the time it takes to be reversed; as long as enough time is spent, all your code runs on the client, so everything can be reversed.</p>
+<p>Therefore, many defensive techniques are based on “increasing difficulty to prolong cracking time.” We all know there are no secrets on the client, but there are still some things on the client side that we want to protect as much as possible to increase the difficulty of reversing.</p>
+<p>Thus, the defending side obfuscates the code, turning variables into a bunch of unreadable text, or even encrypting constants that can only be decrypted when executed, not wanting you to see the plaintext so easily. Packing is the same; they don’t want you to easily see what is running inside, and anti-debugging is also aimed at preventing you from rooting, hooking, or debugging, so they try to detect whether various reverse engineering tools exist.</p>
+<p>On the other hand, the attacking side spends time reversing your original logic, relying on experience to speed up, knowing that this pattern looks like AES, this looks like XOR, this pattern has appeared before, and figuring out how to crack it, etc. As long as the defending side makes even a slight adjustment, the final output could be completely different, and the attacking side would need to start over.</p>
+<p>However, with AI reversing becoming so powerful, will the positions start to reverse? The shell that the attacking side spent so much time creating could be removed by AI in just an hour. After thinking of so many obfuscation methods and implementing a new algorithm, AI could just look at it and write a reverse script, reassembling everything back together.</p>
+<p>If the defenders want to keep up, they may need to use magic against magic, using AI to obfuscate. Each time they obfuscate, they should use a completely new method or pattern, and it’s not just a simple change; it should be made more complex by AI to ensure that the attackers have to start from scratch.</p>
+<p>But even so, in front of AI, will it only take one or two hours to crack it? I don’t know.</p>
+<h2><span id="summary">Summary</span></h2>
+<p>I am not a reverse engineering expert, so I won’t comment much on the impact of AI in this field. But at least for someone like me who is not very skilled in reverse engineering, AI has almost completely met my needs for reverse engineering. Desktop applications can be reversed, APKs can be reversed, WASM can be reversed, shells can be stripped, and encryption can be decrypted.</p>
+<p>For binary reverse engineering, although sometimes I need to assist in opening Ghidra and help set up Ghidra MCP, these are minor issues.</p>
+<p>After this experience and witnessing the capabilities of AI, I have already submitted to AI.</p>
+<p>Is there anything that AI cannot crack? Perhaps there is; for example, the case I mentioned above, Case Seven, has not actually been cracked. It just obtained what I wanted in a different way without fully restoring the APP. But aside from that, it has indeed cracked everything else (by the way, I am curious if AI can crack the <a target="_blank" rel="noopener" href="https://www.hybridclr.cn/en/docs/business/basicencryption">commercial shell</a> of HybridCLR, but I haven’t encountered this commercial version yet).</p>
+<p>Is it possible that I make AI reverse engineering sound very powerful, while in the eyes of professionals, it is not that impressive? That is also possible, after all, the things I have dismantled can also be dismantled by the experts in the kanxue (a well-known reverse engineering community in China), and some things have already been dismantled and shared, which AI has referenced.</p>
+<p>But in any case, the original intention of this article is to record my experience with AI reverse engineering, summed up in one word: “amazing”. This experience has completely influenced my view of AI’s capabilities.</p>
+<p>And it’s not “AI-assisted reverse engineering”; it’s full AI reverse engineering. The tool installs itself, analyzes itself, and decompiles itself. I just stand by and say, “You should be able to crack this, try again.”</p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/en/tags/Security/">#Security</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2026/03/19/en/coupang-insider-kms-and-jwt/">Learn Internal Threats, Key Management, and JWT from the Coupang Data Breach</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">Comments</h3>
+    <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+<div class="column is-narrow has-text-centered">
+    <div class="dropdown is-up is-right is-hoverable" style="margin-top: -0.2em;">
+        <div class="dropdown-trigger">
+            <button class="button is-small" aria-haspopup="true">
+                <span class="icon">
+                    <i class="fas fa-globe"></i>
+                </span>
+                <span>English</span>
+                <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+            </button>
+        </div>
+        <div class="dropdown-menu has-text-left" role="menu" style="top:100%">
+            <div class="dropdown-content">
+            <!-- NOTE: 永遠回到首頁 -->
+            
+                <a href="/2026/04/18/ai-reverse-engineering-op/" class="dropdown-item">
+                    繁體中文
+                </a>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=3.js"></script>
+
+
+    
+</body>
+</html>
