@@ -171,7 +171,7 @@
             <h1 class="title is-3">隨意聊</h1>
             <p>有別於其他的長文，這裡都是比較隨意寫的短文。原本是發在<a href="https://www.facebook.com/huli.blog" target="_blank">臉書粉專</a>，但都藏在臉書裡面有點可惜，索性搬一份到部落格來，對不用臉書的人也更友善。</p>
             <div class="notes-meta">
-                <span>共 101 篇</span>
+                <span>共 102 篇</span>
                 
                     <span>第 2 / 6 頁</span>
                 
@@ -180,6 +180,60 @@
         </header>
         <div class="notes-feed">
         
+            
+            
+            
+            
+            <article class="note-card" id="closure-memory-retention">
+                <header class="note-card-header">
+                    <a class="note-date" href="/notes/closure-memory-retention/">
+                        <time datetime="2026-02-02T11:34:59.000Z">2026年2月2日</time>
+                    </a>
+                    <h2 class="note-title">
+                        <a href="/notes/closure-memory-retention/">Closure 記憶體陷阱</a>
+                    </h2>
+                </header>
+                <div class="note-content content">
+                    <p>今天 Bun 的作者 Jarred Sumner 在推特上發了個文，説對於跑很久的 Claude code session 來說，底下的改動可以省掉 1GB 的記憶體：</p>
+<p>Before： &#x3D;&gt; controller.abort<br>After：controller.abort.bind(controller)</p>
+<p>從原本的 function 換成了 bind 的用法，為什麼這樣就可以呢？或是換個方式問，為什麼原本的寫法會吃比較多記憶體？</p>
+<p>在原文附圖的註解裡就有寫原因了，說原本用 closure 的寫法，會把整個 scope 記住，而這個 scope 有 request body 跟其他大的物件，所以在結束以前，這些被包住的東西都沒辦法被 GC，就會一直佔空間。</p>
+<p>而修改後的做法沒有 closure 了，所以不會記住那些無關的東西。</p>
+<p>這個問題其實在我的書<a target="_blank" rel="noopener" href="https://www.tenlong.com.tw/products/9786267757048">《JavaScript 重修就好》</a>裡面就有提過了，有書的同學可以打開翻到 4-44，講 closure 可能造成的潛在問題，我給了這樣的案例：</p>
+<pre class="line-numbers language-none"><code class="language-none">function createWebSocketHandler &#123;
+  let socket &#x3D; new WebSocket(&quot;wss:&#x2F;&#x2F;example.com&#x2F;chat&quot;);
+  let messages &#x3D; [];
+  socket.onmessage &#x3D; function(event) &#123;
+    messages.push(event.data);
+  &#125;;
+  return &#123;
+    sendMessage: function(text) &#123;
+      socket.send(text);
+    &#125;,
+    closeConnection: function &#123;
+      socket.close;
+      socket.onmessage &#x3D; null;
+      socket &#x3D; null;
+    &#125;
+  &#125;;
+&#125;
+const chatHandler &#x3D; createWebSocketHandler;
+chatHandler.sendMessage(&quot;Hello, world!&quot;);
+chatHandler.closeConnection;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在關閉連線時，我們將 socket close，然後把有用到 messages 的 onmessage 清掉，也把 socket 整個清掉，看起來沒人用到 messages 了，就想說安全，既然沒人用到那就可以被 GC 了。</p>
+<p>但這是在使用 closure 時會產生的錯覺，那就是「只有我有用到的東西才會被記住」。事實上，closure 才沒有在管你使用與否，只要是同一個 scope 的東西就全部記了下來。</p>
+<p>因此，儘管 sendMessage 與 closeConnection 這兩個函式沒有用到 messages， 它依然被引用了。所以就算把 socket.onmessage 給清除，messages 的記憶體空間還是沒辦法被回收。</p>
+<p>重點只有一個，就是 closure 是整個 scope 都會記著，被記住的東西就不會被 GC 了。這恰巧也是 Claude code 碰到的問題，沒有察覺到那個被回傳的 function 會記住整個 scope。</p>
+<p>然後這也跟 AI 寫 code 一點關係都沒有，一堆人類也會寫出這樣的 code，況且現在人跟 AI 誰寫得比較好還很難說呢，尤其是對那些非工程師來說。</p>
+<p>這個案例是人是 AI 都有可能犯錯，但如果是其他案例，當有人責怪 AI 怎麼寫出這種爛 code 的時候，AI 說不定會想跳出來抱怨：「我才不會犯這種錯呢，這一定是人類寫的」。</p>
+<p>補充文章：<a target="_blank" rel="noopener" href="https://x.com/jarredsumner/status/2017825694731145388">https://x.com/jarredsumner/status/2017825694731145388</a></p>
+
+                </div>
+                <footer class="note-actions">
+                    <button class="note-share-button" type="button" data-share-title="Closure 記憶體陷阱" data-share-url="https://blog.huli.tw/notes/closure-memory-retention/">分享</button>
+                </footer>
+            </article>
             
             
             
@@ -780,43 +834,6 @@
                 </div>
                 <footer class="note-actions">
                     <button class="note-share-button" type="button" data-share-title="F1系統權限漏洞" data-share-url="https://blog.huli.tw/notes/f1-mass-assignment/">分享</button>
-                </footer>
-            </article>
-            
-            
-            
-            
-            <article class="note-card" id="semi-scientific-retirement">
-                <header class="note-card-header">
-                    <a class="note-date" href="/notes/semi-scientific-retirement/">
-                        <time datetime="2025-10-16T22:25:18.000Z">2025年10月17日</time>
-                    </a>
-                    <h2 class="note-title">
-                        <a href="/notes/semi-scientific-retirement/">半科學退休規劃</a>
-                    </h2>
-                </header>
-                <div class="note-content content">
-                    <p>我對投資理財一直都沒什麼興趣，說穿了就是懶。</p>
-<p>我以前大概 90% 資產都在現金（現在反過來了），因為不知道該買什麼股票，覺得我有固定收入存起來就好，沒有想賺大錢，幹嘛買股票讓心情跟著一起上上下下，錢放著又不會變少，不是很好嗎？後來才知道這樣的想法大錯特錯，錢不會變少，但購買力會隨著通膨持續下降。</p>
-<p>第一次買股票好像也才五年前，中午吃飯時公司同事會聊股票，有同事推廣無腦定期定額 0050，從那時開始買了些，順便上網查了一些資料，買了一些金融股跟高股息 0056 之類的，就一直放著，也沒去深入了解（現在除了 0050 都賣了）。</p>
-<p>一直到最近才開始稍微更認真研究各種東西，如：4% 法則、通膨、購買力、年化報酬、槓桿、指數化投資、貸款、股票質押等概念，最後寫了一共四篇的系列文：《半科學退休手冊》，大致講一下該怎麼算出要多少錢才能退休，又要怎麼累積。</p>
-<p>底下是這四篇<a target="_blank" rel="noopener" href="https://life.huli.tw/2025/10/13/not-so-complete-retirement-guide-1/">文章</a>的標題：</p>
-<ol>
-<li>認識通膨、風險與槓桿</li>
-<li>退休要存多少錢？談真正的 4% 法則</li>
-<li>該怎麼更快存到退休金？自己來算一個數字</li>
-<li>我的資產配置與難以克服的人性</li>
-</ol>
-<p>之所以叫做「半科學」是因為投資理財這塊本來水就很深，老實說我沒有真的花到很多時間研究，在細節的部分肯定是會有錯的。與其唬爛說自己的研究很嚴謹，不如承認大概只有一半是對的，另一半是未經驗證的觀念或是信仰，請讀者務必自行確認，不要全信我。</p>
-<p>第一篇會先聊一些基礎觀念，如通膨與購買力、常見的投資方法與報酬（銀行存錢、債券、股票等）以及槓桿。第二篇談很常被誤解的 4% 法則，一堆文章都講過這東西，但我猜真正看過原始論文的人沒多少，都互相抄來抄去傳播錯誤資訊，所謂 4% 是指只有第一年領 4%，之後每年隨通膨調整，而不是「每年都固定從資產領 4%」。</p>
-<p>而第三篇聊幾個知名 ETF（0050、VTI、VT、QQQ 等等）的年化報酬，並且搭配個簡化版的計算機，算出大概需要多少錢以及多少年可以退休。許多人只是心中有個數字而已，但有可能科學化算下來，是比自己想像中低的。賺越多當然能越安心，但就是會延後退休的時間點。</p>
-<p>最後第四篇談我目前的資產配置，雖然指數化投資很好但有點反人性，因此還是留個 20% 讓自己隨意玩，同時滿足長期資產的累積跟自己聽網紅亂選股的樂趣。順便來聊聊退休後除了賣股票換生活費，也可以考慮透過股票質押借錢，在風險控管得當的狀況下，有可能累積更多報酬。</p>
-<p>以上就是這四篇的內容，把這整個主題寫完之後，我自己對之後的規劃也比較有方向了，至少有個相對科學的數字能夠參考。雖然說投資有賺有賠，歷史數據也只是參考，但指數化投資已經是個相對科學的東西了，最適合我這種懶人。</p>
-<p>我是覺得不管你想不想投資，多瞭解一些金融商品跟概念都是好事，文章附在底下留言了，有興趣的讀者們可以參考。</p>
-
-                </div>
-                <footer class="note-actions">
-                    <button class="note-share-button" type="button" data-share-title="半科學退休規劃" data-share-url="https://blog.huli.tw/notes/semi-scientific-retirement/">分享</button>
                 </footer>
             </article>
             
