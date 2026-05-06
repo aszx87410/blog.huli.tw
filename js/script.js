@@ -83,6 +83,42 @@
         }
     });
 
+    function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text);
+        }
+
+        var textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return Promise.resolve();
+    }
+
+    $('.note-share-button').on('click', function () {
+        var button = this;
+        var url = button.getAttribute('data-share-url');
+        var title = button.getAttribute('data-share-title');
+
+        if (navigator.share) {
+            navigator.share({ title: title, url: url }).catch(function () {});
+            return;
+        }
+
+        copyText(url).then(function () {
+            var originalText = button.textContent;
+            button.textContent = '已複製';
+            setTimeout(function () {
+                button.textContent = originalText;
+            }, 1600);
+        });
+    });
+
     /* NOTE: disable 自動處理時間轉換
     if (typeof(moment) === 'function') {
         $('.article-meta time').each(function () {

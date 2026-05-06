@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>JS特性變成漏洞 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+
+
+
+
+
+	    
+	<link rel="canonical" href="https://blog.huli.tw/notes/javascript-proto-dos/">
+	    
+
+
+
+
+
+    <meta name="description" content="在寫 code 的時候，大家應該都很討厭奇怪的功能或是特性，比如說 new Date.getMonth 給你一個 6，但其實是 7 月，因為月份從 0 開始。或是 [2,10,3].sort 給你 [10,2,3]，因為是按照字典序而非數字大小來排。但這些大家討厭的特殊之處或語言特性，或許用資安的角度來看就是另外一回事了。 前陣子無意間發現某個每週 400 萬次下載的 JavaScript 套件的">
+<meta property="og:type" content="website">
+<meta property="og:title" content="JS特性變成漏洞">
+<meta property="og:url" content="https://blog.huli.tw/notes/javascript-proto-dos/">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="在寫 code 的時候，大家應該都很討厭奇怪的功能或是特性，比如說 new Date.getMonth 給你一個 6，但其實是 7 月，因為月份從 0 開始。或是 [2,10,3].sort 給你 [10,2,3]，因為是按照字典序而非數字大小來排。但這些大家討厭的特殊之處或語言特性，或許用資安的角度來看就是另外一回事了。 前陣子無意間發現某個每週 400 萬次下載的 JavaScript 套件的">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2025-07-20T04:04:36.000Z">
+<meta property="article:modified_time" content="2026-05-06T04:48:47.551Z">
+<meta property="article:author" content="Huli">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+
+<link rel="alternate" href="/notes/atom.xml" title="Huli 隨意聊" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=7.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/notes">隨意聊</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section notes-page">
+    <div class="container">
+        
+        
+        <article class="note-card note-detail">
+            <header class="note-card-header">
+                <a class="note-date" href="/notes/javascript-proto-dos/">
+                    <time datetime="2025-07-20T04:04:36.000Z">2025年7月20日</time>
+                </a>
+                <h1 class="note-title title is-3">JS特性變成漏洞</h1>
+            </header>
+            <div class="note-content content">
+                <p>在寫 code 的時候，大家應該都很討厭奇怪的功能或是特性，比如說 new Date.getMonth 給你一個 6，但其實是 7 月，因為月份從 0 開始。或是 [2,10,3].sort 給你 [10,2,3]，因為是按照字典序而非數字大小來排。但這些大家討厭的特殊之處或語言特性，或許用資安的角度來看就是另外一回事了。</p>
+<p>前陣子無意間發現某個每週 400 萬次下載的 JavaScript 套件的 DoS 漏洞，那套件有個產生不重複名稱的功能，例如說輸入是 a,b,a,a，輸出會是 a, b, a_1, a_2，後面加上流水號來區隔。看起來沒什麼問題，在產生新名稱時的核心實作類似於底下這樣：</p>
+<p>do {<br>  newName &#x3D; <code>$&#123;name&#125;_&#123;count++&#125;</code><br>} while(usedName.has(newName))</p>
+<p>usedName 是一個 Set，紀錄已經用過的名稱，然後 count 會一直遞增，直到找到一個新名稱為止。看起來沒什麼問題，但這個 count 如果都從 1 開始不太合理，每次都要重找，所以可以先記起來：</p>
+<p>let nameCount &#x3D; {}<br>let count &#x3D; nameCount[name]</p>
+<p>找到以後再寫回去 nameCount[name] &#x3D; count，這樣下次碰到一樣的 key 時，就能直接沿用那個 count。</p>
+<p>看起來沒什麼問題，直到 <strong>proto</strong> 這個我很愛的東西出現為止。在 JavaScript 中，每一個物件都會有些內建的屬性，而 <strong>proto</strong> 這個內建屬性就指向它的 prototype，也是另一個物件。</p>
+<p>假設今天 name 是 __proto__，nameCount[“<strong>proto</strong>“] 會是個物件，物件 ++ 以後會是 NaN，所以第一個重複的 key 會被命名為 __proto___NaN。</p>
+<p>到這邊只是功能上的問題而已，看起來怪怪的，但無傷大雅。</p>
+<p>但是，如果第二個重複的 key 出現會發生什麼事呢？</p>
+<p>在上面的 do…while 中，原本預期 count++ 會一直遞增，但由於現在 count 是 NaN，NaN++ 之後還是 NaN，所以 count 永遠不會變。再者，__proto___NaN 這個名稱被用過了，所以 usedName.has(newName) 永遠都是 true。</p>
+<p>因此，最終的結果就是一個無窮迴圈，永遠出不來，構成了一個 DoS 漏洞 🎉。</p>
+<p>原本想拿個 CVE 但這個套件用的人多歸多，作者沒太多時間維護，沒有開 GitHub security 功能，跟作者溝通後我就自己提 PR 修掉了。</p>
+<p>修復的方式也很簡單，原本 nameCount 是個 {}，改成 Object.create(null) 就好，就會是一個乾淨的、沒有內建 <strong>proto</strong> 屬性的物件，輕鬆解決這個問題。</p>
+<p>總之呢，同時身為工程師跟資安愛好者，我可以很清楚意識到在寫 code 累積的那些知識，讓我在資安 code review 或是找漏洞時都帶來了不少幫助。有時發現漏洞這件事可能也只是正常 code review 的 side effect，當你真正理解某段程式碼的運作時，自然而然就能發現其中有缺漏的地方（這概念也是從其他地方看來的，但我忘記出處了）。</p>
+<p>而這些的前提，都建立在你擁有知識，知道有這些奇怪特性的存在之上。</p>
+<p>如果你想了解更多 JavaScript 的有趣特性，之前提過的<a target="_blank" rel="noopener" href="https://www.tenlong.com.tw/products/9786267757048">《JavaScript 重修就好》</a>在昨天正式上架了，現在<a target="_blank" rel="noopener" href="https://www.books.com.tw/products/0010993971">實體書</a>跟電子書都買得到囉。若是想多理解前端相關資安，今天（7&#x2F;20）博客來有一日限定的活動，買本 AI 的書再加資安的可以打 66 折，有興趣的可以多多參考。</p>
+
+            </div>
+            <footer class="note-actions">
+                <button class="note-share-button" type="button" data-share-title="JS特性變成漏洞" data-share-url="https://blog.huli.tw/notes/javascript-proto-dos/">分享</button>
+                <a href="/notes/">所有隨意聊</a>
+            </footer>
+        </article>
+        
+        <section class="note-comments comments">
+            <h2 class="title is-4">評論</h2>
+            <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+        </section>
+        
+    </div>
+</section>
+
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=4.js"></script>
+
+
+
+    
+</body>
+</html>

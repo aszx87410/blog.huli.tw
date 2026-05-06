@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>Bun安裝為何很快 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+
+
+
+
+
+	    
+	<link rel="canonical" href="https://blog.huli.tw/notes/bun-install-performance/">
+	    
+
+
+
+
+
+    <meta name="description" content="JavaScript 的 runtime Bun 憑藉著又快功能又多的特色，早已在圈內打響了名號。 前幾週 Bun 的技術部落格有一篇文章《Behind The Scenes of Bun Install》，深度解析了為什用 Bun 來安裝套件可以比其它程式快這麼多，足足有 pnpm 的 4 倍，npm 的 7 倍。 文章有提到 Bun 在做這個功能時的核心理念是：「把這當成是一個 systems">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Bun安裝為何很快">
+<meta property="og:url" content="https://blog.huli.tw/notes/bun-install-performance/">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="JavaScript 的 runtime Bun 憑藉著又快功能又多的特色，早已在圈內打響了名號。 前幾週 Bun 的技術部落格有一篇文章《Behind The Scenes of Bun Install》，深度解析了為什用 Bun 來安裝套件可以比其它程式快這麼多，足足有 pnpm 的 4 倍，npm 的 7 倍。 文章有提到 Bun 在做這個功能時的核心理念是：「把這當成是一個 systems">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2025-09-25T22:18:34.000Z">
+<meta property="article:modified_time" content="2026-05-06T04:49:16.845Z">
+<meta property="article:author" content="Huli">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+
+<link rel="alternate" href="/notes/atom.xml" title="Huli 隨意聊" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=7.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/notes">隨意聊</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section notes-page">
+    <div class="container">
+        
+        
+        <article class="note-card note-detail">
+            <header class="note-card-header">
+                <a class="note-date" href="/notes/bun-install-performance/">
+                    <time datetime="2025-09-25T22:18:34.000Z">2025年9月26日</time>
+                </a>
+                <h1 class="note-title title is-3">Bun安裝為何很快</h1>
+            </header>
+            <div class="note-content content">
+                <p>JavaScript 的 runtime Bun 憑藉著又快功能又多的特色，早已在圈內打響了名號。</p>
+<p>前幾週 Bun 的技術部落格有一篇文章《Behind The Scenes of Bun <a target="_blank" rel="noopener" href="https://bun.com/blog/behind-the-scenes-of-bun-install">Install</a>》，深度解析了為什用 Bun 來安裝套件可以比其它程式快這麼多，足足有 pnpm 的 4 倍，npm 的 7 倍。</p>
+<p>文章有提到 Bun 在做這個功能時的核心理念是：「把這當成是一個 systems programming 的問題」，因此用了很多相對較底層的解法，包括：</p>
+<ol>
+<li>減少 system calls</li>
+<li>運用 Apple 非公開的 API 做非同步 DNS 解析</li>
+<li>用 binary 格式取代 JSON pasring</li>
+<li>設計對 CPU 快取友好的資料結構</li>
+<li>善用不同的 system call 快速複製檔案</li>
+</ol>
+<p>這裡面細節很多，Bun 的原始文章圖文並茂，寫得很好，因此我就只列出幾點而已。</p>
+<p>看完之後很能理解為什麼 Bun 比別人快了這麼多，背後真的是做了很多細節上的改善。另外，Bun 是用 Zig 寫的，直接編譯成 native code 並呼叫 system call，也比用 Node.js 寫的其他套件管理程式少了許多 JavaScript overhead。</p>
+<p>這篇 <a target="_blank" rel="noopener" href="https://bun.com/blog/behind-the-scenes-of-bun-install">Bun 的原文</a>很值得一看。</p>
+<p>上面講完了 Bun 的優點跟背後的努力，接著講一下 Bun 的缺點跟我不喜歡的地方，就是 Bun 雖然宣稱自己可以直接替代 Node.js 來使用，但若是某些 spec 他們覺得不合理，就會直接不實作。</p>
+<p>舉例來說，6 月份有個 issue 是說 Bun 在執行 fetch(‘localhost:6000’) 時沒有報錯，可是 spec 上有所謂的「Port blocking」，發送到特定 port 的請求會直接報錯，不會建立連線。這是一種資安上的考量，避免有人用 HTTP protocol 偽造別的協定來攻擊（叫做 Cross Protocol Scripting），<a target="_blank" rel="noopener" href="https://benmmurphy.github.io/blog/2015/06/04/redis-eval-lua-sandbox-escape/">Redis</a> 早期就有這問題，你可以發一個 HTTP 請求當成 Redis 指令來執行。</p>
+<p>總之，後來有人對 Bun 提了個 PR 加上這個符合 spec 的功能，而 Bun 的 creator 把 PR 關了，說他覺得這功能對使用者沒價值，如果他們就是想用這些 port 怎麼辦。</p>
+<p>這只是其中一個案例，再查查也會發現其他 Bun 沒遵守 spec，或者是因為某些原因加進去的預設設定。久了之後說不定會成為另一種 IE？反正 spec 寫他的，我做我想做的。</p>
+<p>不過 Bun 的出現，也確實為其他 runtime 帶來一些壓力跟競爭，其實也是件好事。在特定狀況下我可能會用 Bun（如需要 Single-file executable），但一般情形下，還是再觀望一陣子好了，繼續用我的 npm + Node.js。</p>
+<p>補充文章：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/redis/redis/commit/a81a92ca2ceba364f4bb51efde9284d939e7ff47">https://github.com/redis/redis/commit/a81a92ca2ceba364f4bb51efde9284d939e7ff47</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/oven-sh/bun/issues/20352">https://github.com/oven-sh/bun/issues/20352</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/oven-sh/bun/pull/6217">https://github.com/oven-sh/bun/pull/6217</a></li>
+</ul>
+
+            </div>
+            <footer class="note-actions">
+                <button class="note-share-button" type="button" data-share-title="Bun安裝為何很快" data-share-url="https://blog.huli.tw/notes/bun-install-performance/">分享</button>
+                <a href="/notes/">所有隨意聊</a>
+            </footer>
+        </article>
+        
+        <section class="note-comments comments">
+            <h2 class="title is-4">評論</h2>
+            <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+        </section>
+        
+    </div>
+</section>
+
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=4.js"></script>
+
+
+
+    
+</body>
+</html>

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>從React學底層運作 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+
+
+
+
+
+	    
+	<link rel="canonical" href="https://blog.huli.tw/notes/react-javascript-internals/">
+	    
+
+
+
+
+
+    <meta name="description" content="從大型開源專案的發展歷程以及原始碼裡面，其實可以學到不少東西。最近把之前去 JSDC 線上前導活動分享的主題：「從 React 中學習 JavaScript 底層運作」寫成了文章，主要在談三件事情：  React 早期版本（真的很早了，10 年前 2015 的時候）的 XSS 漏洞，以及如何從這個漏洞的 fix 中學習 Symbol 的使用方式  React fiber 是把大任務切成多個非同步小">
+<meta property="og:type" content="website">
+<meta property="og:title" content="從React學底層運作">
+<meta property="og:url" content="https://blog.huli.tw/notes/react-javascript-internals/">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="從大型開源專案的發展歷程以及原始碼裡面，其實可以學到不少東西。最近把之前去 JSDC 線上前導活動分享的主題：「從 React 中學習 JavaScript 底層運作」寫成了文章，主要在談三件事情：  React 早期版本（真的很早了，10 年前 2015 的時候）的 XSS 漏洞，以及如何從這個漏洞的 fix 中學習 Symbol 的使用方式  React fiber 是把大任務切成多個非同步小">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2025-11-18T22:41:20.000Z">
+<meta property="article:modified_time" content="2026-05-06T04:48:47.556Z">
+<meta property="article:author" content="Huli">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+
+<link rel="alternate" href="/notes/atom.xml" title="Huli 隨意聊" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=7.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/notes">隨意聊</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section notes-page">
+    <div class="container">
+        
+        
+        <article class="note-card note-detail">
+            <header class="note-card-header">
+                <a class="note-date" href="/notes/react-javascript-internals/">
+                    <time datetime="2025-11-18T22:41:20.000Z">2025年11月19日</time>
+                </a>
+                <h1 class="note-title title is-3">從React學底層運作</h1>
+            </header>
+            <div class="note-content content">
+                <p>從大型開源專案的發展歷程以及原始碼裡面，其實可以學到不少東西。最近把之前去 JSDC 線上前導活動分享的主題：「從 <a href="https://blog.huli.tw/2025/11/16/learn-advanced-javascript-from-react/">React</a> 中學習 JavaScript 底層運作」寫成了文章，主要在談三件事情：</p>
+<ol>
+<li><p>React 早期版本（真的很早了，10 年前 2015 的時候）的 XSS 漏洞，以及如何從這個漏洞的 fix 中學習 Symbol 的使用方式</p>
+</li>
+<li><p>React fiber 是把大任務切成多個非同步小任務，那這個「非同步」又是怎麼被執行的？文章會談到 React 如何從最早的 requestIdleCallback 切到自己做的 requestAnimationFrame + postMessage，再把後者換成 MessageChannel，這中間的考量是什麼，這些的觸發時機點又有什麼不一樣</p>
+</li>
+<li><p>React profiler 碰過的 V8 bug，從這個 bug 學習 V8 底層的運作方式，例如說從規格來看 JavaScript 只有浮點數，但 V8 其實還是分成 small integer(簡稱 smi) 跟其他，才能保證性能是好的。<br>以及 V8 中物件是怎麼被儲存的，shape 又是什麼，這些又是如何跟 React profiler 有所關聯。</p>
+</li>
+</ol>
+<p>以上大概就是文中會提到的內容，文章了，有興趣的可以看看，一次看 React 原始碼外加學習 JavaScript，一舉兩得。</p>
+<p>補充文章：<a target="_blank" rel="noopener" href="https://github.com/aszx87410/blog/issues/153">https://github.com/aszx87410/blog/issues/153</a></p>
+
+            </div>
+            <footer class="note-actions">
+                <button class="note-share-button" type="button" data-share-title="從React學底層運作" data-share-url="https://blog.huli.tw/notes/react-javascript-internals/">分享</button>
+                <a href="/notes/">所有隨意聊</a>
+            </footer>
+        </article>
+        
+        <section class="note-comments comments">
+            <h2 class="title is-4">評論</h2>
+            <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+        </section>
+        
+    </div>
+</section>
+
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=4.js"></script>
+
+
+
+    
+</body>
+</html>

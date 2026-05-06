@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>Trivy 供應鏈攻擊 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+
+
+
+
+
+	    
+	<link rel="canonical" href="https://blog.huli.tw/notes/trivy-supply-chain/">
+	    
+
+
+
+
+
+    <meta name="description" content="剛好整起事件都有跟到，來聊一下 Trivy 跟最近的大規模供應鏈攻擊事件。 Trivy 是個資安公司 Aqua Security 出的開源掃描工具，最常用的是拿來掃 IaC 的程式碼或是 image 之類的，我自己就用過不少次。 在 2 月底的時候 Trivy 的 GitHub 被攻擊，因為 CI 流程有漏洞，所以發個 PR 就可以偷到 token，這類攻擊通常被叫做 Pwn Request，以前">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Trivy 供應鏈攻擊">
+<meta property="og:url" content="https://blog.huli.tw/notes/trivy-supply-chain/">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="剛好整起事件都有跟到，來聊一下 Trivy 跟最近的大規模供應鏈攻擊事件。 Trivy 是個資安公司 Aqua Security 出的開源掃描工具，最常用的是拿來掃 IaC 的程式碼或是 image 之類的，我自己就用過不少次。 在 2 月底的時候 Trivy 的 GitHub 被攻擊，因為 CI 流程有漏洞，所以發個 PR 就可以偷到 token，這類攻擊通常被叫做 Pwn Request，以前">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2026-03-25T12:04:07.000Z">
+<meta property="article:modified_time" content="2026-05-06T04:48:47.558Z">
+<meta property="article:author" content="Huli">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+
+<link rel="alternate" href="/notes/atom.xml" title="Huli 隨意聊" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=7.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/notes">隨意聊</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section notes-page">
+    <div class="container">
+        
+        
+        <article class="note-card note-detail">
+            <header class="note-card-header">
+                <a class="note-date" href="/notes/trivy-supply-chain/">
+                    <time datetime="2026-03-25T12:04:07.000Z">2026年3月25日</time>
+                </a>
+                <h1 class="note-title title is-3">Trivy 供應鏈攻擊</h1>
+            </header>
+            <div class="note-content content">
+                <p>剛好整起事件都有跟到，來聊一下 Trivy 跟最近的大規模供應鏈攻擊事件。</p>
+<p>Trivy 是個資安公司 Aqua Security 出的開源掃描工具，最常用的是拿來掃 IaC 的程式碼或是 image 之類的，我自己就用過不少次。</p>
+<p>在 2 月底的時候 Trivy 的 GitHub 被攻擊，因為 CI 流程有漏洞，所以發個 PR 就可以偷到 token，這類攻擊通常被叫做 Pwn Request，以前也出現過不少次，而這次的攻擊其實不只有 Trivy 受害，一堆 repo 也被攻擊了。</p>
+<p>攻擊的帳號叫做 hackerbot-claw，跟上了前陣子正熱的小龍蝦熱潮，我那時看到消息還想說是不是哪個資安研究員在做研究 😆</p>
+<p>過了幾週，到了 3&#x2F;19 左右，駭客正式發起攻擊，透過 2 月底偷到的 token 直接幫 Trivy 發個含有惡意程式碼的新版本，甚至更狠地還把舊的 tag 全部都 push 一遍。</p>
+<p>有些人已經有意識到這類型的供應鏈攻擊風險，在使用一些套件時會寫死版本號如 <a href="mailto:&#116;&#x72;&#x69;&#x76;&#121;&#x40;&#x31;&#x2e;&#50;&#46;&#51;">&#116;&#x72;&#x69;&#x76;&#121;&#x40;&#x31;&#x2e;&#50;&#46;&#51;</a>，這個通常是沒問題的，因為許多 package manager 會保證版本不可篡改，例如說 NPM。</p>
+<p>但是 GitHub <a target="_blank" rel="noopener" href="https://docs.github.com/en/actions/reference/security/secure-use">Actions</a> 沒這功能，他的版本只是一個 tag，背後東西是可以換的。所以你在使用 action 時寫死 tag 也沒用，要寫死 commit hash，這我也是今天才知道的，之前沒注意到這個差異。</p>
+<p>看到這邊我相信大家都有個疑惑的點，那就是為什麼二月底被駭，理論上已經清理過一輪了，怎麼 3 月底又來一次，而且還是用二月就被偷的 token。</p>
+<p>官方聲明是這樣寫的：We rotated secrets and tokens, but the process wasn’t atomic and attackers may have been privy to refreshed tokens</p>
+<p>具體是什麼狀況沒講，但總之應該就是換的時候沒換好，導致攻擊者也能拿到新的 token。雖然說大家都會犯錯，但是一個資安公司連錯兩次，客戶對他們的信任度可能掉了不少…</p>
+<p>總之呢，開頭提過 Trivy 是掃描工具，所以一堆專案都有裝這個，那自然也一堆專案直接被入侵。為了安全裝了資安掃描工具，卻因為裝了這個被入侵，有點諷刺。</p>
+<p>而目前最新的受害者是今早才爆出來的 Python 套件 LiteLLM，被入侵的管道就是之前 Trivy 被駭的時候偷到了maintainer 的 token，就利用了這個 token 發布惡意版本。</p>
+<p>就是巢狀供應鏈攻擊啦，先打下一個套件，再打下用這個套件的套件，以此類推，越打越多，影響也越來越大。雖然說 LiteLLM 有問題的版本已經被快速下架，但是大多數人（包含我）都猜測攻擊還沒停止，一定會有下一波的到來，請大家多多注意。</p>
+<p>防範的方式還是老樣子：</p>
+<ol>
+<li>安裝套件的時候永遠固定版本</li>
+<li>承上，在某些版本不是 immutable 的情境下要固定 hash（如 GitHub Actions）</li>
+</ol>
+<p>如果要安裝的專案是別人的，別人沒有寫死的話，也建議加減裝個 socket 之類的，在下載後似乎會先做一些基本掃描，也算是多少有防到。想更安全的話就是在 VM 或是 docker container 裡面裝，至少能保證影響範圍有限。</p>
+<p>話說單個套件被打就已經這麼恐怖了，何況是整個 package manager 都被打下來。之前在 DEVCORE CONFERENCE 2026 聽到 splitline 的議程，就是在講直接去把整個 package manager 打下來，而且成功了不少，涵蓋一堆程式語言。簡報要四月底左右才會公開，到時公開了再來分享一波。</p>
+<p>參考資料：<a target="_blank" rel="noopener" href="https://snyk.io/articles/poisoned-security-scanner-backdooring-litellm/">https://snyk.io/articles/poisoned-security-scanner-backdooring-litellm/</a></p>
+
+            </div>
+            <footer class="note-actions">
+                <button class="note-share-button" type="button" data-share-title="Trivy 供應鏈攻擊" data-share-url="https://blog.huli.tw/notes/trivy-supply-chain/">分享</button>
+                <a href="/notes/">所有隨意聊</a>
+            </footer>
+        </article>
+        
+        <section class="note-comments comments">
+            <h2 class="title is-4">評論</h2>
+            <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+        </section>
+        
+    </div>
+</section>
+
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=4.js"></script>
+
+
+
+    
+</body>
+</html>

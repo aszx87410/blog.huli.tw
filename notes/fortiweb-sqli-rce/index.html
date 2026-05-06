@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>FortiWeb注入漏洞 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+
+
+
+
+
+	    
+	<link rel="canonical" href="https://blog.huli.tw/notes/fortiweb-sqli-rce/">
+	    
+
+
+
+
+
+    <meta name="description" content="知名的 WAF FortiWeb 前幾天爆出一個 SQL injection 漏洞 CVE-2025-25257，技術細節滿有趣的，一起來看一下。 WAF 的全名是 Web Application Firewall，防火牆有很多種，WAF 是專門給 Web 的防火牆，例如說你在 query string 隨便放個單引號或是 eval 之類的，可能就會被 WAF 擋住，不讓你的請求送到後面。有了 W">
+<meta property="og:type" content="website">
+<meta property="og:title" content="FortiWeb注入漏洞">
+<meta property="og:url" content="https://blog.huli.tw/notes/fortiweb-sqli-rce/">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="知名的 WAF FortiWeb 前幾天爆出一個 SQL injection 漏洞 CVE-2025-25257，技術細節滿有趣的，一起來看一下。 WAF 的全名是 Web Application Firewall，防火牆有很多種，WAF 是專門給 Web 的防火牆，例如說你在 query string 隨便放個單引號或是 eval 之類的，可能就會被 WAF 擋住，不讓你的請求送到後面。有了 W">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2025-07-13T11:23:05.000Z">
+<meta property="article:modified_time" content="2026-05-06T04:48:47.549Z">
+<meta property="article:author" content="Huli">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+
+<link rel="alternate" href="/notes/atom.xml" title="Huli 隨意聊" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=7.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/notes">隨意聊</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section notes-page">
+    <div class="container">
+        
+        
+        <article class="note-card note-detail">
+            <header class="note-card-header">
+                <a class="note-date" href="/notes/fortiweb-sqli-rce/">
+                    <time datetime="2025-07-13T11:23:05.000Z">2025年7月13日</time>
+                </a>
+                <h1 class="note-title title is-3">FortiWeb注入漏洞</h1>
+            </header>
+            <div class="note-content content">
+                <p>知名的 WAF <a target="_blank" rel="noopener" href="https://pwner.gg/blog/2025-07-10-fortiweb-fabric-rce">FortiWeb</a> 前幾天爆出一個 <a target="_blank" rel="noopener" href="https://labs.watchtowr.com/pre-auth-sql-injection-to-rce-fortinet-fortiweb-fabric-connector-cve-2025-25257/">SQL</a> injection 漏洞 CVE-2025-25257，技術細節滿有趣的，一起來看一下。</p>
+<p>WAF 的全名是 Web Application Firewall，防火牆有很多種，WAF 是專門給 Web 的防火牆，例如說你在 query string 隨便放個單引號或是 eval 之類的，可能就會被 WAF 擋住，不讓你的請求送到後面。有了 WAF 之後，就算後面的程式有漏洞，也不一定打得進去，可能會先被 WAF 攔住（大多數時候是駭客技高一籌，還是能繞過）。</p>
+<p>但也是有原本沒事，結果用了 WAF 反而出事的案例 😓</p>
+<p>FortiWeb 有個 &#x2F;api&#x2F;fabric&#x2F;device&#x2F;status 的 endpoint 會從 Authorization header 裡面拿東西出來，然後呼叫 select id from fabric_user.user_table where token &#x3D; ‘%s’，直接用 %s 把字串放進去，一個樸實無華的 SQL injection 就這樣出現了，而且這個 API 原本就是給外部用的，所以不需要任何驗證，誰都可以呼叫。</p>
+<p>拿到 SQL injection 之後可以幹嘛呢？試著把 impact 變得更大，看能不能變成 RCE！</p>
+<p>一個常用的技巧是，如果權限夠的話，是可以用 SQL 寫檔案的，如 SELECT ‘huli’ INTO OUTFILE ‘&#x2F;tmp&#x2F;huli.txt’，就可以寫檔案到指定位置。而 FortiWeb 是用 root 在跑 MySQL 的，所以有足夠的權限，但是要把檔案寫到哪裡呢？</p>
+<p>在原本的應用中，有個 cgi-bin 的資料夾底下放著一個 ml-draw.py，因為 server 有設置放在這底下的東西都會被執行，所以可以透過發請求的方式把這個 Python 檔案跑起來（GET &#x2F;cgi-bin&#x2F;ml-draw.py）。</p>
+<p>而 Python 在 import module 時會根據順序尋找 module 在哪裏，例如說會先找當前的資料夾，找不到再跑去找 &#x2F;usr&#x2F;lib&#x2F;python3.10&#x2F;，然後再找 &#x2F;usr&#x2F;lib&#x2F;python3.10&#x2F;site-packages&#x2F; 之類的。</p>
+<p>因此，我們只要把檔案寫到順序在前面的資料夾，就可以覆蓋這個 Python 腳本會引用的模組，裡面放我們自己寫的 Python 檔案，就串成 RCE 了！<br>（有人可能會問為什麼不直接寫到 cgi-bin 底下，直接跑起來就好，原因是要跑起來的前提是檔案要是 executable，但是寫入檔案後就只是個普通檔案，沒有可執行權限）</p>
+<p>還有另一個小細節是 Authorization header 必須在 128 個字元以內，而且不能有空格，所以需要稍微繞一下（用 &#x2F;**&#x2F; 就行了），也因為字元限制需要分多個 query 執行來保存 payload。</p>
+<p>像這種 WAF 直接被打穿的案例好像層出不窮，每過一陣子就會看到類似的新聞，某某 WAF 又被找到一個 pre-auth RCE 之類的 😂</p>
+
+            </div>
+            <footer class="note-actions">
+                <button class="note-share-button" type="button" data-share-title="FortiWeb注入漏洞" data-share-url="https://blog.huli.tw/notes/fortiweb-sqli-rce/">分享</button>
+                <a href="/notes/">所有隨意聊</a>
+            </footer>
+        </article>
+        
+        <section class="note-comments comments">
+            <h2 class="title is-4">評論</h2>
+            <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+        </section>
+        
+    </div>
+</section>
+
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=4.js"></script>
+
+
+
+    
+</body>
+</html>

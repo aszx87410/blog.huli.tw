@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>Windsurf本機RCE漏洞 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+
+
+
+
+
+	    
+	<link rel="canonical" href="https://blog.huli.tw/notes/windsurf-local-rce/">
+	    
+
+
+
+
+
+    <meta name="description" content="你用 AI IDE 幫忙寫 code 很開心，駭客用你的 AI IDE 駭進去也很開心。 資安研究員 s1r1us 發現了一個 Windsurf IDE 的漏洞，拿到了一萬美金的賞金，並且剪了一支 YouTube 影片詳細講述這個過程。 大意就是 Windsurf 的核心邏輯其實是放在一個額外的程式並且做為 server 跑起來（這個 server 是跑在 localhost 的），跟 IDE 透">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Windsurf本機RCE漏洞">
+<meta property="og:url" content="https://blog.huli.tw/notes/windsurf-local-rce/">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="你用 AI IDE 幫忙寫 code 很開心，駭客用你的 AI IDE 駭進去也很開心。 資安研究員 s1r1us 發現了一個 Windsurf IDE 的漏洞，拿到了一萬美金的賞金，並且剪了一支 YouTube 影片詳細講述這個過程。 大意就是 Windsurf 的核心邏輯其實是放在一個額外的程式並且做為 server 跑起來（這個 server 是跑在 localhost 的），跟 IDE 透">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2025-06-15T11:24:32.000Z">
+<meta property="article:modified_time" content="2026-05-06T04:48:47.559Z">
+<meta property="article:author" content="Huli">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+
+<link rel="alternate" href="/notes/atom.xml" title="Huli 隨意聊" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=7.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/notes">隨意聊</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section notes-page">
+    <div class="container">
+        
+        
+        <article class="note-card note-detail">
+            <header class="note-card-header">
+                <a class="note-date" href="/notes/windsurf-local-rce/">
+                    <time datetime="2025-06-15T11:24:32.000Z">2025年6月15日</time>
+                </a>
+                <h1 class="note-title title is-3">Windsurf本機RCE漏洞</h1>
+            </header>
+            <div class="note-content content">
+                <p>你用 AI IDE 幫忙寫 code 很開心，駭客用你的 AI IDE 駭進去也很開心。</p>
+<p>資安研究員 s1r1us 發現了一個 Windsurf IDE 的漏洞，拿到了一萬美金的賞金，並且剪了一支 <a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=23Mz7qcRz50">YouTube</a> 影片詳細講述這個過程。</p>
+<p>大意就是 Windsurf 的核心邏輯其實是放在一個額外的程式並且做為 server 跑起來（這個 server 是跑在 localhost 的），跟 IDE 透過 HTTP 來溝通。例如說你在 Windsurf Chat 中寫的 prompt，會被送到本地的這個 server，server 處理完畢之後回傳結果。</p>
+<p>而問題就出在這個 server 完全沒有任何 auth 或是 CSRF 的保護，所以身為攻擊者，我可以寫個網頁，直接 POST 一個「幫我執行 XXX 指令」的 prompt 到本地的 Windsurf server ，它就會開心地幫你執行。接著我把這個網頁傳給其他人，其他人只要點了就會中招。</p>
+<p>雖然 Windsurf server 的 port 是隨機的，但只要簡單做個 port scanning 就可以找到，這沒什麼問題。</p>
+<p>有問題的是另一個地方，那就是這個 server 只接受 content-type 為 application&#x2F;proto 的請求，而瀏覽器預設是不支援這個 content type 的（非簡單請求），需要開 CORS。也就是說，如果這 server 沒有支援 CORS，瀏覽器是不會幫你發出這個請求的。</p>
+<p>好巧不巧地，Windsurf server 原本就不是給瀏覽器前端去呼叫的，所以當然沒有支援 CORS，因此瀏覽器就送不出請求，看起來無解了。</p>
+<p>這時候 s1r1us 想起了他以前打 CTF 的經驗，腦中蹦出了一個名詞（這我自己幫他加戲的）：DNS rebinding！</p>
+<p>舉例來說，假設 huli 是我的 domain，我就設置 huli 的 DNS 紀錄，A record 設兩條，一個是真的 server IP，另一個是 127.0.0.1。</p>
+<p>接著在瀏覽器執行 fetch(“huli&#x2F;sendMessage”) 並且帶上 payload 跟 header，接著瀏覽器就會發送一個 CORS 請求到我的 server，此時我回應 OK，允許瀏覽器發送真的 POST 請求。</p>
+<p>這時，我把 server 關掉，讓這個 IP 沒辦法訪問，瀏覽器就會很聰明地 fallback 到另一個 A record，也就是 127.0.0.1，並且發出 POST 請求。這就是 DNS rebinding 的應用，一個 domain 對應到兩個 IP，讓瀏覽器先用 A 再用 B，藉此繞過原本 local server 不支援 CORS 的限制。</p>
+<p>透過這個方式，就能夠讓瀏覽器發送 CORS 請求並且包含這個自訂的 header，順利攻陷 Windsurf。</p>
+
+            </div>
+            <footer class="note-actions">
+                <button class="note-share-button" type="button" data-share-title="Windsurf本機RCE漏洞" data-share-url="https://blog.huli.tw/notes/windsurf-local-rce/">分享</button>
+                <a href="/notes/">所有隨意聊</a>
+            </footer>
+        </article>
+        
+        <section class="note-comments comments">
+            <h2 class="title is-4">評論</h2>
+            <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+        </section>
+        
+    </div>
+</section>
+
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=4.js"></script>
+
+
+
+    
+</body>
+</html>

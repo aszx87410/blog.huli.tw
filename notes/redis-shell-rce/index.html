@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>Redis滿分漏洞解析 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+
+
+
+
+
+	    
+	<link rel="canonical" href="https://blog.huli.tw/notes/redis-shell-rce/">
+	    
+
+
+
+
+
+    <meta name="description" content="今天來講一個嚴重卻又沒這麼嚴重的 10 分滿分 Redis RCE 漏洞。 這兩天爆了一個名為 RedisShell 的漏洞 CVE-2025-49844，是個 CVSS 10 分滿分的 critical 漏洞。 CVSS 全名為  Common Vulnerability Scoring System，在資安界是個普遍的評估漏洞嚴重程度的標準，會將攻擊所需前提以及影響範圍列入考量，最後算出一個分">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Redis滿分漏洞解析">
+<meta property="og:url" content="https://blog.huli.tw/notes/redis-shell-rce/">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="今天來講一個嚴重卻又沒這麼嚴重的 10 分滿分 Redis RCE 漏洞。 這兩天爆了一個名為 RedisShell 的漏洞 CVE-2025-49844，是個 CVSS 10 分滿分的 critical 漏洞。 CVSS 全名為  Common Vulnerability Scoring System，在資安界是個普遍的評估漏洞嚴重程度的標準，會將攻擊所需前提以及影響範圍列入考量，最後算出一個分">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2025-10-07T22:20:11.000Z">
+<meta property="article:modified_time" content="2026-05-06T08:51:44.744Z">
+<meta property="article:author" content="Huli">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+
+<link rel="alternate" href="/notes/atom.xml" title="Huli 隨意聊" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=7.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/notes">隨意聊</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section notes-page">
+    <div class="container">
+        
+        
+        <article class="note-card note-detail">
+            <header class="note-card-header">
+                <a class="note-date" href="/notes/redis-shell-rce/">
+                    <time datetime="2025-10-07T22:20:11.000Z">2025年10月8日</time>
+                </a>
+                <h1 class="note-title title is-3">Redis滿分漏洞解析</h1>
+            </header>
+            <div class="note-content content">
+                <p>今天來講一個嚴重卻又沒這麼嚴重的 10 分滿分 <a target="_blank" rel="noopener" href="https://www.wiz.io/blog/wiz-research-redis-rce-cve-2025-49844">Redis</a> RCE 漏洞。</p>
+<p>這兩天爆了一個名為 RedisShell 的漏洞 CVE-2025-49844，是個 CVSS 10 分滿分的 critical 漏洞。</p>
+<p>CVSS 全名為  Common Vulnerability Scoring System，在資安界是個普遍的評估漏洞嚴重程度的標準，會將攻擊所需前提以及影響範圍列入考量，最後算出一個分數，會考量的範圍有：</p>
+<ol>
+<li>從哪裡觸發漏洞，是透過網際網路，還是必須在同個網段，甚至是要實體接觸裝置等</li>
+<li>攻擊複雜度，是否能夠穩定利用漏洞</li>
+<li>所需權限，例如說有些漏洞要管理員身份才能觸發</li>
+<li>是否需要使用者點擊或開啟檔案等互動來觸發</li>
+<li>影響範圍，是侷限在該系統內還是能擴大範圍</li>
+<li>對機密性（Confidentiality）、完整性（Integrity）以及可用性（Availability）造成的影響</li>
+</ol>
+<p>這次 Redis 的漏洞由於是 RCE，遠端程式碼執行，因此 CIA 三個的影響都是 High，影響範圍也會擴大，畢竟能超過 Redis 的範圍，在該台主機上執行命令。</p>
+<p>那為什麼我會說這個漏洞嚴重又沒這麼嚴重呢？10 分不就是最嚴重的嗎？</p>
+<p>這個洞的成因是，Redis 在執行 Lua 時有問題，導致執行特定的 Lua 腳本可以觸發漏洞，跳脫 Lua sandbox 然後在主機上直接執行命令。</p>
+<p>單看 Redis 的話，就是「只要能發送指令，就能 RCE」。</p>
+<p>但若是以整體系統架構的層面來看，我們可以想的問題是：「攻擊者該怎麼對 Redis 發送指令？」，最簡單的當然是你 Redis 開在公網又沒 auth，直接被打進來。雖然這種機器確實很多，網路上可以找到一大堆，那會這樣做的群體可能也不會注意到這個最新的漏洞訊息 😆</p>
+<p>一個稍微正常一點的系統，Redis 都放在內網裡面，那攻擊者要先打進來拿到某個主機的 RCE，才可以再往 Redis 那台打。但是對小一點的公司來說，第一個 RCE 就可以把他們打爆了，打 Redis 可能沒辦法打到更多東西。</p>
+<p>我想說的是「對 Redis 發送指令」這個前提，在一般的環境下沒辦法輕鬆達成，但 CVSS 單看 Redis 本身，所以表現不出這點。10 分是沒問題的，但那是因為最高就是 10 分，Log4j 也是 10 分，甚至一個我覺得更嚴重的 Oracle E-Business Suite Pre-Auth RCE（CVE-2025-61882）也才 9.8 分，所以分數並不是一切。</p>
+<p>不過我也可以想像得到，你站在另一個角度看分數這件事，就會不一樣了。</p>
+<p>當你是個內部專門管 IT 資安的人，每天面對幾十個新的漏洞，哪有時間去看這些細節，當然是按照嚴重程度由大排到小，然後 critical 的就趕快修掉。做為風險控管的一環，這確實是個合理的做法。</p>
+<p>同一個漏洞，在不同的前提之下會帶來不同的結果，之前才跟朋友聊到許多小公司在考慮攻擊面時，不會把橫向移動考慮進去，因為根本也不需要移動，你打下一台就整個系統淪陷了，所以「Redis 被打下來」這個風險是低的。但我也能想像到有些大公司內部分好幾個網路，這時候從 A 透過 Redis RCE 能打到 B 做橫向移動，這個就是很有價值的漏洞。</p>
+<p>其實整體都還是風險管理的一部分，在「Redis 有個 10 分漏洞」的前提下，該考慮哪些風險、該怎麼處理等等，在不同框架底下會有不同做法。</p>
+<p>但如果你問我該不該趕快修，我的建議是：修，都修。網路上也已經有人整理出<a target="_blank" rel="noopener" href="https://github.com/dwisiswant0/CVE-2025-49844">簡單 PoC</a>，可以看出這個洞的觸發方式。</p>
+
+            </div>
+            <footer class="note-actions">
+                <button class="note-share-button" type="button" data-share-title="Redis滿分漏洞解析" data-share-url="https://blog.huli.tw/notes/redis-shell-rce/">分享</button>
+                <a href="/notes/">所有隨意聊</a>
+            </footer>
+        </article>
+        
+        <section class="note-comments comments">
+            <h2 class="title is-4">評論</h2>
+            <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+        </section>
+        
+    </div>
+</section>
+
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=4.js"></script>
+
+
+
+    
+</body>
+</html>

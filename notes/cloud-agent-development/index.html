@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>雲端 Agent 開發時代 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+
+
+
+
+
+	    
+	<link rel="canonical" href="https://blog.huli.tw/notes/cloud-agent-development/">
+	    
+
+
+
+
+
+    <meta name="description" content="現在業界對於 AI coding 的使用，到底是怎麼個用法呢？剛好最近看到一些可以連起來的東西，簡單寫一下。 金流服務 Stripe 最近發了一篇文章，介紹他們自己打造的內部工具 Minions，你可以直接從 Slack 上面 tag 他，跟他說要做什麼，他就會自己起一個環境（內部叫 devbox，一個 EC2 instance 上面已經把環境弄好 ），把任務完成之後發 PR 讓你 review。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="雲端 Agent 開發時代">
+<meta property="og:url" content="https://blog.huli.tw/notes/cloud-agent-development/">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="現在業界對於 AI coding 的使用，到底是怎麼個用法呢？剛好最近看到一些可以連起來的東西，簡單寫一下。 金流服務 Stripe 最近發了一篇文章，介紹他們自己打造的內部工具 Minions，你可以直接從 Slack 上面 tag 他，跟他說要做什麼，他就會自己起一個環境（內部叫 devbox，一個 EC2 instance 上面已經把環境弄好 ），把任務完成之後發 PR 讓你 review。">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2026-02-26T12:45:13.000Z">
+<meta property="article:modified_time" content="2026-05-06T04:48:47.547Z">
+<meta property="article:author" content="Huli">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+
+<link rel="alternate" href="/notes/atom.xml" title="Huli 隨意聊" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=7.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/notes">隨意聊</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section notes-page">
+    <div class="container">
+        
+        
+        <article class="note-card note-detail">
+            <header class="note-card-header">
+                <a class="note-date" href="/notes/cloud-agent-development/">
+                    <time datetime="2026-02-26T12:45:13.000Z">2026年2月26日</time>
+                </a>
+                <h1 class="note-title title is-3">雲端 Agent 開發時代</h1>
+            </header>
+            <div class="note-content content">
+                <p>現在業界對於 AI coding 的使用，到底是怎麼個用法呢？剛好最近看到一些可以連起來的東西，簡單寫一下。</p>
+<p>金流服務 Stripe 最近發了一篇文章，介紹他們自己打造的內部工具 <a target="_blank" rel="noopener" href="https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents">Minions</a>，你可以直接從 Slack 上面 tag 他，跟他說要做什麼，他就會自己起一個環境（內部叫 devbox，一個 EC2 instance 上面已經把環境弄好 ），把任務完成之後發 PR 讓你 review。</p>
+<p>然後他們用的 coding agent 是從開源專案 goose fork 出來改的，看來大公司還是有挺多東西需要客製化的。</p>
+<p>在兩三年前雖然也有這種概念（AI 軟體工程師如 Devin），但在當時看來我還覺得有點遠，模型還沒這麼厲害，但是在 2026 的現在，是 100% 可以做到的東西，更是有些公司內部已經在使用的服務。</p>
+<p>但不要看 Stripe 做得到，就以為每間公司都行，要這樣做至少要有兩個前提：<br>(1) 你的測試要足夠<br>(2) 你要能把環境建起來</p>
+<p>Stripe 是因為本來就有很多測試，所以 AI 改壞可以自己修，直到測試通過為止，人 review 的時候可以減少很多心智負擔，因為 test coverage 夠齊全，至少不會歪到哪去。</p>
+<p>但很多公司連測試都沒有，想這樣做要嘛工程師花些心力 review，要嘛相信 AI 足夠強，直接勇敢按下 merge。</p>
+<p>剛好這兩天 <a target="_blank" rel="noopener" href="https://blog.cloudflare.com/vinext/">Cloudflare</a> 宣布他們用 AI 花了一週把 Next.js 遷移到 Vite 上面，然後只有一個工程師在負責指揮，就搞定了。</p>
+<p>在他們的文章中也有清楚提到，這次遷移能順利的理由是完整的 AI 文件以及全面的測試案例，否則不可能這麼順利。這個再次強調了測試的重要性，當你的測試夠強，就能讓 AI 自主工作變得更有效率。</p>
+<p>現在已經很多人直接 claude code 或其他 AI agent，跑一次就把任務完成了，而 Stripe 那種模式可以想成把你的本地環境搬一份到雲端，就可以享受隨時隨地叫 AI 工作的快感。</p>
+<p>那如果你也想體驗這種快感該怎麼做呢？</p>
+<p>剛好這兩天 <a target="_blank" rel="noopener" href="https://cursor.com/blog/agent-computer-use">Cursor</a> 的 Cloud Agent 改版，它就是一套雲端的 agent，我已經體驗過了，感覺很不錯。</p>
+<p>把 GitHub repo 權限開給他以後，agent 會自己從 repo 中去探索怎麼把服務跑起來，然後還會錄影片給你證明它完成了。若是 agent 卡住，你可以中斷它然後幫他操作，這邊是直接有一個雲端桌面可以操控，一個 Xfce 的 Linux 環境。</p>
+<p>比如說像我的專案需要登入，在 setup 過程中 agent 發現後就自動在 setup 區塊說他需要帳號密碼，直接多了兩個輸入框出來讓我填。</p>
+<p>在環境配置好以後，就會存 snapshot，之後每個任務都只要出一張嘴，agent 就會自己把環境跑起來，然後完成你交代的任務，之後發 PR 等你 review，就像是 Stripe 的文章中所描述的那樣。</p>
+<p>整體的體驗滿不錯的，專案建置上沒什麼問題，Electron 它也跑得起來。只是在操控上面因為是用 computer use 所以滿燒 token，我今天讓它試著在 desktop app 上做一個新功能，大概花了 30 分鐘，燒了 2000 萬個 token，似乎是 10 美金左右。</p>
+<p>未來 cloud agent 我猜也會越來越普及，只是在資安以及環境建置這塊要怎麼處理會比較麻煩（例如說有些服務在公司內網），但用起來感覺不錯就是了。</p>
+<p>總之呢，從我自己的日常開發以及這些大公司的部落格中，很明顯可以看到軟體工程師把任務交給 AI 跑已經是常態了，不要再用什麼網頁版，你用 claude code 也好 open code 也好 Codex 也好 Cursor 也好，反正有個 agent 可以幫你跑任務就對了。</p>
+<p>我自己日常開發還是用 Cursor，下次再寫一篇我最近怎麼用 Cursor 搭配其他工具，幫助我這個外行人逆向一個 golang binary 吧。</p>
+
+            </div>
+            <footer class="note-actions">
+                <button class="note-share-button" type="button" data-share-title="雲端 Agent 開發時代" data-share-url="https://blog.huli.tw/notes/cloud-agent-development/">分享</button>
+                <a href="/notes/">所有隨意聊</a>
+            </footer>
+        </article>
+        
+        <section class="note-comments comments">
+            <h2 class="title is-4">評論</h2>
+            <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+        </section>
+        
+    </div>
+</section>
+
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=4.js"></script>
+
+
+
+    
+</body>
+</html>

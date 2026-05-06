@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>用Hash證明秘密 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+
+
+
+
+
+	    
+	<link rel="canonical" href="https://blog.huli.tw/notes/hash-commitment/">
+	    
+
+
+
+
+
+    <meta name="description" content="假設我知道某個秘密，但現在時候未到還不能講，可是我又想證明「我真的知道喔」，該怎麼做呢？舉例來說，假設我想證明我能預測下一期樂透號碼，但我又不想自己去買，也不想現在告訴大家號碼，該怎麼在開獎後證明我事前真的知道呢？ 一個快速能想到的做法是事先拍影片寫下答案，事後才上傳公布。但問題是要怎麼證明影片不是事後拍的？附上時鐘嗎？附上當時的電視新聞台轉播嗎？這些都有造假的可能性存在。 因此，我們想的這個做法">
+<meta property="og:type" content="website">
+<meta property="og:title" content="用Hash證明秘密">
+<meta property="og:url" content="https://blog.huli.tw/notes/hash-commitment/">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="假設我知道某個秘密，但現在時候未到還不能講，可是我又想證明「我真的知道喔」，該怎麼做呢？舉例來說，假設我想證明我能預測下一期樂透號碼，但我又不想自己去買，也不想現在告訴大家號碼，該怎麼在開獎後證明我事前真的知道呢？ 一個快速能想到的做法是事先拍影片寫下答案，事後才上傳公布。但問題是要怎麼證明影片不是事後拍的？附上時鐘嗎？附上當時的電視新聞台轉播嗎？這些都有造假的可能性存在。 因此，我們想的這個做法">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2025-08-24T09:41:56.000Z">
+<meta property="article:modified_time" content="2026-05-06T08:51:00.566Z">
+<meta property="article:author" content="Huli">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+
+<link rel="alternate" href="/notes/atom.xml" title="Huli 隨意聊" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=7.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/notes">隨意聊</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section notes-page">
+    <div class="container">
+        
+        
+        <article class="note-card note-detail">
+            <header class="note-card-header">
+                <a class="note-date" href="/notes/hash-commitment/">
+                    <time datetime="2025-08-24T09:41:56.000Z">2025年8月24日</time>
+                </a>
+                <h1 class="note-title title is-3">用Hash證明秘密</h1>
+            </header>
+            <div class="note-content content">
+                <p>假設我知道某個秘密，但現在時候未到還不能講，可是我又想證明「我真的知道喔」，該怎麼做呢？舉例來說，假設我想證明我能預測下一期樂透號碼，但我又不想自己去買，也不想現在告訴大家號碼，該怎麼在開獎後證明我事前真的知道呢？</p>
+<p>一個快速能想到的做法是事先拍影片寫下答案，事後才上傳公布。但問題是要怎麼證明影片不是事後拍的？附上時鐘嗎？附上當時的電視新聞台轉播嗎？這些都有造假的可能性存在。</p>
+<p>因此，我們想的這個做法必須要滿足：<br>(1) 這個答案要由我在特定時間公開，我沒公開前不會有人知道<br>(2) 答案不能被篡改</p>
+<p>雖然聽起來可能有點困難，但其實利用大家熟知的 hash 就行了。</p>
+<p>假設我宣稱的樂透號碼是 1,4,17,18,25,30 好了，我先隨便訂一個 salt 如 OIZG5NFXZ，接著把它跟答案加在一起變成一個字串：OIZG5NFXZ:1,4,17,18,25,30，然後丟去 hash，得到 3d60…..51ef 這個結果。</p>
+<p>接著，我把這個 hash 發到鏈上，基於區塊鏈不可修改的特性，大家可以相信這個字串公佈答案後也改不了，符合了第二點（先不考慮大多數節點被 compromised 或是算力被掌握等情境）。</p>
+<p>而因為這是個 hash，假設我的 salt 夠長（上面只是範例所以很短，實際上會很長），除了暴力破解以外，沒有其他人猜得出來原始內容是什麼，因此符合了第一點。</p>
+<p>等到樂透開獎以後，我再把 salt 跟號碼公開出去，大家自己把 OIZG5NFXZ:1,4,17,18,25,30 拿去 hash，就會發現是我當天 po 的那個字串，表示我真的事先知道就是這組數字，才有辦法先把 hash 算出來。</p>
+<p>（有個例外是「我其實不知道，只是開獎後再找到了含有樂透號碼的字串產生碰撞」，但只要用夠強的 hash 演算法就可以排除這個可能性）</p>
+<p>上面講的這些聽一聽有點密碼學的味道對吧，因為它確實就是。這個在密碼學有個專有名詞叫做 Commitment scheme，近代最多的實際應用是在區塊鏈上面，而且有更多種更巧妙的演算法，這部分我不熟，就不繼續講了。</p>
+<p>不久後的 9&#x2F;5~9&#x2F;7 是 PyCon Taiwan 2025 的日子，議程都已經公佈了，各式各樣的主題都有。</p>
+<p>這次有一天的 Sprints 加兩天的 5 軌議程，還有超強 Keynote 講者陣容，包括 FastAPI creator、CPython  核心開發者與前 NBA 76 人隊數據 UX 設計師等等，細節可以看<a target="_blank" rel="noopener" href="https://tw.pycon.org/2025/zh-hant/conference/schedule">官方議程</a>。</p>
+<p>而我這剛好有一張票想要送大家，要讓大家抽獎。但由於我懶得算數量，因此就用猜數字來決定。只要在留言猜 1-30 這個範圍的數字，猜中就直接把票送給你！每人只能猜一次，最早猜中的贏，順序由臉書的「由新到舊」留言排序決定，以我的網頁看到的畫面為主。</p>
+<p>08:20 更新：票已經抽掉囉，可以不用留言了。</p>
+<p>那大家要怎麼知道我不會黑箱作業，心中的數字不會變呢？上面已經把原理都講完了，只是我們不上鏈，改成用臉書的編輯紀錄當作我不會修改的證明。</p>
+<p>hash: 4f98735337f13a56f804c49d055fe348b788f566ec274ac905e89665fe5ed1a6</p>
+<p>公佈答案時會附上原始字串讓大家驗證。話說這方法防不了我把答案洩露給別人這件事，這點只能請大家相信我的人品了 😆</p>
+<p>08:20 更新：答案是 19<br>原始字串：PyC0nTaiwan2025!!!the_answer_is:19</p>
+
+            </div>
+            <footer class="note-actions">
+                <button class="note-share-button" type="button" data-share-title="用Hash證明秘密" data-share-url="https://blog.huli.tw/notes/hash-commitment/">分享</button>
+                <a href="/notes/">所有隨意聊</a>
+            </footer>
+        </article>
+        
+        <section class="note-comments comments">
+            <h2 class="title is-4">評論</h2>
+            <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+        </section>
+        
+    </div>
+</section>
+
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=4.js"></script>
+
+
+
+    
+</body>
+</html>

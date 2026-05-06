@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>信用卡金流合規風險 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+
+
+
+
+
+	    
+	<link rel="canonical" href="https://blog.huli.tw/notes/payment-card-pci-risk/">
+	    
+
+
+
+
+
+    <meta name="description" content="這是一段信用卡資安、PCI DSS 與金流服務提供商的故事 網路上偶爾會看到一些信用卡被盜刷的討論文章，有些人會說自己在某網站刷卡過後不久就被盜刷了，懷疑是那網站的問題。我看到這種討論後通常都不太在意，覺得可能性偏小。 為什麼偏小呢，因為大多數網站在刷卡時，要嘛直接跳轉到第三方金流，要嘛用 iframe 來嵌入付款頁面，自己的網站根本不知道卡號是多少。既然不知道的話，這網站又怎麼能流出你的卡號呢？">
+<meta property="og:type" content="website">
+<meta property="og:title" content="信用卡金流合規風險">
+<meta property="og:url" content="https://blog.huli.tw/notes/payment-card-pci-risk/">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="這是一段信用卡資安、PCI DSS 與金流服務提供商的故事 網路上偶爾會看到一些信用卡被盜刷的討論文章，有些人會說自己在某網站刷卡過後不久就被盜刷了，懷疑是那網站的問題。我看到這種討論後通常都不太在意，覺得可能性偏小。 為什麼偏小呢，因為大多數網站在刷卡時，要嘛直接跳轉到第三方金流，要嘛用 iframe 來嵌入付款頁面，自己的網站根本不知道卡號是多少。既然不知道的話，這網站又怎麼能流出你的卡號呢？">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2025-06-24T10:32:37.000Z">
+<meta property="article:modified_time" content="2026-05-06T08:51:00.566Z">
+<meta property="article:author" content="Huli">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+
+<link rel="alternate" href="/notes/atom.xml" title="Huli 隨意聊" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=7.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/notes">隨意聊</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section notes-page">
+    <div class="container">
+        
+        
+        <article class="note-card note-detail">
+            <header class="note-card-header">
+                <a class="note-date" href="/notes/payment-card-pci-risk/">
+                    <time datetime="2025-06-24T10:32:37.000Z">2025年6月24日</time>
+                </a>
+                <h1 class="note-title title is-3">信用卡金流合規風險</h1>
+            </header>
+            <div class="note-content content">
+                <p>這是一段信用卡資安、<a target="_blank" rel="noopener" href="https://life.huli.tw/2025/06/23/pcidss-and-credit-card-security/">PCI DSS</a> 與金流服務提供商的故事</p>
+<p>網路上偶爾會看到一些信用卡被盜刷的討論文章，有些人會說自己在某網站刷卡過後不久就被盜刷了，懷疑是那網站的問題。我看到這種討論後通常都不太在意，覺得可能性偏小。</p>
+<p>為什麼偏小呢，因為大多數網站在刷卡時，要嘛直接跳轉到第三方金流，要嘛用 iframe 來嵌入付款頁面，自己的網站根本不知道卡號是多少。既然不知道的話，這網站又怎麼能流出你的卡號呢？</p>
+<p>但幾週前我在某網站結帳時，心血來潮開了 DevTools 來看，才發現：「不對，為什麼你是直接收我卡號啊」，說好的 iframe 呢？直接收卡號就代表信用卡資料確實有進到這網站的系統中，開頭講的狀況還真的有可能發生。</p>
+<p>接著我開始了一系列的研究，找了一堆資料，才發現這其實不是個案，而是有一堆網站都這樣。</p>
+<p>大多數網站接的金流都是綠界、藍新這類的金流服務提供商，這些金流再去跟銀行接入。而藍新對外公開的 API，就只有跳轉這個選項，用起來滿安全的，商家也不需要碰到卡號。</p>
+<p>但是，如果你想提升使用者體驗，省去跳轉這步，可以去申請「幕後授權」，就會開給你另一個 API，可以接收卡號、過期日跟 CVV 等資訊。接著你就可以在網站上放自己的 input，將這些資料收進自己系統，再轉傳給藍新。</p>
+<p>若是不知資安為何物，可能會順便把卡號明文存到系統，或是寫到 log 裡，哪天被駭客打下來，就全部都外流出去了，卡就被盜刷了。</p>
+<p>聽起來風險很高對吧？我也覺得很高啊！</p>
+<p>於是，我參考了其他金流，發現 Stripe、adyen 以及綠界，網站上都寫說必須先提供 PCI DSS 相關文件（SAQ D）才會開 API 給你。</p>
+<p>那藍新呢？不需要，你沒有做過任何資安合規也開給你，另一間 PAYUNi 統一金流看起來也是。在網路上搜了一下，發現這件事情似乎也沒人公開講過，難道只有我覺得這樣不太對勁？</p>
+<p>收單行會要求合作的金流商必須合規，而金流商理應也必須要求商家，尤其是收卡號這種接觸到持卡人資料的行為，更應該特別小心。但藍新在方便性與安全性之間選擇了前者，而且若是要提升使用者體驗，藍新做個 iframe 是最好的，這樣商家也沒必要自己收卡號了。比起做個 iframe，他們選擇了開幕後授權給沒有合規的商家收卡號，身為消費者的我，覺得自己的信用卡資料實在不是很安全。</p>
+<p>因此我寫了這篇貼文想讓大家知道有這件事，前面那篇 <a target="_blank" rel="noopener" href="https://life.huli.tw/2025/06/23/pcidss-and-credit-card-security/">PCI DSS 與信用卡資安</a> 裡面有更多細節，也有到底什麼是 PCI DSS 的講解，看完會更清楚整個脈絡。</p>
+<p>總之我自己調查完一輪的結論是：「藍新應該好好把關，不該開給沒有合規的商家幕後授權」</p>
+<p>最後聲明一下，金流跟 PCI DSS 合規這塊我非專業人士，若是整件事情我有哪邊理解錯的，也請不吝留言指正。</p>
+
+            </div>
+            <footer class="note-actions">
+                <button class="note-share-button" type="button" data-share-title="信用卡金流合規風險" data-share-url="https://blog.huli.tw/notes/payment-card-pci-risk/">分享</button>
+                <a href="/notes/">所有隨意聊</a>
+            </footer>
+        </article>
+        
+        <section class="note-comments comments">
+            <h2 class="title is-4">評論</h2>
+            <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+        </section>
+        
+    </div>
+</section>
+
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=4.js"></script>
+
+
+
+    
+</body>
+</html>
