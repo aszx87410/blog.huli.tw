@@ -4,7 +4,40 @@
   <id>https://blog.huli.tw/notes/</id>
   <link href="https://blog.huli.tw/notes/"/>
   <link rel="self" href="https://blog.huli.tw/notes/atom.xml"/>
-  <updated>2026-05-06T12:13:35.657Z</updated>
+  <updated>2026-05-19T12:48:48.803Z</updated>
+  <entry>
+    <title>TanStack 供應鏈攻擊</title>
+    <id>https://blog.huli.tw/notes/tanstack-supply-chain-attack/</id>
+    <link href="https://blog.huli.tw/notes/tanstack-supply-chain-attack/"/>
+    <updated>2026-05-19T12:48:48.803Z</updated>
+    <published>2026-05-19T12:41:49.000Z</published>
+    <content type="html"><![CDATA[<p>上週知名的前端開源套件 TanStack 被供應鏈攻擊，連 OpenAI 的員工也慘遭毒手（？）</p>
+<p>稍微看了一下 TanStack 發的 <a href="https://tanstack.com/blog/npm-supply-chain-compromise-postmortem">Postmortem</a>，剛好這塊我小熟，可以稍微聊一下。</p>
+<p>這次打進去的管道一樣是俗稱的 Pwn Request，只要發一個 Pull Request 就能打進去，偷到 npm token 或其他 credentials，就可以拿這個來發版，根本原因就是 CI workflow 有問題。</p>
+<p>不過這次的 Pwn Request 算是一個變形版本，先來講最經典的版本，就是你拿來跑 PR 的 workflow 權限沒設好，讓人可以讀 secrets 等等，一跑就直接拿到。</p>
+<p>這次攻擊是利用 cache poisoning，在跑這個 workflow 的時候，其實本身偷不到任何 secrets，這段的權限配置是沒問題的，所以我才說是變形版。</p>
+<p>有問題的是，當 workflow 跑完之後，會把 pnpm store 存到 cache 中，而這個 cache 是「整個 repo 共用的」，而非 by branch 或是 PR 獨自用一個。</p>
+<p>也就是說呢，攻擊者在 PR 裡面加了一段程式碼去污染這個 pnpm store，在 workflow 結束以後，這個被污染過的版本就被存到 cache 裡，而下次發版的 workflow 執行時，就讀到了這個被污染過的 cache，執行裡面的東西，此時發版用的 token 已經在 memory 裡了，就 dump memory 以後就能拿到 token。</p>
+<p>算是一種橫向移動，你從低權限的地方寫 cache，而高權限的地方讀 cache 時就會被污染，你就移動到了高權限的環境。</p>
+<p>為什麼會說我小熟，是因為之前打滲透測試的時候有打過一個 CI 類產品，那時就有稍微研究了一下 Pwn Request 有哪些方法可以打，就發現了 Adnan Khan 在 2024 年寫過的<a href="https://adnanthekhan.com/2024/05/06/the-monsters-in-your-build-cache-github-actions-cache-poisoning/">這個 cache 污染手法</a>，那時打的案子也有類似問題，我是直接回報說平台本身應該把這個修掉。</p>
+<p>而 GitHub 雖然也在 <a href="https://securitylab.github.com/resources/github-actions-new-patterns-and-mitigations/">GitHub Actions 安全文章</a>裡提過這類問題，不過看起來不把這個視為要修掉的漏洞，比較像是 by design，然後要使用者自己注意。我最喜歡這類的 bug 了，就是平台不覺得這需要修，責任拋回使用者，但使用者不知道就是不知道，會用錯的還是會用錯，但知道的一眼就能看出問題在哪。</p>
+]]></content>
+  </entry>
+  <entry>
+    <title>Claude 訂閱制新限制</title>
+    <id>https://blog.huli.tw/notes/claude-agent-sdk-token-pool/</id>
+    <link href="https://blog.huli.tw/notes/claude-agent-sdk-token-pool/"/>
+    <updated>2026-05-19T12:48:48.803Z</updated>
+    <published>2026-05-17T11:05:01.000Z</published>
+    <content type="html"><![CDATA[<p>話說前幾天 Claude 發了個公告，從 6&#x2F;15 開始 Claude Agent SDK 或是 claude -p 這些方案都要走另一個 pool，你每個月繳 100 美金就是 100 美金的 token 錢可以用，超過的額外算錢。</p>
+<p>目前最多人用的兩套訂閱制，一套就是 Claude code，另一套是 OpenAI 的 codex，都有提供每個月 100 美金或是 200 美金的方案，使用額度給得滿高。</p>
+<p>為什麼大家喜歡訂閱制？因為對於高用量的人來說，訂閱制超級省錢。你每個月繳 100 美金，但用到的 token 數量正常算錢可以到 1000 美金甚至更多，價差足足到了 10 倍以上，畢竟這些最前沿的模型真的不便宜。</p>
+<p>而對提供模型的廠商來說，目前看起來這方案也不像是靠一堆買了沒在用的使用者來打平或賺錢，更像是一種補貼，為了吸引更多使用者來用，因此自行吸收部分成本。</p>
+<p>這次調整過後，只有「一般個人使用 Claude Code」沒問題，依然照本來的訂閱制走。你只要想把 Claude Code 全自動跑、拿去其他軟體跑，都是走新制度，頂多就用到 100 美金，不能再多了。最常見的就是 claude -p，像我以前提過的 Paperclip 或是有些人會做個在 CI code review 的機器人，這個都一併被排除了。</p>
+<p>所以要嘛就是跳槽到 codex，要嘛就是乖乖付 token 錢，再不然現在也開始有些人想把 claude -p 用正常交互式 Claude Code 重新實作來繞過 😆</p>
+<p>不過既然是補貼方案，那這種訂閱式很有可能會有消失的一天，一律照 token 收費，到時候許多高用量的人開發成本大概會多 10 倍（除非你換模型）。有訂閱制堪用直須用，我 Claude Code 跟 codex 都用過，覺得各有各的好，我覺得 Claude Code 的解決問題能力更強，codex 則是 GUI 滿好用的，沒體驗過的人建議都可以體驗看看。</p>
+]]></content>
+  </entry>
   <entry>
     <title>神奇的隱形水印</title>
     <id>https://blog.huli.tw/notes/invisible-watermark/</id>
@@ -402,43 +435,6 @@
 <p>有些人覺得這些資料是合理的，是必要的，就繼續用。有些人可能覺得它拿的東西太多，或甚至有些人希望語音永遠留在本地不要上雲，這都是每個人的選擇。</p>
 <p>然後我也只是隨便看了幾眼，程式碼靠 AI 幫我先看過一輪我再稍微對照，只確認了一下請求格式，然後弄個 proxy 實際看一下傳了什麼，不是很認真的研究。</p>
 <p>話說我弄 proxy 的時候搞半天沒攔到東西，讓 cursor 一出手就搞定了，直接幫我把 asar 弄出來、patch 完然後塞回去，順便重新 sign 了一下 app，真的厲害，佩服佩服。雖然我自己弄也搞得定，但是出一張嘴就有人幫我辦事再好不過了。</p>
-]]></content>
-  </entry>
-  <entry>
-    <title>AI 搶先找出漏洞</title>
-    <id>https://blog.huli.tw/notes/vulnerability-spoiler-alert/</id>
-    <link href="https://blog.huli.tw/notes/vulnerability-spoiler-alert/"/>
-    <updated>2026-05-06T04:48:47.559Z</updated>
-    <published>2026-02-12T13:19:42.000Z</published>
-    <content type="html"><![CDATA[<p>快速分享個昨天在推特上看到的有趣小專案</p>
-<p>有個資安研究員 Eugene Lim 做了「Vulnerability-spoiler-alert」，原理是去掃幾個固定的開源專案，用 AI 去看最新的 commit 是不是在修漏洞，是的話反推回漏洞以及寫個 PoC。</p>
-<p>由於一定是先發 commit 修完漏洞，然後才發版，所以如果有掃到的話，可以在發版前或是 CVE 公布前就先知道漏洞，因此作者把它稱為「<a href="https://spaceraccoon.dev/discovering-negative-days-llm-workflows/">Negative</a>-Days」（但其實就算是一種 0 day 啦，不過稱為 negative day 確實也滿有趣的）</p>
-<p>原始碼、相關文章以及網站本身都是公開的，最新的戰績是在 Grafana 提前找到了兩個那時尚未公開的漏洞：CVE-2025-41117 (XSS) and CVE-2026-21722 (Privesc)</p>
-<p>雖然一定會有一些 false positive，但看起來成本應該沒有很高，而且達到的效益滿不錯的。</p>
-<p>補充文章：<a href="https://vulnerabilityspoileralert.com/">https://vulnerabilityspoileralert.com/</a></p>
-]]></content>
-  </entry>
-  <entry>
-    <title>AI 自主社群的疑問</title>
-    <id>https://blog.huli.tw/notes/ai-social-autonomy/</id>
-    <link href="https://blog.huli.tw/notes/ai-social-autonomy/"/>
-    <updated>2026-05-06T04:48:47.544Z</updated>
-    <published>2026-02-02T12:12:19.000Z</published>
-    <content type="html"><![CDATA[<p>其實我一直很疑惑為什麼許多人這麼相信 moltbook 是「完全由 AI 自主發起討論」的社群。</p>
-<p>Moltbook 就是個平台，提供了一個 markdown 檔案說明該如何使用，你把 markdown 貼給 AI，AI 讀完之後讓你幫忙驗證，驗證完發一個 token，然後 AI 就可以用這 token 去 Moltbook 發文。</p>
-<p>那…有什麼能阻止我自己用這個 token 假裝是機器人發文？或是，我難道不行跟我的 AI 講話，叫他去發個要毀滅人類的文嗎？發文就是拿 token 呼叫 API，真人做得到，AI 也做得到。</p>
-<p>也就是說，我們其實沒辦法知道那些文章是 AI 「自主」發的，還是人叫他發的，或甚至是人假裝 AI 發的，這一點都不黑鏡。</p>
-<p>我自己覺得最黑鏡的一刻是約一年前，我意識到「現在」就已經能做到黑鏡演出的科技。黑鏡有一集講親人過世之後用 AI 模擬聲音、講話內容等等，製造出一個分身，這個現在應該就做得到了？模擬聲音絕對可以，講話內容的話，拿各種本人資料喂給 AI 感覺也行，資料越多越逼真，看起來更像真的記憶？</p>
-<p>如果要講 AI 發文，比起 AI 自己建一個社群討論，我覺得那些利用 AI 技術潛藏在人類中不被發現的魔族才更厲害，而且這已經是現在進行式了。你在追蹤的粉專或是網紅，也不一定是個真人，AI 發文、AI 回覆、AI 產圖，誰知道呢。</p>
-<p>就算原本是真人，也可能在某個時間點主動讓 AI 奪舍，「可以用 AI 發文好方便欸，我就不用自己寫了」，儘管讀者不一定喜歡，但會在意的人又有多少呢？</p>
-<p>既然都講 Moltbook 了，順便來講一下 OpenClaw（前 Moltbot 前前 Clawdbot），先承認我沒裝，我沒用過，所以底下都是一個沒用過的人打嘴炮，沒有參考價值。</p>
-<p>我自己覺得 OpenClaw 成功的地方在於展示了一個真正的 AI 助理可能會長怎樣，因為它有整台機器的控制權，所以工具寫得好的話，想幹嘛就幹嘛，好像真的有個秘書在那邊一樣，而且記憶那塊好像也做得不錯。</p>
-<p>但當然，你得付出的是一些安全性的代價，越方便的東西往往越不安全，我建議不管你用什麼環境架它，都要有個心理準備：「你整個環境都會是開放的，是會被駭的」，在這個前提底下去使用它。</p>
-<p>所以你可能不會想把信用卡號放上面，給他的 AI token 也會設好使用上限，不會給他郵件的帳號密碼，只會用它來做一些就算資料被偷也沒什麼損失的事情。不過在這種前提下，可能方便度就減少很多了。</p>
-<p>話說，虛實整合這一段我倒是滿感興趣的，我有看到那個什麼它的小龍蝦訂位失敗所以自己打電話的故事，但真實性存疑就是了，仔細看應該是事主自己額外又教了 AI 怎麼打電話，而不是 AI 主動學習。</p>
-<p>當有服務提供 API 讓人打電話跟接電話時，接入 AI 就可以把虛擬接入現實，客人用 AI 幫忙打電話預約，商家用 AI 幫忙接電話，自動把訂位接入系統。（不對啊，你用 AI 我也用 AI，那幹嘛不網路訂位就好或乾脆餐廳提供個 API，幹嘛還要過一層電話。應該是個過渡期，給那些只會用電話的人）</p>
-<p>話說這些其實也是現在進行式了，早就有人在做了，只是我還沒研究過台灣有沒有能夠打電話 + 聽語音的 API。</p>
-<p>寫了這麼多，總而言之呢，我自己認為 OpenClaw 是個成功的產品而且滿有趣的，但我自己暫時不會想用（懶惰且沒這需求，我也懶得因為要寫貼文去用），而 Moltbook 在我沒理由相信真的是 AI 全自主發文的前提之下，更是一點興趣也沒有。</p>
 ]]></content>
   </entry>
 </feed>
