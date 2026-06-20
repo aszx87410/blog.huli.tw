@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top" lang="zh-tw">
+<head>
+    <meta charset="utf-8">
+<title>GitHub RCE 與 AI 逆向 - Huli&#39;s blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+
+
+
+
+
+	    
+	<link rel="canonical" href="https://blog.huli.tw/notes/github-rce-ai-reversing/">
+	    
+
+
+
+
+
+    <meta name="description" content="四月底的時候 GitHub 有爆出一個嚴重的 RCE 漏洞 CVE-2026-3854，只要有 push 權限就可以拿到 RCE，是由資安公司 Wiz 回報的。 總之就是 GitHub 裡面有一個 X-Stat 的 header 會在內部傳遞，是用分號 ; 來分割 key 跟 value，然後在 push 時帶上的 option 會被放在裡面，而這邊的編碼沒做好，導致你可以在 option 傳 a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="GitHub RCE 與 AI 逆向">
+<meta property="og:url" content="https://blog.huli.tw/notes/github-rce-ai-reversing/">
+<meta property="og:site_name" content="Huli&#39;s blog">
+<meta property="og:description" content="四月底的時候 GitHub 有爆出一個嚴重的 RCE 漏洞 CVE-2026-3854，只要有 push 權限就可以拿到 RCE，是由資安公司 Wiz 回報的。 總之就是 GitHub 裡面有一個 X-Stat 的 header 會在內部傳遞，是用分號 ; 來分割 key 跟 value，然後在 push 時帶上的 option 會被放在裡面，而這邊的編碼沒做好，導致你可以在 option 傳 a">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2026-06-14T13:46:32.000Z">
+<meta property="article:modified_time" content="2026-06-20T03:33:40.580Z">
+<meta property="article:author" content="Huli">
+<meta name="twitter:card" content="summary_large_image">
+
+
+
+
+<link rel="alternate" href="/notes/atom.xml" title="Huli 隨意聊" type="application/atom+xml">
+
+
+
+<link rel="icon" href="/img/lidemy_logo.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+
+
+<link rel="stylesheet" href="/css/bulma.css?v=2.css">
+
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+
+<link rel="stylesheet" href="/css/style.css?v=7.css">
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1393J2EVCZ"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-1393J2EVCZ');
+</script>
+
+
+    
+
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+<body>
+    <script>
+        if (localStorage.getItem('dark-mode')) {
+            if (localStorage.getItem('dark-mode') === 'true') {
+                document.body.classList.add('dark-mode')
+            }
+        } else {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode')
+            }
+        }
+    </script>
+    
+
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                    
+                    Huli&#39;s blog
+                    
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">文章列表</a>
+            
+            <a class="navbar-item "
+               href="/notes">隨意聊</a>
+            
+            <a class="navbar-item "
+               href="/categories">分類</a>
+            
+            <a class="navbar-item "
+               href="/about">關於我</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            
+            
+            <a class="navbar-item" target="_blank" title="Facebook" href="https://www.facebook.com/huli.blog">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+               
+            <a class="navbar-item" target="_blank" title="RSS" href="/atom-ch.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+               
+            
+            <a class="navbar-item btn-dark-mode" title="dark-mode" href="#">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="15" height="15" viewBox="0 0 256 256" xml:space="preserve">
+                    <defs>
+                    </defs>
+                    <g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)" >
+                        <path d="M 87.823 60.7 c -0.463 -0.423 -1.142 -0.506 -1.695 -0.214 c -15.834 8.398 -35.266 2.812 -44.232 -12.718 c -8.966 -15.53 -4.09 -35.149 11.101 -44.665 c 0.531 -0.332 0.796 -0.963 0.661 -1.574 c -0.134 -0.612 -0.638 -1.074 -1.259 -1.153 c -9.843 -1.265 -19.59 0.692 -28.193 5.66 C 13.8 12.041 6.356 21.743 3.246 33.35 S 1.732 57.08 7.741 67.487 c 6.008 10.407 15.709 17.851 27.316 20.961 C 38.933 89.486 42.866 90 46.774 90 c 7.795 0 15.489 -2.044 22.42 -6.046 c 8.601 -4.966 15.171 -12.43 18.997 -21.586 C 88.433 61.79 88.285 61.123 87.823 60.7 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: #ffa716; fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round" />
+                    </g>
+                    </svg>
+                </div>
+            </a>
+            
+            
+
+        </div>
+    </div>
+</nav>
+
+    <section class="section notes-page">
+    <div class="container">
+        
+        
+        <article class="note-card note-detail">
+            <header class="note-card-header">
+                <a class="note-date" href="/notes/github-rce-ai-reversing/">
+                    <time datetime="2026-06-14T13:46:32.000Z">2026年6月14日</time>
+                </a>
+                <h1 class="note-title title is-3">GitHub RCE 與 AI 逆向</h1>
+            </header>
+            <div class="note-content content">
+                <p>四月底的時候 GitHub 有爆出一個嚴重的 RCE 漏洞 CVE-2026-3854，只要有 push 權限就可以拿到 RCE，是由資安公司 Wiz 回報的。</p>
+<p>總之就是 GitHub 裡面有一個 X-Stat 的 header 會在內部傳遞，是用分號 ; 來分割 key 跟 value，然後在 push 時帶上的 option 會被放在裡面，而這邊的編碼沒做好，導致你可以在 option 傳 abc; test&#x3D;pwn; 去影響到 X-Stat 最後解析出來的值。</p>
+<p>而這個 X-Stat 有幾個有趣的值如 rails_env、custom_hooks_dir、repo_pre_receive_hooks 這些看起來就可以利用的東西，最後只要把這些覆蓋掉，就可以用 GitHub 本來就有的 pre hook 機制去執行任意指令，串成 RCE。</p>
+<p>那這 X-Stat 的 header 是怎麼被發現的呢，GitHub 本身可不是個開源軟體。</p>
+<p>雖然沒開源，但是 GitHub 有提供你可以部署在自己主機上的企業版，給你一個 VM 跑起來，而這個 VM 裡自然也會有 GitHub server 的 binary，你把這個 binary 逆向就行了。</p>
+<p>在 <a target="_blank" rel="noopener" href="https://www.wiz.io/blog/github-rce-vulnerability-cve-2026-3854">Wiz 的文章</a>裡面有特別提到，AI 在這部分幫了很大的忙，他們以前就想做類似的研究但成本太高，現在靠 AI + IDA MCP 加速很多也降低成本，才發現這條路徑。</p>
+<p>感覺這種事會越來越常發生，對那些編譯過的 binary，要做白箱的話需要先逆向解開才能挖洞，需要一定成本跟前置知識，像我這種幾乎不會逆向的就玩不了。</p>
+<p>但現在有 AI 幫我逆向了，想研究的東西丟給 AI 幫我逆一逆，我也是可以看到 source code 了，就不會受到原本的限制。不過對我這種外行人來說，AI 解不開的 binary 照樣沒輒就是了。</p>
+<p>之前解一個手機上 .so 檔，類似 VMProtect 那樣的東西 AI 就沒完全解開，還一直跟我說什麼「這個需要資深工程師花兩週，成本太高」，我只能一直安撫他：「你可以的，你很厲害，加油」，但解了兩三天燒了一堆 token 沒解開我就先放棄了。也不是完全沒有進度，有在推進了但沒完全還原。</p>
+
+            </div>
+            <footer class="note-actions">
+                <button class="note-share-button" type="button" data-share-title="GitHub RCE 與 AI 逆向" data-share-url="https://blog.huli.tw/notes/github-rce-ai-reversing/">分享</button>
+                <a href="/notes/">所有隨意聊</a>
+            </footer>
+        </article>
+        
+        <section class="note-comments comments">
+            <h2 class="title is-4">評論</h2>
+            <script src="https://utteranc.es/client.js"
+        repo="aszx87410/huli-blog"
+        issue-term="title"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>
+        </section>
+        
+    </div>
+</section>
+
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2026 Huli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a> & <a
+                        target="_blank" rel="noopener" href="http://github.com/ppoffice/hexo-theme-minos">Minos</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column is-narrow" title="GitHub" target="_blank" rel="noopener" href="https://github.com/ppoffice/hexo-theme-minos">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+
+
+
+    
+    
+    
+    
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+    <style>
+        .hljs {
+            position: relative;
+        }
+
+        .hljs .clipboard-btn {
+            float: right;
+            color: #9a9a9a;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hljs .clipboard-btn:hover {
+          color: #8a8a8a;
+        }
+
+        .hljs > .clipboard-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+
+        .hljs:hover > .clipboard-btn {
+            display: inline;
+        }
+
+        .hljs > figcaption > .clipboard-btn {
+            margin-right: 4px;
+        }
+    </style>
+    <script>
+      $(document).ready(function () {
+        $('figure.hljs').each(function(i, figure) {
+          var codeId = 'code-' + i;
+          var code = figure.querySelector('.code');
+          var copyButton = $('<button>Copy <i class="far fa-clipboard"></i></button>');
+          code.id = codeId;
+          copyButton.addClass('clipboard-btn');
+          copyButton.attr('data-clipboard-target-id', codeId);
+
+          var figcaption = figure.querySelector('figcaption');
+
+          if (figcaption) {
+            figcaption.append(copyButton[0]);
+          } else {
+            figure.prepend(copyButton[0]);
+          }
+        })
+
+        var clipboard = new ClipboardJS('.clipboard-btn', {
+          target: function(trigger) {
+            return document.getElementById(trigger.getAttribute('data-clipboard-target-id'));
+          }
+        });
+        clipboard.on('success', function(e) {
+          e.clearSelection();
+        })
+      })
+    </script>
+
+    
+    
+
+    
+
+
+
+<script src="/js/script.js?v=4.js"></script>
+
+
+
+    
+</body>
+</html>
