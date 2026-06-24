@@ -37,7 +37,7 @@
 <meta property="og:locale" content="zh_TW">
 <meta property="og:image" content="https://blog.huli.tw/img/learn-network-from-attack-dns/cover.png">
 <meta property="article:published_time" content="2026-06-23T03:11:30.000Z">
-<meta property="article:modified_time" content="2026-06-23T12:53:14.249Z">
+<meta property="article:modified_time" content="2026-06-24T13:00:39.564Z">
 <meta property="article:author" content="Huli">
 <meta property="article:tag" content="Security">
 <meta name="twitter:card" content="summary_large_image">
@@ -503,11 +503,17 @@ google.com.   247 IN  A 142.250.21.102<span aria-hidden="true" class="line-numbe
 <p>如果想知道你電腦現在有沒有開啟，可以用這個服務：<a target="_blank" rel="noopener" href="https://one.one.one.one/help/">https://one.one.one.one/help/</a></p>
 <p>像我的電腦預設就是沒開的：</p>
 <p><img src="/img/learn-network-from-attack-dns/p3.png" alt="檢查 DNS"></p>
+<p>但要記住的是，這些技術保護的是「你的電腦到 DNS resolver」這段，所以如果你還是用中華電信的 DNS resolver，那中華電信照樣能看到你的 DNS query。</p>
+<p>那有沒有方法可以讓 DNS resolver 也不知道呢？</p>
+<p>有一個比較新的標準 <a target="_blank" rel="noopener" href="https://www.rfc-editor.org/info/rfc9230/">RFC 9230: Oblivious DNS over HTTPS</a>，簡稱 ODoH，就是為了解決這個問題。</p>
+<p>解法很簡單，就是在你的電腦跟 DNS resolver 中間加了一層 proxy。你加密封包以後傳給 proxy，proxy 只看得到你的 IP，但看不到你要查什麼，然後 proxy 把封包轉給 DNS resolver，這時 DNS resolver 雖然看得到查詢內容，但不知道來源 IP。</p>
+<p>所以 proxy 知道你的 IP，但不知道你要查什麼；DNS resolver 知道要查什麼，但不知道你是誰，因為所有封包都是從 proxy 來的。只要 proxy 跟 DNS resolver 不是同一個人控制的，就不會得到完整的資訊。（話說在 RFC 裡，其實是分成 proxy 跟 target，這個 target 不一定要是 DNS resolver，是個把封包轉送到 resolver 的另一個 proxy 也行）</p>
+<p>Apple 的 <a target="_blank" rel="noopener" href="https://support.apple.com/zh-tw/102602">iCloud 私密轉送</a> 就是這個設計。</p>
 <h2><span id="結語">結語</span></h2><p>當我們想造訪 <code>huli.tw</code> 時，系統就會去問 DNS resolver 這個網域對應到的 IP，而 resolver 會先問 root name server，得到「你去問 <code>.tw</code>」的回覆，接著轉而去問管理 tw 的 TLD name server，得到「你去問 Cloudflare」的回答，而身為 authoritative name server 的 Cloudflare，最終給了 <code>104.21.51.169</code> 的回答。</p>
 <p>若是有攻擊者在 Cloudflare 回答之前，搶先回答：「我知道，答案是 <code>8.8.8.8</code>」，那我們訪問 <code>huli.tw</code> 時，就會連到這個假的地址，這就是 DNS 快取污染的攻擊。</p>
 <p>為了防止這個攻擊，必須讓攻擊者沒辦法偽造封包，因此出現了隨機的 transaction ID、隨機的 port，或是 DNS cookie 還有 DNSSEC 等機制，想解決的問題都是類似的：「該如何保證 DNS resolver 拿到的結果是正確的」。</p>
 <p>而除此之外，明文的 DNS 天生碰到的另一個問題是隱私，當系統在問 DNS resolver <code>huli.tw</code> 的 IP 是什麼的時候，大家都會知道我要造訪 <code>huli.tw</code>。</p>
-<p>為了解決這個隱私問題，就出現了 DoT 與 DoH 等機制，透過加密來保護 DNS 查詢的封包，就算攔截到了，也看不到裡面的內容。</p>
+<p>為了解決這個隱私問題，就出現了 DoT 與 DoH 等機制，透過加密來保護 DNS 查詢的封包，就算攔截到了，也看不到裡面的內容，還有更新的 ODoH，又加了一層保護。</p>
 <p>以上就是這篇的精華版總結，供大家參考。</p>
 <p>最一開始，我只是對 DNS 快取污染有所好奇，去問了 AI 有什麼攻擊手法，得到了 DNS Cache Poisoning Like it’s 2006 那篇論文，從這篇論文知道了 2008 年 Dan Kaminsky 的攻擊手法，也學到了什麼是 DNS cookie。</p>
 <p>接著不斷往前推進，再次學習 DNS 查詢的過程（以前學過但沒學這麼細），也順便查了會有哪些問題，把這方面的知識補足。在這學習的路途中，AI 幫了不少忙，很多疑問都直接問 AI 並且獲得答案，我會同時問 ChatGPT、Gemini 還有 Codex（GPT 5.5）交叉比對一下，順便自己動手去 google 相關資料，看是不是對的。</p>
